@@ -9,20 +9,23 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state')
     const error = searchParams.get('error')
 
+    // Get the base URL from the request if env var is not set
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${request.nextUrl.protocol}//${request.nextUrl.host}`
+
     if (error) {
       console.error('OAuth error:', error)
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=gmail_auth_failed`)
+      return NextResponse.redirect(`${baseUrl}/dashboard?error=gmail_auth_failed`)
     }
 
     if (!code || !state) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=missing_code`)
+      return NextResponse.redirect(`${baseUrl}/dashboard?error=missing_code`)
     }
 
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user || user.id !== state) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=unauthorized`)
+      return NextResponse.redirect(`${baseUrl}/dashboard?error=unauthorized`)
     }
 
     const oauth2Client = new google.auth.OAuth2(
@@ -40,7 +43,7 @@ export async function GET(request: NextRequest) {
     const { data: userInfo } = await oauth2.userinfo.get()
 
     if (!userInfo.email) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=no_email`)
+      return NextResponse.redirect(`${baseUrl}/dashboard?error=no_email`)
     }
 
     // Encrypt sensitive tokens before storing
@@ -63,12 +66,12 @@ export async function GET(request: NextRequest) {
 
     if (insertError) {
       console.error('Error storing email account:', insertError)
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=store_failed`)
+      return NextResponse.redirect(`${baseUrl}/dashboard?error=store_failed`)
     }
 
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?success=gmail_connected`)
+    return NextResponse.redirect(`${baseUrl}/dashboard?success=gmail_connected`)
   } catch (error) {
     console.error('Error in Gmail callback:', error)
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=callback_failed`)
+    return NextResponse.redirect(`${baseUrl}/dashboard?error=callback_failed`)
   }
 }
