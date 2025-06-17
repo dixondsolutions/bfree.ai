@@ -31,24 +31,61 @@ export async function getCurrentUser() {
  */
 export async function getUserProfile(userId?: string) {
   const supabase = await createClient()
-  const targetUserId = userId || (await getCurrentUser())?.id
+  const user = await getCurrentUser()
+  const targetUserId = userId || user?.id
   
   if (!targetUserId) {
     return null
   }
   
-  const { data, error } = await supabase
+  // First try to get existing profile
+  const { data: existingProfile, error: fetchError } = await supabase
     .from('users')
     .select('*')
     .eq('id', targetUserId)
-    .single()
+    .maybeSingle() // Use maybeSingle() instead of single() to avoid PGRST116
   
-  if (error) {
-    console.error('Error fetching user profile:', error)
+  if (fetchError) {
+    console.error('Error fetching user profile:', fetchError)
     return null
   }
   
-  return data
+  // If profile exists, return it
+  if (existingProfile) {
+    return existingProfile
+  }
+  
+  // If no profile exists and we have user data, create one
+  if (user && targetUserId === user.id) {
+    console.log('Creating user profile for:', user.id)
+    
+    const newProfile = {
+      id: user.id,
+      email: user.email || '',
+      full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+    
+    const { data: createdProfile, error: createError } = await supabase
+      .from('users')
+      .insert(newProfile)
+      .select()
+      .single()
+    
+    if (createError) {
+      console.error('Error creating user profile:', createError)
+      // If creation fails, return basic profile structure
+      return newProfile
+    }
+    
+    console.log('User profile created successfully:', createdProfile.id)
+    return createdProfile
+  }
+  
+  // Return null if we can't create or fetch profile
+  return null
 }
 
 /**

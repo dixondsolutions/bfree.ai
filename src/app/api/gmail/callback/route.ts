@@ -11,11 +11,20 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state')
     const error = searchParams.get('error')
 
-    // Get the base URL from the request if env var is not set
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${request.nextUrl.protocol}//${request.nextUrl.host}`
+    // Ensure proper base URL construction - critical fix for malformed URLs
+    const protocol = request.nextUrl.protocol
+    const host = request.nextUrl.host
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}//${host}`
     
     console.log('Base URL:', baseUrl)
     console.log('OAuth params:', { code: code?.substring(0, 10) + '...', state, error })
+
+    // Validate base URL is not undefined
+    if (!baseUrl || baseUrl.includes('undefined')) {
+      console.error('Invalid base URL detected:', baseUrl)
+      const fallbackUrl = `https://${host || 'bfree-ai.vercel.app'}`
+      return NextResponse.redirect(`${fallbackUrl}/dashboard?error=config_error`)
+    }
 
     if (error) {
       console.error('OAuth error:', error)
@@ -23,6 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!code || !state) {
+      console.error('Missing required OAuth parameters:', { hasCode: !!code, hasState: !!state })
       return NextResponse.redirect(`${baseUrl}/dashboard?error=missing_code`)
     }
 
@@ -42,6 +52,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/dashboard?error=unauthorized`)
     }
 
+    // Validate Google OAuth configuration
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REDIRECT_URI) {
+      console.error('Missing Google OAuth configuration')
+      return NextResponse.redirect(`${baseUrl}/dashboard?error=oauth_config_missing`)
+    }
+
     console.log('Google OAuth setup:', {
       hasClientId: !!process.env.GOOGLE_CLIENT_ID,
       hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
@@ -54,23 +70,51 @@ export async function GET(request: NextRequest) {
       process.env.GOOGLE_REDIRECT_URI
     )
 
-    // Exchange code for tokens
+    // Exchange code for tokens with enhanced error handling
     console.log('Exchanging code for tokens...')
-    const { tokens } = await oauth2Client.getToken(code)
-    console.log('Token exchange successful, token types:', Object.keys(tokens))
+    let tokens
+    try {
+      const tokenResponse = await oauth2Client.getToken(code)
+      tokens = tokenResponse.tokens
+      console.log('Token exchange successful, token types:', Object.keys(tokens))
+    } catch (tokenError: any) {
+      console.error('Token exchange failed:', {
+        error: tokenError.message,
+        code: tokenError.code,
+        status: tokenError.status,
+        details: tokenError.response?.data
+      })
+      return NextResponse.redirect(`${baseUrl}/dashboard?error=token_exchange_failed`)
+    }
+
     oauth2Client.setCredentials(tokens)
 
     // Get user info to store email address
-    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
-    const { data: userInfo } = await oauth2.userinfo.get()
+    let userInfo
+    try {
+      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
+      const response = await oauth2.userinfo.get()
+      userInfo = response.data
+    } catch (userInfoError: any) {
+      console.error('Failed to get user info:', userInfoError.message)
+      return NextResponse.redirect(`${baseUrl}/dashboard?error=userinfo_failed`)
+    }
 
     if (!userInfo.email) {
+      console.error('No email address found in user info')
       return NextResponse.redirect(`${baseUrl}/dashboard?error=no_email`)
     }
 
     // Encrypt sensitive tokens before storing
     console.log('Loading encryption module...')
-    const { encrypt } = await import('@/lib/utils/encryption')
+    let encrypt
+    try {
+      const encryptionModule = await import('@/lib/utils/encryption')
+      encrypt = encryptionModule.encrypt
+    } catch (encryptionError) {
+      console.error('Failed to load encryption module:', encryptionError)
+      return NextResponse.redirect(`${baseUrl}/dashboard?error=encryption_failed`)
+    }
     
     console.log('Encrypting tokens...')
     const encryptedAccessToken = encrypt(tokens.access_token!)
@@ -97,9 +141,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/dashboard?error=store_failed`)
     }
 
+    console.log('Gmail connection successful for user:', user.id)
     return NextResponse.redirect(`${baseUrl}/dashboard?success=gmail_connected`)
-  } catch (error) {
-    console.error('Error in Gmail callback:', error)
-    return NextResponse.redirect(`${baseUrl}/dashboard?error=callback_failed`)
+  } catch (error: any) {
+    console.error('Error in Gmail callback:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    })
+    
+    // Ensure we have a valid base URL for error redirect
+    const protocol = request.nextUrl.protocol
+    const host = request.nextUrl.host
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}//${host}`
+    const fallbackUrl = baseUrl.includes('undefined') 
+      ? `https://${host || 'bfree-ai.vercel.app'}`
+      : baseUrl
+    
+    return NextResponse.redirect(`${fallbackUrl}/dashboard?error=callback_failed`)
   }
 }
