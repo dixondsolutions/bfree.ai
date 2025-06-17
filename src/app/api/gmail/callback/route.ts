@@ -2,6 +2,26 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 
+// Robust base URL construction that handles all edge cases
+function getBaseUrl(request: NextRequest): string {
+  // Priority 1: Environment variable (if defined and not 'undefined')
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (envUrl && envUrl !== 'undefined' && envUrl.startsWith('http')) {
+    return envUrl
+  }
+  
+  // Priority 2: Construct from request headers
+  const protocol = request.nextUrl.protocol
+  const host = request.nextUrl.host
+  
+  if (host && host !== 'undefined') {
+    return `${protocol}//${host}`
+  }
+  
+  // Priority 3: Fallback to production domain
+  return 'https://bfree-ai.vercel.app'
+}
+
 export async function GET(request: NextRequest) {
   try {
     console.log('Gmail callback started:', request.url)
@@ -11,20 +31,11 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state')
     const error = searchParams.get('error')
 
-    // Ensure proper base URL construction - critical fix for malformed URLs
-    const protocol = request.nextUrl.protocol
-    const host = request.nextUrl.host
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}//${host}`
+    // Get bulletproof base URL
+    const baseUrl = getBaseUrl(request)
     
-    console.log('Base URL:', baseUrl)
+    console.log('Base URL resolved:', baseUrl)
     console.log('OAuth params:', { code: code?.substring(0, 10) + '...', state, error })
-
-    // Validate base URL is not undefined
-    if (!baseUrl || baseUrl.includes('undefined')) {
-      console.error('Invalid base URL detected:', baseUrl)
-      const fallbackUrl = `https://${host || 'bfree-ai.vercel.app'}`
-      return NextResponse.redirect(`${fallbackUrl}/dashboard?error=config_error`)
-    }
 
     if (error) {
       console.error('OAuth error:', error)
@@ -150,14 +161,8 @@ export async function GET(request: NextRequest) {
       code: error.code
     })
     
-    // Ensure we have a valid base URL for error redirect
-    const protocol = request.nextUrl.protocol
-    const host = request.nextUrl.host
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}//${host}`
-    const fallbackUrl = baseUrl.includes('undefined') 
-      ? `https://${host || 'bfree-ai.vercel.app'}`
-      : baseUrl
-    
-    return NextResponse.redirect(`${fallbackUrl}/dashboard?error=callback_failed`)
+    // Use the same robust base URL function for error handling
+    const baseUrl = getBaseUrl(request)
+    return NextResponse.redirect(`${baseUrl}/dashboard?error=callback_failed`)
   }
 }
