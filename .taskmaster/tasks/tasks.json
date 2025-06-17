@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "created": "2024-12-17",
+    "project": "B Free.AI",
+    "description": "AI-powered email scheduling assistant"
+  },
+  "tags": {
+    "master": {
+      "name": "master",
+      "description": "Main development branch",
+      "created": "2024-12-17",
+      "metadata": {}
+    }
+  },
+  "currentTag": "master",
+  "tasks": {
+    "master": []
+  }
+}

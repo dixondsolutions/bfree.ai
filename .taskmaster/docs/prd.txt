@@ -1,0 +1,176 @@
+# B Free.AI - AI-Powered Email Scheduling Assistant
+
+# Overview
+B Free.AI is an intelligent scheduling assistant that automatically extracts tasks and events from emails, optimizing calendar management to give users more freedom. The application integrates Gmail, OpenAI GPT-4, and smart scheduling algorithms to transform how users handle email-driven calendar management.
+
+**Problem Solved:** Users spend countless hours manually reviewing emails for scheduling information, creating calendar events, and managing conflicts. This manual process leads to missed appointments, double-bookings, and inefficient time management.
+
+**Target Users:** Professionals, executives, entrepreneurs, and busy individuals who receive numerous emails containing scheduling requests, meeting invitations, and time-sensitive tasks.
+
+**Value Proposition:** Automated email processing with AI-powered task extraction and intelligent calendar optimization, giving users their time back while ensuring nothing falls through the cracks.
+
+# Core Features
+
+## Email Processing Engine
+- **Gmail API Integration**: Secure OAuth2 connection to user's Gmail account
+- **Real-time Email Monitoring**: Background processing of incoming emails
+- **Content Extraction**: AI-powered identification of scheduling-relevant content
+- **Confidence Scoring**: Machine learning assessment of extraction accuracy
+
+## AI Task Extraction
+- **GPT-4 Integration**: Natural language processing for email content analysis
+- **Structured Output**: JSON-formatted task and event data extraction
+- **Context Understanding**: Recognition of meeting types, durations, priorities
+- **Multi-language Support**: Processing emails in various languages
+
+## Intelligent Scheduling
+- **Calendar Conflict Detection**: Real-time analysis of existing appointments
+- **Optimal Time Suggestions**: AI-driven recommendations for meeting slots
+- **Buffer Time Management**: Automatic inclusion of travel/prep time
+- **Priority-based Scheduling**: Weighted algorithm considering task importance
+
+## User Dashboard
+- **Calendar Integration**: Visual calendar with AI suggestions highlighted
+- **Processing Queue**: Status tracking for email analysis
+- **Suggestion Review**: User approval/modification interface
+- **Settings Management**: Preferences and scheduling rules configuration
+
+# User Experience
+
+## User Personas
+1. **Executive Assistant**: Manages multiple calendars, needs bulk processing
+2. **Sales Professional**: Heavy email volume, client meeting scheduling
+3. **Project Manager**: Cross-team coordination, deadline management
+4. **Consultant**: Client communication, billable hour optimization
+
+## Key User Flows
+1. **Initial Setup**: Gmail connection → AI preferences → calendar sync
+2. **Daily Usage**: Email arrives → AI processes → suggestion appears → user approves
+3. **Bulk Processing**: Import email backlog → batch AI analysis → review suggestions
+4. **Conflict Resolution**: AI detects conflict → suggests alternatives → user chooses
+
+## UI/UX Considerations
+- **Minimal Intervention Design**: AI handles 80%+ automatically
+- **Trust Building**: Clear confidence indicators and explanation of AI decisions
+- **Mobile Responsive**: Calendar access on all devices
+- **Accessibility**: WCAG compliance for screen readers and keyboard navigation
+
+# Technical Architecture
+
+## Frontend Stack
+- **Next.js 15**: React framework with App Router
+- **TypeScript**: Type safety and developer experience
+- **Tailwind CSS**: Utility-first styling for rapid development
+- **React Context/Zustand**: Client-side state management
+
+## Backend Services
+- **Supabase**: PostgreSQL database with real-time subscriptions
+- **Supabase Auth**: User authentication and session management
+- **Next.js API Routes**: Server-side logic and integrations
+- **Vercel**: Deployment and hosting platform
+
+## Data Models
+- **users**: Extended profiles beyond auth.users
+- **calendars**: User calendar configurations and sync settings
+- **events**: Calendar events with AI metadata and confidence scores
+- **email_accounts**: Connected Gmail accounts with encrypted OAuth tokens
+- **ai_suggestions**: Generated suggestions with approval status
+- **user_preferences**: Scheduling rules, time zones, working hours
+- **processing_queue**: Email processing status and error handling
+
+## External Integrations
+- **Gmail API**: Email fetching and monitoring via OAuth2
+- **OpenAI GPT-4**: Natural language processing and task extraction
+- **Calendar APIs**: Google Calendar, Outlook Calendar integration
+
+## Infrastructure
+- **Supabase Database**: PostgreSQL with Row Level Security
+- **Vercel Edge Functions**: Serverless API processing
+- **Real-time Subscriptions**: WebSocket connections for live updates
+- **Encrypted Storage**: OAuth tokens and sensitive data protection
+
+# Development Roadmap
+
+## Phase 1: Foundation (MVP)
+- **Authentication System**: Supabase Auth setup with Gmail OAuth
+- **Database Schema**: Core tables with RLS policies
+- **Basic UI**: Login, dashboard, settings pages
+- **Gmail Connection**: OAuth flow and token storage
+- **Simple Email Fetch**: Manual email import and display
+
+## Phase 2: AI Integration
+- **OpenAI Setup**: GPT-4 API integration with structured prompts
+- **Email Processing**: Automated content analysis and extraction
+- **Suggestion Engine**: Basic AI recommendations with confidence scores
+- **User Review Interface**: Approve/reject AI suggestions
+- **Calendar Display**: Visual representation of suggestions
+
+## Phase 3: Smart Scheduling
+- **Conflict Detection**: Algorithm for calendar overlap identification
+- **Time Optimization**: Intelligent scheduling recommendations
+- **Buffer Management**: Automatic travel/prep time inclusion
+- **Batch Processing**: Handle multiple emails simultaneously
+- **Real-time Updates**: Live calendar sync and notifications
+
+## Phase 4: Advanced Features
+- **Machine Learning**: User preference learning and adaptation
+- **Multi-calendar Support**: Handle multiple calendar sources
+- **Team Coordination**: Cross-user scheduling capabilities
+- **Analytics Dashboard**: Usage insights and productivity metrics
+- **Mobile App**: Native iOS/Android applications
+
+# Logical Dependency Chain
+
+## Foundation Dependencies
+1. **Supabase Setup** → Database schema → Authentication
+2. **Next.js Structure** → UI components → Protected routes
+3. **Gmail OAuth** → Token storage → Email fetching
+
+## Feature Dependencies
+1. **Email Processing** depends on Gmail integration
+2. **AI Suggestions** depend on email processing
+3. **Calendar Display** depends on AI suggestions
+4. **Smart Scheduling** depends on calendar integration
+5. **Real-time Updates** depend on Supabase subscriptions
+
+## Development Order
+1. **Authentication & Database**: Essential foundation
+2. **Basic UI & Gmail**: Visible progress for user testing
+3. **AI Processing**: Core value proposition
+4. **Calendar Integration**: Complete the workflow
+5. **Optimization & Polish**: Performance and UX improvements
+
+# Risks and Mitigations
+
+## Technical Challenges
+- **Gmail API Rate Limits**: Implement exponential backoff and request batching
+- **AI Processing Costs**: Cache responses and optimize prompts for token efficiency
+- **Real-time Performance**: Use WebSocket connections and efficient data structures
+- **Data Security**: Encrypt all sensitive data and implement proper access controls
+
+## MVP Scope Management
+- **Feature Creep**: Focus on core email→calendar workflow
+- **AI Accuracy**: Start with high-confidence suggestions only
+- **User Adoption**: Prioritize frictionless onboarding experience
+- **Scalability**: Design for growth but implement incrementally
+
+## Resource Constraints
+- **API Costs**: Monitor OpenAI usage and implement cost controls
+- **Development Time**: Prioritize features with highest user impact
+- **Database Performance**: Optimize queries and implement proper indexing
+- **Error Handling**: Robust error recovery and user communication
+
+# Appendix
+
+## Research Findings
+- **Supabase Integration**: Comprehensive authentication and real-time capabilities
+- **OpenAI Best Practices**: Structured prompts and response formatting
+- **Gmail API Patterns**: OAuth2 flows and email processing strategies
+- **Calendar Standards**: CalDAV, iCal, and cross-platform compatibility
+
+## Technical Specifications
+- **Database**: PostgreSQL 15+ with vector extensions for AI embeddings
+- **Authentication**: PKCE OAuth2 with refresh token rotation
+- **API Design**: RESTful endpoints with TypeScript interfaces
+- **Security**: HTTPS everywhere, encrypted storage, RLS policies
+- **Monitoring**: Error tracking, performance metrics, user analytics
