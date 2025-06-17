@@ -4,6 +4,8 @@ import { google } from 'googleapis'
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('Gmail callback started:', request.url)
+    
     const searchParams = request.nextUrl.searchParams
     const code = searchParams.get('code')
     const state = searchParams.get('state')
@@ -11,6 +13,9 @@ export async function GET(request: NextRequest) {
 
     // Get the base URL from the request if env var is not set
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${request.nextUrl.protocol}//${request.nextUrl.host}`
+    
+    console.log('Base URL:', baseUrl)
+    console.log('OAuth params:', { code: code?.substring(0, 10) + '...', state, error })
 
     if (error) {
       console.error('OAuth error:', error)
@@ -23,10 +28,25 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    console.log('Auth check:', { 
+      hasUser: !!user, 
+      userId: user?.id, 
+      state, 
+      userIdMatchesState: user?.id === state,
+      authError: authError?.message 
+    })
 
     if (authError || !user || user.id !== state) {
+      console.error('Authorization failed:', { authError, userId: user?.id, state })
       return NextResponse.redirect(`${baseUrl}/dashboard?error=unauthorized`)
     }
+
+    console.log('Google OAuth setup:', {
+      hasClientId: !!process.env.GOOGLE_CLIENT_ID,
+      hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+      redirectUri: process.env.GOOGLE_REDIRECT_URI
+    })
 
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
@@ -35,7 +55,9 @@ export async function GET(request: NextRequest) {
     )
 
     // Exchange code for tokens
+    console.log('Exchanging code for tokens...')
     const { tokens } = await oauth2Client.getToken(code)
+    console.log('Token exchange successful, token types:', Object.keys(tokens))
     oauth2Client.setCredentials(tokens)
 
     // Get user info to store email address
@@ -47,17 +69,23 @@ export async function GET(request: NextRequest) {
     }
 
     // Encrypt sensitive tokens before storing
+    console.log('Loading encryption module...')
     const { encrypt } = await import('@/lib/utils/encryption')
     
+    console.log('Encrypting tokens...')
+    const encryptedAccessToken = encrypt(tokens.access_token!)
+    const encryptedRefreshToken = tokens.refresh_token ? encrypt(tokens.refresh_token) : null
+    
     // Store email account in database
+    console.log('Storing email account in database...')
     const { error: insertError } = await supabase
       .from('email_accounts')
       .upsert({
         user_id: user.id,
         email: userInfo.email,
         provider: 'gmail',
-        access_token: encrypt(tokens.access_token!),
-        refresh_token: tokens.refresh_token ? encrypt(tokens.refresh_token) : null,
+        access_token: encryptedAccessToken,
+        refresh_token: encryptedRefreshToken,
         expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
         is_active: true
       }, {
