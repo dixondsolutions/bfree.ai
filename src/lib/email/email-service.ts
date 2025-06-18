@@ -288,11 +288,28 @@ export class EmailService {
         try {
           const { data: availableEmails } = await supabase
             .from('emails')
-            .select('gmail_id, subject')
+            .select('gmail_id, subject, id')
             .eq('user_id', userId)
-            .limit(5)
+            .limit(10)
           
-          console.log('Sample gmail_ids in database:', availableEmails?.map(e => ({ gmail_id: e.gmail_id, subject: e.subject })))
+          console.log('Sample gmail_ids in database:', availableEmails?.map(e => ({ 
+            gmail_id: e.gmail_id, 
+            subject: e.subject,
+            uuid: e.id 
+          })))
+          
+          // Try to find a partial match (in case there's a slight difference)
+          const partialMatch = availableEmails?.find(e => 
+            e.gmail_id.includes(emailId.substring(0, 8)) || 
+            emailId.includes(e.gmail_id.substring(0, 8))
+          )
+          
+          if (partialMatch) {
+            console.log('Found potential partial match:', partialMatch)
+            // Throw a more helpful error with the correct ID
+            throw new Error(`Email not found with ID '${emailId}'. Did you mean '${partialMatch.gmail_id}' (${partialMatch.subject})?`)
+          }
+          
         } catch (debugError) {
           console.log('Debug query failed:', debugError)
         }

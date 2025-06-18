@@ -141,6 +141,10 @@ export async function GET(request: NextRequest) {
       }
 
       console.log('Database function succeeded. Sample email ID:', emails?.[0]?.email_id)
+      console.log('First 3 email IDs from database function:', emails?.slice(0, 3).map(e => ({ 
+        email_id: e.email_id, 
+        subject: e.subject 
+      })))
       const hasMore = emails.length > (filters.limit || 50)
       const emailsToReturn = hasMore ? emails.slice(0, -1) : emails
 
@@ -161,6 +165,10 @@ export async function GET(request: NextRequest) {
       // Fallback to basic query
       const result = await getEmailsFallback(supabase, user.id, filters)
       console.log('Fallback query succeeded. Sample email ID:', result.emails?.[0]?.email_id)
+      console.log('First 3 email IDs from fallback:', result.emails?.slice(0, 3).map(e => ({ 
+        email_id: e.email_id, 
+        subject: e.subject 
+      })))
       
       return NextResponse.json({
         success: true,
