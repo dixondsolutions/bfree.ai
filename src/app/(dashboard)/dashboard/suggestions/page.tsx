@@ -12,7 +12,13 @@ export default async function SuggestionsPage() {
     redirect('/login')
   }
 
-  const suggestions = await getUserAISuggestions()
+  let suggestions = []
+  try {
+    suggestions = await getUserAISuggestions()
+  } catch (error) {
+    console.error('Error fetching suggestions:', error)
+    // Continue with empty suggestions array to prevent page crash
+  }
 
   return (
     <FullHeightContainer>

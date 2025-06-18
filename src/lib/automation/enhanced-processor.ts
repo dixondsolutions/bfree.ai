@@ -253,8 +253,9 @@ export class EnhancedEmailProcessor {
     for (const suggestion of suggestions) {
       try {
         // Check if task should be auto-created based on confidence
-        if (suggestion.confidence_score < automationSettings.confidenceThreshold) {
-          console.log(`⏭️ Skipping task creation for low confidence suggestion: ${suggestion.title} (${suggestion.confidence_score})`)
+        const confidenceThreshold = automationSettings.confidenceThreshold || 0.4
+        if (suggestion.confidence_score < confidenceThreshold) {
+          console.log(`⏭️ Skipping task creation for low confidence suggestion: ${suggestion.title} (${suggestion.confidence_score} < ${confidenceThreshold})`)
           continue
         }
 
@@ -286,7 +287,7 @@ export class EnhancedEmailProcessor {
         const task = await taskService.createTask(taskInput)
         tasks.push(task)
         
-        console.log(`✅ Auto-created task: ${suggestion.title} (confidence: ${suggestion.confidence_score}) with email link: ${emailRecordId}`)
+        console.log(`✅ Auto-created task: ${suggestion.title} (confidence: ${suggestion.confidence_score} >= ${confidenceThreshold}) with email link: ${emailRecordId}`)
         
         // Update suggestion status to indicate task was created
         await this.supabase

@@ -21,7 +21,7 @@ async function initializeAutomationSettings(userId: string) {
     const defaultSettings = {
       autoCreateTasks: true,
       autoScheduleTasks: true,
-      confidenceThreshold: 0.7,
+      confidenceThreshold: 0.4,
       processingEnabled: true,
       emailFilters: {
         includeKeywords: ['meeting', 'schedule', 'appointment', 'task', 'deadline', 'due'],
@@ -202,115 +202,67 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { data: { user }, error } = await supabase.auth.getUser()
 
-    if (authError || !user) {
+    if (error || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Parse request body safely (handle empty body)
-    let body = {}
-    try {
-      const contentLength = request.headers.get('content-length')
-      if (contentLength && parseInt(contentLength) > 0) {
-        body = await request.json()
-      }
-    } catch (error) {
-      console.warn('Failed to parse request body, using empty object:', error)
-      body = {}
-    }
-    const { emailId, maxItems = 10 } = body
+    // Get user's automation settings for consistent confidence threshold
+    const { getUserAutomationSettings } = await import('@/lib/automation/settings')
+    const automationSettings = await getUserAutomationSettings()
 
-    // Initialize automation settings if they don't exist
-    const settings = await initializeAutomationSettings(user.id)
+    // Initialize automation settings if needed
+    await initializeAutomationSettings(user.id)
 
-    let unprocessedEmails
-    let emailError
+    // Process emails with AI
+    const result = await processQueuedEmails()
 
-    if (emailId) {
-      // Process specific email by ID
-      const { data: specificEmail, error } = await supabase
-        .from('emails')
-        .select('id, gmail_id, subject, from_address, to_address, content_text, received_at')
-        .eq('user_id', user.id)
-        .eq('id', emailId)
-        .single()
+    // Get suggestions that meet the user's confidence threshold for auto-creation
+    const { data: highConfidenceSuggestions } = await supabase
+      .from('ai_suggestions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'pending')
+      .gte('confidence_score', automationSettings.confidenceThreshold || 0.4) // Use user's threshold
 
-      emailError = error
-      unprocessedEmails = specificEmail ? [specificEmail] : []
-    } else {
-      // Check if there are any unprocessed emails that need to be added to the queue
-      const { data, error } = await supabase
-        .from('emails')
-        .select('id, gmail_id, subject, from_address, to_address, content_text, received_at')
-        .eq('user_id', user.id)
-        .or('ai_analyzed.is.null,ai_analyzed.eq.false')
-        .limit(maxItems)
+    const tasksAutoCreated = highConfidenceSuggestions?.length || 0
 
-      emailError = error
-      unprocessedEmails = data
-    }
-
-    if (emailError) {
-      console.error('Error fetching unprocessed emails:', emailError)
-      return NextResponse.json({ error: 'Failed to fetch emails' }, { status: 500 })
-    }
-
-    let queuedEmails = 0
-
-    // Add unprocessed emails to processing queue
-    if (unprocessedEmails && unprocessedEmails.length > 0) {
-      const queueInserts = unprocessedEmails.map(email => ({
-        user_id: user.id,
-        email_id: email.gmail_id || email.id,
-        email_record_id: email.id,
-        status: 'pending'
-      }))
-
-      const { error: insertError } = await supabase
-        .from('processing_queue')
-        .insert(queueInserts)
-
-      if (!insertError) {
-        queuedEmails = queueInserts.length
-        console.log(`Queued ${queuedEmails} emails for AI processing`)
-      } else {
-        console.error('Error queuing emails:', insertError)
-      }
-    }
-
-    // Process queued emails with AI
-    const aiResult = await processQueuedEmails(10)
-
-    // Create tasks from high-confidence suggestions
-    const taskResult = await createTasksFromSuggestions(user.id)
-
-    // Get updated stats
-    const finalStats = await getAIProcessingStats()
-
-    const message = emailId 
-      ? `Processed email ${emailId}, created ${aiResult.suggestions} suggestions, auto-created ${taskResult.tasksCreated} tasks`
-      : `Processed ${aiResult.processed} emails, created ${aiResult.suggestions} suggestions, auto-created ${taskResult.tasksCreated} tasks`
+    // Get current stats
+    const stats = await getAIProcessingStats()
 
     return NextResponse.json({
       success: true,
-      message,
+      message: `Processed ${result.processed} emails, created ${result.suggestions} suggestions, auto-created ${tasksAutoCreated} tasks`,
       details: {
-        emailsQueued: queuedEmails,
-        emailsProcessed: aiResult.processed,
-        suggestionsCreated: aiResult.suggestions,
-        tasksAutoCreated: taskResult.tasksCreated,
-        errors: aiResult.errors,
-        specificEmailId: emailId
+        emailsQueued: result.processed,
+        emailsProcessed: result.processed,
+        suggestionsCreated: result.suggestions,
+        tasksAutoCreated,
+        errors: result.errors
       },
-      stats: finalStats,
-      automationSettings: settings
+      stats: stats || {
+        totalSuggestions: 0,
+        pendingSuggestions: 0,
+        approvedSuggestions: 0,
+        queuePending: 0,
+        queueCompleted: 0,
+        queueFailed: 0
+      },
+      automationSettings: {
+        enabled: automationSettings.enabled,
+        categories: automationSettings.categories,
+        keywordFilters: automationSettings.keywordFilters,
+        autoCreateTasks: automationSettings.autoCreateTasks,
+        dailyProcessing: automationSettings.dailyProcessing,
+        confidenceThreshold: automationSettings.confidenceThreshold
+      }
     })
 
   } catch (error) {
-    console.error('Error in POST /api/ai/process:', error)
+    console.error('Error processing emails:', error)
     return NextResponse.json({ 
-      error: 'Processing failed', 
+      error: 'Failed to process emails',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
