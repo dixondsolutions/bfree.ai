@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/database.types'
 
+// Fixed environment variables for server-side Supabase client
 export async function createClient() {
   const cookieStore = await cookies()
 
