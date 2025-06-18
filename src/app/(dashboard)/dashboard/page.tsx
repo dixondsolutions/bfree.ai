@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/avatar'
-import { PageLayout, PageHeader, PageContent, PageGrid, PageSection } from '@/components/layout/PageLayout'
+import { PageLayout, PageHeader, PageContent, PageGrid, PageSection, DashboardGrid, DashboardSection } from '@/components/layout/PageLayout'
 import { 
   CheckCircle, 
   AlertCircle, 
@@ -54,38 +54,36 @@ function MetricCard({
   }
 
   return (
-    <Card className="hover-lift glass-card">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={cn("p-2 rounded-lg bg-muted", statusColors[status])}>
+    <Card className="hover-lift glass-card transition-all duration-200 hover:shadow-lg">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className={cn("p-2 rounded-xl bg-muted/50", statusColors[status])}>
               {status === 'loading' ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 icon
               )}
             </div>
-            <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-medium text-muted-foreground truncate">
                 {title}
-              </CardTitle>
+              </h3>
             </div>
           </div>
           {trend && (
             <div className={cn(
-              "flex items-center gap-1 text-xs font-medium",
+              "flex items-center gap-1 text-xs font-medium flex-shrink-0",
               trend.positive ? "text-green-600" : "text-red-600"
             )}>
               <TrendingUp className="h-3 w-3" />
-              {trend.value}
+              <span>{trend.value}</span>
             </div>
           )}
         </div>
-      </CardHeader>
-      <CardContent className="pt-0">
         <div className="space-y-1">
-          <div className="text-2xl font-bold">{value}</div>
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <div className="text-2xl font-bold leading-tight">{value}</div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
         </div>
       </CardContent>
     </Card>
@@ -165,21 +163,21 @@ interface QuickActionProps {
 
 function QuickAction({ title, description, icon, href, gradient }: QuickActionProps) {
   return (
-    <Card className="hover-lift group cursor-pointer">
+    <Card className="hover-lift group cursor-pointer transition-all duration-200 hover:shadow-md">
       <Link href={href}>
-        <CardContent className="p-6">
-          <div className="flex items-start gap-4">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
             <div className={cn(
-              "p-3 rounded-xl group-hover:scale-110 transition-transform",
+              "p-2.5 rounded-lg group-hover:scale-110 transition-transform flex-shrink-0",
               gradient || "bg-primary/10 text-primary"
             )}>
               {icon}
             </div>
-            <div className="flex-1">
-              <h3 className="font-semibold mb-1">{title}</h3>
-              <p className="text-sm text-muted-foreground">{description}</p>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm mb-0.5 truncate">{title}</h3>
+              <p className="text-xs text-muted-foreground line-clamp-2">{description}</p>
             </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
           </div>
         </CardContent>
       </Link>
@@ -225,16 +223,17 @@ export default async function DashboardPage() {
   const pendingSuggestions = aiSuggestions.filter(s => s.status === 'pending').length
 
   return (
-    <PageLayout>
+    <PageLayout density="compact" maxWidth="wide">
       <PageHeader
         title="Good morning! 👋"
         description="Your AI assistant is ready to help you manage emails and schedule meetings efficiently."
+        compact={false}
       />
 
       <PageContent>
-        {/* Metrics Grid */}
-        <PageSection title="Overview">
-          <PageGrid columns={4}>
+        {/* Metrics Grid - Desktop Optimized */}
+        <DashboardSection title="Overview">
+          <DashboardGrid>
         <MetricCard
           title="Gmail Integration"
           value={hasGmailConnection ? "Connected" : "Not Connected"}
@@ -266,12 +265,31 @@ export default async function DashboardPage() {
           icon={pendingProcessing.length > 0 ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
           status={pendingProcessing.length > 0 ? "loading" : "success"}
         />
-          </PageGrid>
-        </PageSection>
 
-        {/* Quick Actions */}
-        <PageSection title="Quick Actions">
-          <PageGrid columns={3} gap="md">
+        {/* Additional desktop metrics for better density */}
+        <MetricCard
+          title="Total Productivity"
+          value="94%"
+          description="Overall efficiency score this week"
+          icon={<TrendingUp className="h-4 w-4" />}
+          status="success"
+          trend={{ value: "+5%", positive: true }}
+        />
+        
+        <MetricCard
+          title="Time Saved"
+          value="12.5h"
+          description="AI scheduling has saved you time"
+          icon={<Clock className="h-4 w-4" />}
+          status="success"
+          trend={{ value: "+3h", positive: true }}
+        />
+          </DashboardGrid>
+        </DashboardSection>
+
+        {/* Quick Actions - Desktop Optimized */}
+        <DashboardSection title="Quick Actions">
+          <PageGrid columns={6} gap="sm" responsive={true}>
           <QuickAction
             title="Process Emails"
             description="Review and manage your latest emails with AI assistance"
@@ -293,11 +311,32 @@ export default async function DashboardPage() {
             href="/dashboard/analytics"
             gradient="bg-purple-500/10 text-purple-600"
           />
+          <QuickAction
+            title="AI Suggestions"
+            description="Review AI-generated recommendations"
+            icon={<Brain className="h-5 w-5" />}
+            href="/dashboard/suggestions"
+            gradient="bg-orange-500/10 text-orange-600"
+          />
+          <QuickAction
+            title="Settings"
+            description="Configure your preferences"
+            icon={<Users className="h-5 w-5" />}
+            href="/dashboard/settings"
+            gradient="bg-gray-500/10 text-gray-600"
+          />
+          <QuickAction
+            title="Connect Apps"
+            description="Integrate more tools"
+            icon={<Plus className="h-5 w-5" />}
+            href="/dashboard/settings"
+            gradient="bg-emerald-500/10 text-emerald-600"
+          />
           </PageGrid>
-        </PageSection>
+        </DashboardSection>
 
-        {/* Recent Activity & Upcoming */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        {/* Recent Activity & Upcoming - Desktop Optimized */}
+        <div className="grid gap-4 lg:gap-6 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-2">
         {/* Recent Activity */}
         <Card className="glass-card">
           <CardHeader className="pb-4">

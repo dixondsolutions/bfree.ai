@@ -96,25 +96,27 @@ function AppSidebarContent() {
   const { state } = useSidebar()
   
   return (
-    <Sidebar collapsible="icon" className="border-r">
-          <SidebarHeader className="border-b py-4" style={{ paddingLeft: state === "collapsed" ? "0.75rem" : "1.5rem", paddingRight: state === "collapsed" ? "0.75rem" : "1.5rem" }}>
+    <Sidebar collapsible="icon" className="border-r bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/20">
+          <SidebarHeader className="border-b py-3 px-4">
             <div className={cn(
-              "flex items-center transition-all",
+              "flex items-center transition-all duration-200",
               state === "collapsed" ? "justify-center" : "gap-3"
             )}>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary flex-shrink-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 flex-shrink-0 shadow-sm">
                 <Brain className="h-5 w-5 text-primary-foreground" />
               </div>
               {state === "expanded" && (
                 <div className="flex flex-col min-w-0">
-                  <span className="text-lg font-bold gradient-text truncate">B Free.AI</span>
+                  <span className="text-lg font-bold bg-gradient-to-r from-primary via-primary to-primary/80 bg-clip-text text-transparent truncate">
+                    B Free.AI
+                  </span>
                   <span className="text-xs text-muted-foreground truncate">AI Assistant</span>
                 </div>
               )}
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="px-3 py-4">
+          <SidebarContent className="px-2 py-2">
             <SidebarMenu>
               {navigationItems.map((item) => {
                 const isActive = pathname === item.url
@@ -125,13 +127,13 @@ function AppSidebarContent() {
                       isActive={isActive}
                       tooltip={state === "collapsed" ? item.title : undefined}
                       className={cn(
-                        'w-full transition-all',
+                        'w-full transition-all duration-200 mb-1',
                         state === "collapsed" 
-                          ? 'justify-center px-2' 
-                          : 'justify-start gap-3 px-3 py-2.5',
+                          ? 'justify-center px-2 py-3 mx-1' 
+                          : 'justify-start gap-3 px-3 py-2.5 mx-1 rounded-lg',
                         isActive
-                          ? 'bg-primary/10 text-primary border-r-2 border-primary'
-                          : 'hover:bg-accent hover:text-accent-foreground'
+                          ? 'bg-primary/15 text-primary border border-primary/20 shadow-sm'
+                          : 'hover:bg-accent/80 hover:text-accent-foreground'
                       )}
                     >
                       <Link href={item.url} className="flex items-center gap-3 w-full">
@@ -252,7 +254,13 @@ function AppMainContent({ children }: { children: React.ReactNode }) {
 
 export function AppLayout({ children }: AppLayoutProps) {
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider 
+      defaultOpen={true} 
+      style={{
+        "--sidebar-width": "280px",
+        "--sidebar-width-icon": "64px"
+      } as React.CSSProperties}
+    >
       <div className="flex min-h-screen bg-background">
         <AppSidebarContent />
         <AppMainContent>{children}</AppMainContent>
