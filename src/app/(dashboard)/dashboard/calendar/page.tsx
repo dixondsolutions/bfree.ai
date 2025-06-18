@@ -24,23 +24,39 @@ export default async function CalendarPage() {
     redirect('/login')
   }
 
-  // Get user data
-  const [emailAccounts, calendars] = await Promise.all([
-    getUserEmailAccounts(),
-    getUserCalendars()
-  ])
+  // Get user data with error handling
+  let emailAccounts: any[] = []
+  let calendars: any[] = []
+  let recentEvents: any[] = []
 
-  // Get recent events
-  const { data: recentEvents } = await supabase
-    .from('events')
-    .select(`
-      *,
-      calendars (name, provider_calendar_id)
-    `)
-    .eq('user_id', user.id)
-    .gte('start_time', new Date().toISOString())
-    .order('start_time')
-    .limit(5)
+  try {
+    const [emailAccountsResult, calendarsResult] = await Promise.all([
+      getUserEmailAccounts().catch(() => []),
+      getUserCalendars().catch(() => [])
+    ])
+    
+    emailAccounts = emailAccountsResult
+    calendars = calendarsResult
+
+    // Get recent events with error handling
+    const { data: eventsData } = await supabase
+      .from('events')
+      .select(`
+        *,
+        calendars (name, provider_calendar_id)
+      `)
+      .eq('user_id', user.id)
+      .gte('start_time', new Date().toISOString())
+      .order('start_time')
+      .limit(5)
+      .then(result => result || { data: [] })
+      .catch(() => ({ data: [] }))
+    
+    recentEvents = eventsData || []
+  } catch (error) {
+    console.error('Error loading calendar data:', error)
+    // Continue with empty arrays - page will still render
+  }
 
   return (
     <div className="px-4 py-6 sm:px-0">
