@@ -72,9 +72,10 @@ export async function GET(request: NextRequest) {
 
     // Apply date range filters
     if (startDate) {
-      query = query.or(`scheduled_start.gte.${startDate},scheduled_end.gte.${startDate},due_date.gte.${startDate}`)
+      // Include tasks that have any date field within our range
+      query = query.or(`and(scheduled_start.gte.${startDate},scheduled_start.lte.${endDate || startDate}),and(scheduled_end.gte.${startDate},scheduled_end.lte.${endDate || startDate}),and(due_date.gte.${startDate},due_date.lte.${endDate || startDate}),created_at.gte.${startDate}`)
     }
-    if (endDate) {
+    if (endDate && !startDate) {
       query = query.or(`scheduled_start.lte.${endDate},scheduled_end.lte.${endDate},due_date.lte.${endDate}`)
     }
 
