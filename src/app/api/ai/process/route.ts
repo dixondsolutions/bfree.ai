@@ -208,8 +208,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Parse request body to check for specific email ID
-    const body = await request.json()
+    // Parse request body safely (handle empty body)
+    let body = {}
+    try {
+      const contentLength = request.headers.get('content-length')
+      if (contentLength && parseInt(contentLength) > 0) {
+        body = await request.json()
+      }
+    } catch (error) {
+      console.warn('Failed to parse request body, using empty object:', error)
+      body = {}
+    }
     const { emailId, maxItems = 10 } = body
 
     // Initialize automation settings if they don't exist

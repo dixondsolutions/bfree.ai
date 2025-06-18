@@ -25,6 +25,7 @@ import {
   Zap,
   RefreshCw
 } from 'lucide-react'
+import { AIAnalysisResults } from '@/components/ai/AIAnalysisResults'
 
 interface EmailViewerProps {
   emailId: string
@@ -502,6 +503,9 @@ export function EmailViewer({ emailId, onClose, className }: EmailViewerProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* AI Analysis Results */}
+      <AIAnalysisResults emailId={email.id} />
 
       {/* Email Metadata */}
       <Card>
