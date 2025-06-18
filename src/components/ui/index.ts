@@ -2,10 +2,19 @@
 // Centralized exports for better tree-shaking and easier imports
 
 export { Button } from './Button'
-export { Card, CardContent, CardHeader } from './Card'
+export { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from './Card'
 export { Badge } from './Badge'
 export { Input } from './Input'
+export { Label } from './label'
 export { Textarea } from './textarea'
+export { Switch } from './switch'
+export { Separator } from './separator'
+export { Slider } from './slider'
+export { Progress } from './progress'
+export { ScrollArea, ScrollBar } from './scroll-area'
+export { Checkbox } from './checkbox'
+export { Alert, AlertTitle, AlertDescription } from './alert'
+export { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs'
 export { 
   Modal, 
   ModalHeader, 
@@ -28,7 +37,6 @@ export {
   Skeleton,
   SkeletonCard,
   SkeletonTable,
-  Progress,
   EmailProcessingLoader,
   AIAnalysisLoader,
   CalendarSyncLoader
