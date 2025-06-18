@@ -82,10 +82,7 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
   const [error, setError] = useState<string | null>(null)
   const [updatingTask, setUpdatingTask] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadDailySchedule(selectedDate)
-  }, [loadDailySchedule, selectedDate])
-
+  // Define loadDailySchedule BEFORE useEffect that uses it
   const loadDailySchedule = useCallback(async (date: Date) => {
     try {
       setLoading(true)
@@ -127,6 +124,11 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
       setLoading(false)
     }
   }, [])
+
+  // Now useEffect can safely reference loadDailySchedule
+  useEffect(() => {
+    loadDailySchedule(selectedDate)
+  }, [loadDailySchedule, selectedDate])
 
   const updateTaskStatus = useCallback(async (taskId: string, newStatus: 'pending' | 'in_progress' | 'completed') => {
     try {
