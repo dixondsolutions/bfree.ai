@@ -4,16 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-B Free.AI is an AI-powered scheduling assistant that automatically extracts tasks and events from emails, optimizing calendar management to give users more freedom. The application integrates Gmail, OpenAI GPT-4, and smart scheduling algorithms.
+B Free.AI is an AI-powered scheduling assistant that automatically extracts tasks and events from emails, optimizing calendar management to give users more freedom. The application integrates Gmail, OpenAI GPT-4o, and smart scheduling algorithms.
 
 ## Technology Stack
 
-- **Frontend**: Next.js 15 with TypeScript, deployed on Vercel
-- **Database**: Supabase PostgreSQL with built-in authentication
-- **AI**: OpenAI GPT-4 API for natural language processing
+- **Frontend**: Next.js 15 with App Router and TypeScript
+- **Database**: Supabase PostgreSQL with built-in authentication and RLS
+- **AI**: OpenAI GPT-4o API for email content analysis
 - **Email**: Gmail API with OAuth2
-- **Styling**: Tailwind CSS (recommended for rapid development)
-- **State Management**: React Context or Zustand for client state
+- **UI**: Tailwind CSS with shadcn/ui components and glass morphism effects
+- **Deployment**: Vercel with custom build configuration
 
 ## Key Development Commands
 
@@ -35,70 +35,50 @@ npm run type-check
 
 # Linting
 npm run lint
-
-# Format code
-npm run format
-
-# Run tests
-npm run test
-npm run test:watch
-
-# Database migrations (Supabase)
-npx supabase migration new <migration_name>
-npx supabase db push
 ```
 
 ## Architecture Overview
 
-### Directory Structure
-```
-/app                    # Next.js 15 app directory
-  /api                 # API routes for backend logic
-    /auth             # Authentication endpoints
-    /email            # Email processing endpoints
-    /ai               # AI integration endpoints
-    /schedule         # Scheduling algorithm endpoints
-  /(auth)             # Authentication pages (login, signup)
-  /(dashboard)        # Protected dashboard routes
-    /calendar         # Calendar view with AI suggestions
-    /emails           # Email processing status
-    /settings         # User preferences
-/components            # Reusable React components
-  /ui                 # Basic UI components
-  /calendar          # Calendar-specific components
-  /email             # Email-related components
-  /ai                # AI suggestion components
-/lib                  # Core utilities and services
-  /supabase          # Supabase client and utilities
-  /openai            # OpenAI integration
-  /gmail             # Gmail API integration
-  /scheduling        # Scheduling algorithms
-/types                # TypeScript type definitions
-/hooks               # Custom React hooks
-/utils               # General utility functions
-```
+### App Router Structure (Next.js 15)
+- `app/(auth)/` - Authentication pages using route groups
+- `app/(dashboard)/dashboard/` - Protected dashboard with calendar, emails, settings, suggestions
+- `app/api/` - API routes for auth, AI processing, calendar operations, Gmail integration
 
-### Core Services
+### Core Services Architecture
 
-1. **Email Processing Service** (`/lib/gmail/processor.ts`)
-   - Fetches emails via Gmail API
-   - Extracts scheduling-relevant content
-   - Queues for AI processing
+**Database Layer** (`/src/lib/database/`)
+- Comprehensive RLS policies for all tables
+- Token encryption using pgcrypto extension
+- Audit logging for sensitive operations
+- UUID primary keys and timestamp tracking
 
-2. **AI Task Extraction** (`/lib/openai/extractor.ts`)
-   - Processes email content with GPT-4
-   - Generates confidence scores
-   - Returns structured task/event data
+**Authentication** (`/src/lib/auth/`)
+- Supabase Auth with server-side validation
+- Custom user profiles and middleware-based session management
+- Encrypted OAuth token storage in database
 
-3. **Schedule Optimizer** (`/lib/scheduling/optimizer.ts`)
-   - Analyzes calendar conflicts
-   - Suggests optimal time slots
-   - Manages buffer times and priorities
+**AI Integration** (`/src/lib/openai/`)
+- GPT-4o with structured JSON responses
+- Email analysis pipeline with confidence scoring
+- Conservative approach to avoid false positives
+- Token usage optimization
 
-4. **Supabase Integration** (`/lib/supabase/`)
-   - Database schema for users, events, preferences
-   - Row-level security policies
-   - Real-time subscriptions for calendar updates
+**Gmail Integration** (`/src/lib/gmail/`)
+- OAuth2 flow with encrypted credential storage
+- Email content extraction and analysis
+- Calendar event creation from email insights
+
+**Scheduling Engine** (`/src/lib/calendar/`)
+- Calendar conflict detection
+- Optimal time slot suggestions
+- Buffer time management
+
+### Component Patterns
+
+- Client components clearly marked with 'use client'
+- Glass morphism design system with custom Tailwind configuration
+- Responsive sidebar navigation with collapsible states
+- Error boundaries for robust error handling
 
 ## Environment Variables
 
@@ -111,7 +91,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 # OpenAI
 OPENAI_API_KEY=
 
-# Gmail OAuth
+# Google OAuth
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=
@@ -120,55 +100,34 @@ GOOGLE_REDIRECT_URI=
 NEXT_PUBLIC_APP_URL=
 ```
 
-## Database Schema
+## Database Setup
 
-Key tables to implement in Supabase:
+Run these migrations in order:
+1. `001_initial_schema.sql` - Core tables and RLS policies
+2. `002_add_token_encryption.sql` - Security enhancements
 
-1. **users** - Extended user profiles
-2. **calendars** - User calendar configurations
-3. **events** - Calendar events with AI metadata
-4. **email_accounts** - Connected email accounts
-5. **ai_suggestions** - AI-generated suggestions with confidence scores
-6. **user_preferences** - Scheduling preferences and rules
-7. **processing_queue** - Email processing status
+Key tables: users, user_profiles, gmail_accounts, calendar_events, ai_suggestions, rate_limits, audit_logs
+
+## Security Implementation
+
+- Row Level Security (RLS) enforced on all tables
+- Encrypted token storage using pgcrypto
+- Rate limiting infrastructure
+- Security headers configured in Vercel
+- Server-side authentication validation
 
 ## AI Integration Guidelines
 
-When working with OpenAI GPT-4:
-- Use structured output format with JSON schema
-- Implement retry logic with exponential backoff
-- Cache responses to minimize API calls
-- Track token usage for cost management
-- Use system prompts optimized for scheduling context
+- Use structured output format with JSON schema validation
+- Implement confidence scoring for all AI suggestions
+- Conservative email analysis to avoid false positives
+- Server-side processing only for security
+- Token usage tracking and optimization
 
-## Security Considerations
+## Build Configuration Notes
 
-- All API routes must verify authentication
-- Gmail tokens stored encrypted in database
-- AI processing happens server-side only
-- Implement rate limiting on API endpoints
-- Use Supabase RLS for data access control
-
-## Color Scheme
-
-- Primary: Success Green (#4A7C59) for AI suggestions
-- Background: Light neutrals for calendar view
-- Accent: Use for CTAs and important actions
-- Error: Standard red for conflicts
-- Warning: Amber for low-confidence suggestions
-
-## Testing Strategy
-
-- Unit tests for scheduling algorithms
-- Integration tests for API routes
-- E2E tests for critical user flows
-- Mock external APIs (Gmail, OpenAI) in tests
-- Test AI confidence thresholds
-
-## Performance Optimization
-
-- Use Next.js ISR for dashboard pages
-- Implement virtual scrolling for long email lists
-- Cache AI responses in database
-- Use React Query for data fetching
-- Optimize bundle size with dynamic imports
+- TypeScript errors temporarily ignored for deployment (`tsc --noEmit || true`)
+- Webpack fallbacks configured for Node.js modules
+- API timeout extended to 60 seconds for AI operations
+- Image optimization disabled for Vercel compatibility
+- Telemetry disabled in build commands
