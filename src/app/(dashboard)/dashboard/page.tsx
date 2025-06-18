@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/avatar'
 import { PageLayout, PageHeader, PageContent, PageGrid, PageSection, DashboardGrid, DashboardSection } from '@/components/layout/PageLayout'
+import { GmailSyncManager } from '@/components/email/GmailSyncManager'
 import { 
   CheckCircle, 
   AlertCircle, 
@@ -333,6 +334,11 @@ export default async function DashboardPage() {
             gradient="bg-emerald-500/10 text-emerald-600"
           />
           </PageGrid>
+        </DashboardSection>
+
+        {/* Gmail Sync Management */}
+        <DashboardSection>
+          <GmailSyncManager variant="compact" />
         </DashboardSection>
 
         {/* Recent Activity & Upcoming - Desktop Optimized */}

@@ -304,7 +304,17 @@ export function EmailList({ className }: EmailListProps) {
             <div className="p-8 text-center">
               <Mail className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No emails found</h3>
-              <p className="text-gray-600">Try adjusting your filters or check your email connection.</p>
+              <p className="text-gray-600 mb-4">
+                {filters.search_query || filters.unread_only || filters.scheduling_only 
+                  ? 'Try adjusting your filters to see more emails.'
+                  : 'Connect your Gmail account and sync your emails to get started.'}
+              </p>
+              {!filters.search_query && !filters.unread_only && !filters.scheduling_only && (
+                <Button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} variant="outline">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Connect Gmail Above
+                </Button>
+              )}
             </div>
           ) : (
             <div className="divide-y">
