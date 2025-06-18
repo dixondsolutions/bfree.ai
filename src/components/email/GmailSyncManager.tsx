@@ -17,7 +17,8 @@ import {
   Download,
   Zap,
   Settings,
-  ExternalLink
+  ExternalLink,
+  Brain
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -173,6 +174,45 @@ export function GmailSyncManager({
     } catch (err) {
       console.error('Error syncing emails:', err)
       setError(err instanceof Error ? err.message : 'Failed to sync emails')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  const handleProcessExistingEmails = async () => {
+    setIsSyncing(true)
+    setError(null)
+    
+    try {
+      const response = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          maxItems: 10
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process emails with AI')
+      }
+      
+      // Fetch updated stats after processing
+      await fetchGmailAccounts()
+      
+      // Show success message
+      setSyncStats({
+        totalFetched: 0,
+        schedulingRelevant: data.processed || 0,
+        aiAnalyzed: true,
+        tasksCreated: data.suggestions || 0,
+        emails: []
+      })
+      
+    } catch (err) {
+      console.error('Error processing existing emails:', err)
+      setError(err instanceof Error ? err.message : 'Failed to process emails with AI')
     } finally {
       setIsSyncing(false)
     }
@@ -345,6 +385,21 @@ export function GmailSyncManager({
                   )}
                   Quick Sync (No AI)
                   <span className="ml-auto text-xs opacity-75">(25 emails)</span>
+                </Button>
+                
+                <Button
+                  onClick={handleProcessExistingEmails}
+                  disabled={isSyncing}
+                  variant="secondary"
+                  className="justify-start"
+                >
+                  {isSyncing ? (
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Brain className="h-4 w-4 mr-2" />
+                  )}
+                  Process Existing Emails with AI
+                  <span className="ml-auto text-xs opacity-75">(10 emails)</span>
                 </Button>
               </div>
             </div>

@@ -81,6 +81,7 @@ export function EmailViewer({ emailId, onClose, className }: EmailViewerProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isStarred, setIsStarred] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [isUnread, setIsUnread] = useState(true)
 
   useEffect(() => {
@@ -138,6 +139,37 @@ export function EmailViewer({ emailId, onClose, className }: EmailViewerProps) {
       setIsStarred(newStarred)
     } catch (err) {
       console.error('Failed to toggle star:', err)
+    }
+  }
+
+  const processEmailWithAI = async () => {
+    if (!email) return
+    
+    setIsProcessing(true)
+    try {
+      const response = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailId: email.id,
+          maxItems: 1
+        })
+      })
+
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process email with AI')
+      }
+
+      // Refresh email data to show updated AI analysis
+      await fetchEmail()
+
+    } catch (err) {
+      console.error('Error processing email with AI:', err)
+      setError(err instanceof Error ? err.message : 'Failed to process email with AI')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -300,9 +332,35 @@ export function EmailViewer({ emailId, onClose, className }: EmailViewerProps) {
               className="prose prose-sm max-w-none"
               dangerouslySetInnerHTML={{ __html: email.content_html }}
             />
-          ) : (
+          ) : email.content_text ? (
             <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-              {email.content_text || email.snippet}
+              {email.content_text}
+            </div>
+          ) : (
+            <div className="text-gray-500 italic p-4 bg-gray-50 rounded border border-dashed">
+              <Mail className="h-5 w-5 mx-auto mb-2 text-gray-400" />
+              <p className="text-center">Email content not available.</p>
+              <p className="text-center text-xs">This might be a snippet-only view. Try syncing emails to get full content.</p>
+            </div>
+          )}
+
+          {/* AI Analysis Button */}
+          {!email.ai_analyzed && (
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={() => processEmailWithAI()}
+                disabled={isProcessing}
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                {isProcessing ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Bot className="h-4 w-4" />
+                )}
+                {isProcessing ? 'Analyzing...' : 'Analyze with AI'}
+              </Button>
             </div>
           )}
 
