@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { Calendar as CalendarIcon, Clock, CheckCircle2, Circle, AlertCircle, Plus } from 'lucide-react'
-import { ModernCalendarScheduler } from '@/components/calendar/ModernCalendarScheduler'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Calendar as CalendarIcon, Clock, CheckCircle2, Circle, AlertCircle, Plus, Settings, Filter, Brain, Zap } from 'lucide-react'
+import { ModernCalendar } from '@/components/calendar/ModernCalendar'
+import { TaskScheduleView } from '@/components/tasks/TaskScheduleView'
 import { format, startOfDay, endOfDay } from 'date-fns'
 
 interface CalendarEvent {
@@ -24,6 +26,22 @@ interface CalendarEvent {
   source: 'tasks' | 'calendar'
 }
 
+interface CalendarTask {
+  id: string
+  title: string
+  description?: string
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'blocked'
+  priority: 'low' | 'medium' | 'high' | 'urgent'
+  category: string
+  estimated_duration?: number
+  due_date?: string
+  scheduled_start?: string
+  scheduled_end?: string
+  ai_generated: boolean
+  confidence_score?: number
+  created_at: string
+}
+
 interface EventSummary {
   totalEvents: number
   tasks: number
@@ -38,222 +56,286 @@ export default function CalendarPage() {
   const [summary, setSummary] = useState<EventSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [view, setView] = useState<'month' | 'week' | 'day'>('month')
+  const [activeTab, setActiveTab] = useState<'calendar' | 'tasks'>('calendar')
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  const [selectedTask, setSelectedTask] = useState<CalendarTask | null>(null)
+  const [showAIScheduling, setShowAIScheduling] = useState(false)
 
-  // Fetch events for the selected date
-  const fetchEvents = useCallback(async (date: Date) => {
+  // AI Scheduling function
+  const triggerAIScheduling = useCallback(async () => {
     try {
+      setShowAIScheduling(true)
       setLoading(true)
-      setError(null)
       
-      const startDate = startOfDay(date).toISOString()
-      const endDate = endOfDay(date).toISOString()
+      const response = await fetch('/api/ai/process', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'schedule_tasks' })
+      })
       
-      const response = await fetch(`/api/calendar/events?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&include_completed=false`)
+      const result = await response.json()
       
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP ${response.status}`)
+      if (result.success) {
+        // Show success message or handle result
+        console.log('AI Scheduling completed:', result)
       }
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        setEvents(data.events || [])
-        setEventsByDate(data.eventsByDate || {})
-        setSummary(data.summary || null)
-      } else {
-        throw new Error(data.error || 'Failed to fetch events')
-      }
-    } catch (err) {
-      console.error('Error fetching events:', err)
-      setError(err instanceof Error ? err.message : 'Unknown error occurred')
-      setEvents([])
-      setEventsByDate({})
-      setSummary(null)
+    } catch (error) {
+      console.error('Error during AI scheduling:', error)
     } finally {
       setLoading(false)
+      setShowAIScheduling(false)
     }
   }, [])
 
-  // Load events when component mounts or date changes
-  useEffect(() => {
-    fetchEvents(selectedDate)
-  }, [fetchEvents, selectedDate]) // selectedDate is stable from useState
-
-  // Get events for the selected date
-  const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
-  const todaysEvents = eventsByDate[selectedDateKey] || []
-
-  const priorityColors = {
-    urgent: 'bg-red-500',
-    high: 'bg-orange-500',
-    medium: 'bg-yellow-500',
-    low: 'bg-green-500'
+  const handleEventClick = (event: CalendarEvent) => {
+    setSelectedEvent(event)
   }
 
-  const statusIcons = {
-    pending: Circle,
-    in_progress: Clock,
-    completed: CheckCircle2,
-    deferred: AlertCircle
+  const handleTaskClick = (task: CalendarTask) => {
+    setSelectedTask(task)
+  }
+
+  const refreshCalendar = () => {
+    // Calendar component handles its own data fetching
+    window.location.reload() // Simple refresh for now
   }
 
   return (
-    <div className="space-y-4">
-      {/* Simplified Header */}
+    <div className="space-y-6">
+      {/* Enhanced Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Calendar & Tasks</h1>
-          <p className="text-sm text-muted-foreground">
-            {format(selectedDate, 'EEEE, MMMM d, yyyy')} • {summary?.totalEvents || 0} events
+          <h1 className="text-3xl font-bold">Calendar & Tasks</h1>
+          <p className="text-muted-foreground">
+            Manage your schedule and tasks with AI-powered insights
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => fetchEvents(selectedDate)} disabled={loading}>
+        <div className="flex items-center gap-3">
+          {/* View Toggle */}
+          <div className="flex rounded-lg border p-1">
+            <Button
+              variant={activeTab === 'calendar' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('calendar')}
+              className="text-sm"
+            >
+              <CalendarIcon className="h-4 w-4 mr-2" />
+              Calendar
+            </Button>
+            <Button
+              variant={activeTab === 'tasks' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('tasks')}
+              className="text-sm"
+            >
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Tasks
+            </Button>
+          </div>
+
+          {/* Action Buttons */}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={refreshCalendar}
+            disabled={loading}
+          >
             <CalendarIcon className="h-4 w-4 mr-2" />
             Refresh
           </Button>
+          
           <Button 
             variant="default"
             size="sm"
-            onClick={async () => {
-              try {
-                setLoading(true)
-                const response = await fetch('/api/ai/process', { method: 'POST' })
-                const result = await response.json()
-                
-                if (result.success) {
-                  await fetchEvents(selectedDate)
-                  if (result.details?.tasksAutoCreated > 0) {
-                    console.log(`✅ Created ${result.details.tasksAutoCreated} tasks from AI analysis`)
-                  }
-                }
-              } catch (error) {
-                console.error('Error triggering AI task creation:', error)
-              } finally {
-                setLoading(false)
-              }
-            }}
-            disabled={loading}
+            onClick={triggerAIScheduling}
+            disabled={showAIScheduling}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
           >
+            <Brain className="h-4 w-4 mr-2" />
+            {showAIScheduling ? 'Scheduling...' : 'AI Schedule'}
+          </Button>
+          
+          <Button size="sm">
             <Plus className="h-4 w-4 mr-2" />
-            {loading ? 'Processing...' : 'Create AI Tasks'}
+            Add Event
           </Button>
         </div>
       </div>
 
-      {/* Error State */}
-      {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-red-600">
-              <AlertCircle className="h-4 w-4" />
-              <span className="font-medium">Failed to load schedule</span>
-            </div>
-            <p className="text-sm text-red-500 mt-1">{error}</p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mt-3"
-              onClick={() => fetchEvents(selectedDate)}
-            >
-              <CalendarIcon className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Loading State */}
-      {loading && (
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-2 text-muted-foreground">Loading schedule...</span>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4 text-blue-600" />
+              <div>
+                <p className="text-sm font-medium">Today's Events</p>
+                <p className="text-2xl font-bold">{summary?.calendarEvents || 0}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <div>
+                <p className="text-sm font-medium">Tasks</p>
+                <p className="text-2xl font-bold">{summary?.tasks || 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Brain className="h-4 w-4 text-purple-600" />
+              <div>
+                <p className="text-sm font-medium">AI Generated</p>
+                <p className="text-2xl font-bold">5</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-orange-600" />
+              <div>
+                <p className="text-sm font-medium">Hours Scheduled</p>
+                <p className="text-2xl font-bold">6.5</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content */}
+      {activeTab === 'calendar' ? (
+        <ModernCalendar
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          onEventClick={handleEventClick}
+          onTaskClick={handleTaskClick}
+          view={view}
+          onViewChange={setView}
+          className="min-h-[600px]"
+        />
+      ) : (
+        <TaskScheduleView
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          className="min-h-[600px]"
+        />
       )}
 
-      {/* Simplified Schedule View */}
-      {!loading && !error && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left: Today's Schedule */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Today's Schedule</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {todaysEvents.length} events • {todaysEvents.filter(e => e.type === 'task').length} tasks
-              </p>
-            </CardHeader>
-            <CardContent>
-              {todaysEvents.length > 0 ? (
-                <div className="space-y-3">
-                  {todaysEvents.map((event) => {
-                    const StatusIcon = statusIcons[event.status as keyof typeof statusIcons] || Circle
-                    
-                    return (
-                      <div
-                        key={event.id}
-                        className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/30 transition-colors"
-                      >
-                        <StatusIcon className="h-4 w-4 text-muted-foreground mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{event.title}</div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {format(new Date(event.start), 'h:mm a')}
-                            {event.end && ` - ${format(new Date(event.end), 'h:mm a')}`}
-                            {event.estimated_duration && ` (${event.estimated_duration}m)`}
-                          </div>
-                          <div className="flex items-center gap-1 mt-2">
-                            {event.priority && (
-                              <Badge className={`${priorityColors[event.priority as keyof typeof priorityColors]} text-white text-xs`}>
-                                {event.priority}
-                              </Badge>
-                            )}
-                            {event.ai_generated && (
-                              <Badge variant="outline" className="text-xs">AI</Badge>
-                            )}
-                            <Badge variant={event.type === 'task' ? 'default' : 'secondary'} className="text-xs">
-                              {event.type}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
+      {/* Event Details Dialog */}
+      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Event Details</DialogTitle>
+          </DialogHeader>
+          {selectedEvent && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold">{selectedEvent.title}</h3>
+                {selectedEvent.description && (
+                  <p className="text-muted-foreground">{selectedEvent.description}</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Start:</span>
+                  <p>{format(new Date(selectedEvent.start), 'MMM d, yyyy h:mm a')}</p>
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <CalendarIcon className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground mb-3">
-                    No events for {format(selectedDate, 'MMM d')}
-                  </p>
-                  <Button variant="outline" onClick={() => fetchEvents(selectedDate)}>
-                    Check for updates
-                  </Button>
+                {selectedEvent.end && (
+                  <div>
+                    <span className="font-medium">End:</span>
+                    <p>{format(new Date(selectedEvent.end), 'MMM d, yyyy h:mm a')}</p>
+                  </div>
+                )}
+                {selectedEvent.category && (
+                  <div>
+                    <span className="font-medium">Category:</span>
+                    <p>{selectedEvent.category}</p>
+                  </div>
+                )}
+                {selectedEvent.priority && (
+                  <div>
+                    <span className="font-medium">Priority:</span>
+                    <Badge className="ml-2">{selectedEvent.priority}</Badge>
+                  </div>
+                )}
+              </div>
+              {selectedEvent.ai_generated && (
+                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+                  <Brain className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm text-blue-800">
+                    AI Generated {selectedEvent.confidence_score && 
+                      `(${Math.round(selectedEvent.confidence_score * 100)}% confidence)`
+                    }
+                  </span>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
-          {/* Right: Calendar Component */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Calendar View</CardTitle>
-              <p className="text-sm text-muted-foreground">Navigate dates and view schedule</p>
-            </CardHeader>
-            <CardContent>
-              <ModernCalendarScheduler 
-                selectedDate={selectedDate}
-                onDateChange={setSelectedDate}
-                events={events}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Task Details Dialog */}
+      <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Task Details</DialogTitle>
+          </DialogHeader>
+          {selectedTask && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold">{selectedTask.title}</h3>
+                {selectedTask.description && (
+                  <p className="text-muted-foreground">{selectedTask.description}</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Status:</span>
+                  <Badge className="ml-2">{selectedTask.status.replace('_', ' ')}</Badge>
+                </div>
+                <div>
+                  <span className="font-medium">Priority:</span>
+                  <Badge className="ml-2">{selectedTask.priority}</Badge>
+                </div>
+                {selectedTask.estimated_duration && (
+                  <div>
+                    <span className="font-medium">Duration:</span>
+                    <p>{selectedTask.estimated_duration} minutes</p>
+                  </div>
+                )}
+                {selectedTask.category && (
+                  <div>
+                    <span className="font-medium">Category:</span>
+                    <p>{selectedTask.category}</p>
+                  </div>
+                )}
+              </div>
+              {selectedTask.ai_generated && (
+                <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
+                  <Brain className="h-4 w-4 text-purple-600" />
+                  <span className="text-sm text-purple-800">
+                    AI Generated from Email {selectedTask.confidence_score && 
+                      `(${Math.round(selectedTask.confidence_score * 100)}% confidence)`
+                    }
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

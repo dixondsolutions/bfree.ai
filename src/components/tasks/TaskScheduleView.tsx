@@ -19,8 +19,11 @@ import {
   Timer,
   Plus,
   RotateCcw,
-  ArrowRight
+  ArrowRight,
+  List,
+  LayoutGrid
 } from 'lucide-react'
+import { TaskKanbanBoard } from './TaskKanbanBoard'
 import { cn } from '@/lib/utils'
 import { format, startOfDay, endOfDay, addDays, isSameDay } from 'date-fns'
 
@@ -81,6 +84,7 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [updatingTask, setUpdatingTask] = useState<string | null>(null)
+  const [view, setView] = useState<'list' | 'kanban'>('list')
 
   // Define loadDailySchedule BEFORE useEffect that uses it
   const loadDailySchedule = useCallback(async (date: Date) => {
@@ -223,84 +227,120 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                {format(selectedDate, 'EEEE, MMMM d')}
+                {view === 'list' ? format(selectedDate, 'EEEE, MMMM d') : 'Task Management'}
               </CardTitle>
               <CardDescription>
-                {isSameDay(selectedDate, new Date()) 
-                  ? "Today's schedule" 
-                  : format(selectedDate, 'yyyy')
+                {view === 'list' 
+                  ? (isSameDay(selectedDate, new Date()) ? "Today's schedule" : format(selectedDate, 'yyyy'))
+                  : "Organize tasks by status and priority"
                 }
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateDate('prev')}
-              >
-                ←
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToToday}
-                disabled={isSameDay(selectedDate, new Date())}
-              >
-                Today
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateDate('next')}
-              >
-                →
-              </Button>
+              {/* View Toggle */}
+              <div className="flex rounded-lg border p-1">
+                <Button
+                  variant={view === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setView('list')}
+                  className="text-xs"
+                >
+                  <List className="h-3 w-3 mr-1" />
+                  List
+                </Button>
+                <Button
+                  variant={view === 'kanban' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setView('kanban')}
+                  className="text-xs"
+                >
+                  <LayoutGrid className="h-3 w-3 mr-1" />
+                  Board
+                </Button>
+              </div>
+
+              {view === 'list' && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateDate('prev')}
+                  >
+                    ←
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goToToday}
+                    disabled={isSameDay(selectedDate, new Date())}
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateDate('next')}
+                  >
+                    →
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Tasks Completed</span>
-                <span className="font-medium">
-                  {schedule.completedTasks} / {schedule.totalTasks}
-                </span>
+        {view === 'list' && schedule && (
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Tasks Completed</span>
+                  <span className="font-medium">
+                    {schedule.completedTasks} / {schedule.totalTasks}
+                  </span>
+                </div>
+                <Progress value={completionPercentage} className="h-2" />
+                <div className="text-xs text-gray-600">
+                  {completionPercentage}% complete
+                </div>
               </div>
-              <Progress value={completionPercentage} className="h-2" />
-              <div className="text-xs text-gray-600">
-                {completionPercentage}% complete
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Time Progress</span>
+                  <span className="font-medium">
+                    {formatDuration(schedule.completedDuration)} / {formatDuration(schedule.estimatedDuration)}
+                  </span>
+                </div>
+                <Progress value={timeProgress} className="h-2" />
+                <div className="text-xs text-gray-600">
+                  {timeProgress}% of estimated time
+                </div>
               </div>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Time Progress</span>
-                <span className="font-medium">
-                  {formatDuration(schedule.completedDuration)} / {formatDuration(schedule.estimatedDuration)}
-                </span>
-              </div>
-              <Progress value={timeProgress} className="h-2" />
-              <div className="text-xs text-gray-600">
-                {timeProgress}% of estimated time
-              </div>
-            </div>
 
-            <div className="flex items-center justify-center">
-              <Badge
-                variant={completionPercentage === 100 ? "default" : "secondary"}
-                className="text-lg py-2 px-4"
-              >
-                {completionPercentage === 100 ? "Day Complete!" : `${schedule.totalTasks - schedule.completedTasks} remaining`}
-              </Badge>
+              <div className="flex items-center justify-center">
+                <Badge
+                  variant={completionPercentage === 100 ? "default" : "secondary"}
+                  className="text-lg py-2 px-4"
+                >
+                  {completionPercentage === 100 ? "Day Complete!" : `${schedule.totalTasks - schedule.completedTasks} remaining`}
+                </Badge>
+              </div>
             </div>
-          </div>
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
-      {/* Task List */}
-      <div className="space-y-3">
-        {schedule.tasks.length === 0 ? (
+      {/* Main Content Area */}
+      {view === 'kanban' ? (
+        <TaskKanbanBoard 
+          onTaskUpdate={(task) => {
+            // Handle task updates
+            loadDailySchedule(selectedDate)
+          }}
+        />
+      ) : (
+        <div className="space-y-3">
+          {!schedule || schedule.tasks.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center text-gray-500">
@@ -466,10 +506,11 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
             )
           })
         )}
-      </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
-      {schedule.tasks.length > 0 && (
+      {view === 'list' && schedule && schedule.tasks.length > 0 && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
