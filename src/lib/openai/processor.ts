@@ -114,8 +114,8 @@ export async function processQueuedEmails(maxItems: number = 10) {
             suggestionsCount++
             console.log(`Created AI suggestion: ${extraction.title} (confidence: ${extraction.confidence})`)
             
-            // Auto-create tasks for high-confidence suggestions (0.6+)
-            if (extraction.confidence >= 0.6) {
+            // Auto-create tasks for medium-confidence suggestions (0.4+)
+            if (extraction.confidence >= 0.4) {
               try {
                 const taskData = {
                   user_id: user.id,

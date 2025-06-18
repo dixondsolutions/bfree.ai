@@ -376,6 +376,25 @@ Remember: It's better to suggest actionable items that users can decline than to
     // Use heuristics as fallback if AI missed obvious scheduling content
     const finalHasScheduling = hasSchedulingFromContent || (hasSchedulingHeuristics && adjustedConfidence > 0.3)
     
+    // If heuristics detected scheduling but AI didn't create extractions, create a basic extraction
+    if (hasSchedulingHeuristics && adjustedExtractions.length === 0 && adjustedConfidence > 0.2) {
+      const heuristicExtraction = {
+        type: 'task' as const,
+        title: `Follow up on: ${emailContent.subject.replace(/^(re:|fwd?:)\s*/i, '').trim()}`,
+        description: `Email contains scheduling-related content that may need attention`,
+        suggestedDateTime: undefined,
+        duration: undefined,
+        location: undefined,
+        participants: undefined,
+        priority: 'medium' as const,
+        confidence: Math.max(0.4, adjustedConfidence + 0.2), // Boost confidence for heuristic matches
+        reasoning: `Heuristic detection: Email contains scheduling keywords and patterns`
+      }
+      
+      adjustedExtractions.push(heuristicExtraction)
+      console.log(`Heuristic fallback created extraction for "${emailContent.subject.substring(0, 50)}"`)
+    }
+    
     console.log(`Email analysis result for "${emailContent.subject.substring(0, 50)}":`, {
       aiDetected: result.hasSchedulingContent,
       extractionCount: adjustedExtractions.length,
@@ -386,10 +405,10 @@ Remember: It's better to suggest actionable items that users can decline than to
     })
     
     return {
-      hasSchedulingContent: finalHasScheduling,
+      hasSchedulingContent: finalHasScheduling || adjustedExtractions.length > 0,
       extractions: adjustedExtractions,
       summary: String(result.summary || 'No summary available'),
-      overallConfidence: adjustedConfidence
+      overallConfidence: Math.max(adjustedConfidence, adjustedExtractions.length > 0 ? 0.4 : 0)
     }
   } catch (error) {
     console.error('Error analyzing email with OpenAI:', error)

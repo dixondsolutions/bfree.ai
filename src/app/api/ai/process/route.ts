@@ -63,7 +63,7 @@ async function createTasksFromSuggestions(userId: string) {
     .eq('preference_key', 'automation_settings')
     .single()
 
-  const settings = settingsData?.preference_value || { autoCreateTasks: true, confidenceThreshold: 0.7 }
+  const settings = settingsData?.preference_value || { autoCreateTasks: true, confidenceThreshold: 0.5 }
   
   if (!settings.autoCreateTasks) {
     console.log('Auto-task creation disabled for user:', userId)
@@ -76,7 +76,7 @@ async function createTasksFromSuggestions(userId: string) {
     .select('*')
     .eq('user_id', userId)
     .eq('status', 'pending')
-    .gte('confidence_score', settings.confidenceThreshold || 0.7)
+    .gte('confidence_score', settings.confidenceThreshold || 0.5)
 
   const tasksCreated = []
 
