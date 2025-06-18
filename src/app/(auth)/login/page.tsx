@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/Badge'
+import { signInWithEmail } from '@/lib/auth/actions'
 import { 
   Brain, 
   Mail, 
@@ -185,11 +186,12 @@ export default async function LoginPage() {
               </div>
 
               {/* Email Form */}
-              <form className="space-y-4">
+              <form action={signInWithEmail} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     placeholder="Enter your email address"
                     className="h-11 focus-ring"
@@ -200,6 +202,7 @@ export default async function LoginPage() {
                   <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
+                    name="password"
                     type="password"
                     placeholder="Enter your password"
                     className="h-11 focus-ring"
