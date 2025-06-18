@@ -178,6 +178,10 @@ export function ModernCalendar({
         throw new Error(`Tasks API failed: ${tasksResponse.status} ${errorText}`)
       }
 
+      // Clear any previous errors since we got here successfully
+      setError(null)
+      console.log('Successfully fetched calendar data - clearing error state')
+
     } catch (err) {
       setError('Failed to load calendar data')
       console.error('Calendar data fetch error:', err)
@@ -188,6 +192,7 @@ export function ModernCalendar({
       })
     } finally {
       setLoading(false)
+      console.log('Fetch complete - loading set to false')
     }
   }, [view])
 
@@ -241,26 +246,41 @@ export function ModernCalendar({
 
   // Get events/tasks for a specific date
   const getDateItems = (date: Date) => {
-    const dateStr = format(date, 'yyyy-MM-dd')
-    
-    const dayEvents = events.filter(event => {
-      const eventDate = format(parseISO(event.start), 'yyyy-MM-dd')
-      return eventDate === dateStr
-    })
+    try {
+      const dateStr = format(date, 'yyyy-MM-dd')
+      
+      const dayEvents = events.filter(event => {
+        try {
+          const eventDate = format(parseISO(event.start), 'yyyy-MM-dd')
+          return eventDate === dateStr
+        } catch (err) {
+          console.warn('Error parsing event date:', event.start, err)
+          return false
+        }
+      })
 
-    const dayTasks = tasks.filter(task => {
-      if (task.scheduled_start) {
-        const taskDate = format(parseISO(task.scheduled_start), 'yyyy-MM-dd')
-        return taskDate === dateStr
-      }
-      if (task.due_date) {
-        const dueDate = format(parseISO(task.due_date), 'yyyy-MM-dd')
-        return dueDate === dateStr
-      }
-      return false
-    })
+      const dayTasks = tasks.filter(task => {
+        try {
+          if (task.scheduled_start) {
+            const taskDate = format(parseISO(task.scheduled_start), 'yyyy-MM-dd')
+            return taskDate === dateStr
+          }
+          if (task.due_date) {
+            const dueDate = format(parseISO(task.due_date), 'yyyy-MM-dd')
+            return dueDate === dateStr
+          }
+          return false
+        } catch (err) {
+          console.warn('Error parsing task date:', task, err)
+          return false
+        }
+      })
 
-    return { events: dayEvents, tasks: dayTasks }
+      return { events: dayEvents, tasks: dayTasks }
+    } catch (err) {
+      console.error('Error in getDateItems:', err)
+      return { events: [], tasks: [] }
+    }
   }
 
   // Render month view
@@ -540,6 +560,16 @@ export function ModernCalendar({
         return format(currentDate, 'MMMM yyyy')
     }
   }
+
+  // Debug logging for component state
+  console.log('ModernCalendar render state:', {
+    loading,
+    error,
+    eventsCount: events.length,
+    tasksCount: tasks.length,
+    view,
+    currentDate: format(currentDate, 'yyyy-MM-dd')
+  })
 
   return (
     <Card className={className}>
