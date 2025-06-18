@@ -31,16 +31,10 @@ interface PendingTask {
 }
 
 interface TaskScheduleApprovalProps {
-  onApproveSchedule: (taskId: string, scheduleData: any) => Promise<void>
-  onRejectSchedule: (taskId: string) => Promise<void>
-  onModifySchedule: (taskId: string, newStart: Date, newEnd: Date) => Promise<void>
+  // No props needed - component handles its own API calls
 }
 
-export function TaskScheduleApproval({ 
-  onApproveSchedule, 
-  onRejectSchedule, 
-  onModifySchedule 
-}: TaskScheduleApprovalProps) {
+export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
   const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([])
   const [loading, setLoading] = useState(true)
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set())
@@ -71,11 +65,19 @@ export function TaskScheduleApproval({
     setProcessingIds(prev => new Set(prev).add(task.id))
     
     try {
-      await onApproveSchedule(task.id, {
-        scheduled_start: task.suggested_start,
-        scheduled_end: task.suggested_end,
-        status: 'scheduled'
+      const response = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scheduled_start: task.suggested_start,
+          scheduled_end: task.suggested_end,
+          status: 'scheduled'
+        })
       })
+      
+      if (!response.ok) {
+        throw new Error('Failed to approve schedule')
+      }
       
       // Remove from pending list
       setPendingTasks(prev => prev.filter(t => t.id !== task.id))
@@ -94,7 +96,19 @@ export function TaskScheduleApproval({
     setProcessingIds(prev => new Set(prev).add(task.id))
     
     try {
-      await onRejectSchedule(task.id)
+      const response = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          status: 'pending',
+          scheduled_start: null,
+          scheduled_end: null
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to reject schedule')
+      }
       
       // Remove from pending list
       setPendingTasks(prev => prev.filter(t => t.id !== task.id))
@@ -119,7 +133,18 @@ export function TaskScheduleApproval({
       const newStart = addMinutes(currentStart, timeAdjustment)
       const newEnd = addMinutes(newStart, task.estimated_duration)
       
-      await onModifySchedule(task.id, newStart, newEnd)
+      const response = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scheduled_start: newStart.toISOString(),
+          scheduled_end: newEnd.toISOString()
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to modify schedule')
+      }
       
       // Update the task in the list
       setPendingTasks(prev => prev.map(t => 
