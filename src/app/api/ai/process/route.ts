@@ -63,7 +63,20 @@ async function createTasksFromSuggestions(userId: string) {
     .eq('preference_key', 'automation_settings')
     .single()
 
-  const settings = settingsData?.preference_value || { autoCreateTasks: true, confidenceThreshold: 0.5 }
+  const defaultSettings = {
+    autoCreateTasks: true,
+    confidenceThreshold: 0.4,
+    autoScheduleTasks: false,
+    taskDefaults: {
+      defaultCategory: 'work',
+      defaultPriority: 'medium',
+      defaultDuration: 60,
+      autoScheduleHighPriority: true,
+      schedulingWindow: { hours: 24, urgentHours: 2 }
+    }
+  }
+  
+  const settings = settingsData?.preference_value || defaultSettings
   
   if (!settings.autoCreateTasks) {
     console.log('Auto-task creation disabled for user:', userId)
@@ -76,27 +89,30 @@ async function createTasksFromSuggestions(userId: string) {
     .select('*')
     .eq('user_id', userId)
     .eq('status', 'pending')
-    .gte('confidence_score', settings.confidenceThreshold || 0.5)
+    .gte('confidence_score', settings.confidenceThreshold || 0.4)
 
   const tasksCreated = []
 
   for (const suggestion of suggestions || []) {
     try {
-      // Convert AI suggestion to task
+      // Convert AI suggestion to task using settings
       const taskData = {
         user_id: userId,
         title: suggestion.title,
         description: suggestion.description,
-        category: suggestion.suggestion_type === 'meeting' ? 'work' : 'other',
-        priority: suggestion.feedback?.priority || 'medium',
-        estimated_duration: suggestion.feedback?.duration || 60,
-        due_date: suggestion.suggested_time ? new Date(suggestion.suggested_time).toISOString() : null,
+        category: suggestion.task_category || settings.taskDefaults?.defaultCategory || 'work',
+        priority: suggestion.feedback?.priority || settings.taskDefaults?.defaultPriority || 'medium',
+        estimated_duration: suggestion.estimated_duration || settings.taskDefaults?.defaultDuration || 60,
+        due_date: suggestion.suggested_due_date ? new Date(suggestion.suggested_due_date).toISOString() :
+                  (suggestion.suggested_time ? new Date(suggestion.suggested_time).toISOString() : null),
+        energy_level: suggestion.energy_level || 3,
+        tags: suggestion.suggested_tags || (suggestion.suggestion_type ? [suggestion.suggestion_type] : ['ai-generated']),
         ai_generated: true,
         source_email_id: suggestion.source_email_id,
+        source_email_record_id: suggestion.email_record_id,
         source_suggestion_id: suggestion.id,
         confidence_score: suggestion.confidence_score,
-        tags: suggestion.suggestion_type ? [suggestion.suggestion_type] : null,
-        notes: suggestion.feedback?.reasoning || null
+        notes: `Confidence: ${Math.round(suggestion.confidence_score * 100)}%\n${suggestion.feedback?.reasoning || 'Generated from AI analysis'}`
       }
 
       const { data: task, error: taskError } = await supabase

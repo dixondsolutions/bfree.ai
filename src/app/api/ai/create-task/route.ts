@@ -5,31 +5,92 @@ import { taskService } from '@/lib/tasks/task-service'
 import { extractTasksFromEmail } from '@/lib/openai/task-extraction'
 import { z } from 'zod'
 
-// Helper function to auto-schedule task if it has sufficient details
+// Helper function to auto-schedule task using automation settings
 async function autoScheduleTaskIfPossible(task: any) {
   try {
-    // Only auto-schedule if task has estimated duration and priority
-    if (!task.estimated_duration || !task.priority || task.priority === 'low') {
-      return null
+    // Get user automation settings
+    const { getUserAutomationSettings, getSchedulingWindow } = await import('@/lib/automation/settings')
+    const automationSettings = await getUserAutomationSettings()
+    
+    // Check if auto-scheduling is enabled
+    if (!automationSettings.autoScheduleTasks) {
+      return {
+        scheduled: false,
+        message: 'Auto-scheduling disabled in settings',
+        reason: 'automation_disabled'
+      }
     }
 
-    // Auto-schedule high/urgent priority tasks within the next 3 days
-    const now = new Date()
-    const schedulingWindow = task.priority === 'urgent' ? 1 : 3 // days
-    const endWindow = new Date(now.getTime() + schedulingWindow * 24 * 60 * 60 * 1000)
+    // Get scheduling window based on priority and settings
+    const schedulingInfo = await getSchedulingWindow(task.priority)
+    
+    if (!schedulingInfo.autoSchedule) {
+      return {
+        scheduled: false,
+        message: `Auto-scheduling not configured for ${task.priority} priority tasks`,
+        reason: 'priority_not_configured',
+        suggested_start: schedulingInfo.suggestedStart.toISOString(),
+        suggested_end: schedulingInfo.suggestedEnd.toISOString()
+      }
+    }
 
-    // Call the task scheduling API internally (this would need to be a direct function call)
-    // For now, return a placeholder to avoid API loop
+    // Update the task with scheduling information
+    const { taskService } = await import('@/lib/tasks/task-service')
+    
+    const updateResult = await taskService.updateTask(task.id, {
+      scheduled_start: schedulingInfo.suggestedStart,
+      scheduled_end: schedulingInfo.suggestedEnd,
+      notes: task.notes ? 
+        `${task.notes}\n\nAuto-scheduled for ${schedulingInfo.suggestedStart.toLocaleString()} (${task.priority} priority)` : 
+        `Auto-scheduled for ${schedulingInfo.suggestedStart.toLocaleString()} (${task.priority} priority)`
+    })
+
+    // Check for potential calendar conflicts (basic check)
+    const supabase = await createClient()
+    const user = await getCurrentUser()
+    
+    if (user) {
+      const { data: conflictingEvents } = await supabase
+        .from('events')
+        .select('id, title, start_time, end_time')
+        .eq('user_id', user.id)
+        .gte('start_time', schedulingInfo.suggestedStart.toISOString())
+        .lte('start_time', schedulingInfo.suggestedEnd.toISOString())
+
+      const hasConflicts = conflictingEvents && conflictingEvents.length > 0
+
+      return {
+        scheduled: true,
+        message: `Task auto-scheduled for ${schedulingInfo.suggestedStart.toLocaleString()}`,
+        scheduled_start: schedulingInfo.suggestedStart.toISOString(),
+        scheduled_end: schedulingInfo.suggestedEnd.toISOString(),
+        priority: task.priority,
+        estimated_duration: task.estimated_duration,
+        conflicts_detected: hasConflicts,
+        conflicting_events: hasConflicts ? conflictingEvents : undefined,
+        scheduling_window_hours: task.priority === 'urgent' ? 
+          automationSettings.taskDefaults.schedulingWindow.urgentHours :
+          automationSettings.taskDefaults.schedulingWindow.hours
+      }
+    }
+
     return {
       scheduled: true,
-      message: 'Task marked for auto-scheduling',
+      message: `Task auto-scheduled for ${schedulingInfo.suggestedStart.toLocaleString()}`,
+      scheduled_start: schedulingInfo.suggestedStart.toISOString(),
+      scheduled_end: schedulingInfo.suggestedEnd.toISOString(),
       priority: task.priority,
       estimated_duration: task.estimated_duration
     }
   } catch (error) {
     console.error('Auto-scheduling failed for task:', task.id, error)
+    return {
+      scheduled: false,
+      message: 'Auto-scheduling failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      reason: 'scheduling_error'
+    }
   }
-  return null
 }
 
 const CreateTaskFromEmailSchema = z.object({

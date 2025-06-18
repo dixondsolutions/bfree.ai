@@ -6,8 +6,8 @@ import { z } from 'zod'
 const AutomationSettingsSchema = z.object({
   enabled: z.boolean().default(true),
   autoCreateTasks: z.boolean().default(true),
-  confidenceThreshold: z.number().min(0).max(1).default(0.7),
-  autoScheduleTasks: z.boolean().default(true),
+  confidenceThreshold: z.number().min(0.1).max(1.0).default(0.4), // Lowered from 0.7 to 0.4
+  autoScheduleTasks: z.boolean().default(false), // Changed to false for safer default
   dailyProcessing: z.boolean().default(true),
   webhookProcessing: z.boolean().default(true),
   maxEmailsPerDay: z.number().min(1).max(200).default(50),
@@ -15,20 +15,37 @@ const AutomationSettingsSchema = z.object({
   excludedSenders: z.array(z.string()).default(['noreply@', 'no-reply@', 'donotreply@']),
   keywordFilters: z.array(z.string()).default([
     'meeting', 'schedule', 'appointment', 'call', 'conference',
-    'task', 'todo', 'action item', 'deadline', 'due'
+    'task', 'todo', 'action item', 'deadline', 'due', 'reminder',
+    'follow up', 'check in', 'review', 'deliver', 'complete'
   ]),
   processingTimeWindow: z.object({
     start: z.string().regex(/^\d{2}:\d{2}$/).default('09:00'),
     end: z.string().regex(/^\d{2}:\d{2}$/).default('18:00')
   }).default({ start: '09:00', end: '18:00' }),
   prioritySettings: z.object({
-    urgentKeywords: z.array(z.string()).default(['urgent', 'asap', 'emergency', 'critical']),
+    urgentKeywords: z.array(z.string()).default(['urgent', 'asap', 'emergency', 'critical', 'immediate']),
     importantSenders: z.array(z.string()).default([]),
     highPriorityDomains: z.array(z.string()).default([])
   }).default({
-    urgentKeywords: ['urgent', 'asap', 'emergency', 'critical'],
+    urgentKeywords: ['urgent', 'asap', 'emergency', 'critical', 'immediate'],
     importantSenders: [],
     highPriorityDomains: []
+  }),
+  taskDefaults: z.object({
+    defaultCategory: z.enum(['work', 'personal', 'health', 'finance', 'education', 'social', 'household', 'travel', 'project', 'other']).default('work'),
+    defaultPriority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+    defaultDuration: z.number().min(5).max(480).default(60), // 1 hour default
+    autoScheduleHighPriority: z.boolean().default(true),
+    schedulingWindow: z.object({
+      hours: z.number().min(1).max(168).default(24), // Within 24 hours for high priority
+      urgentHours: z.number().min(0.5).max(24).default(2) // Within 2 hours for urgent
+    }).default({ hours: 24, urgentHours: 2 })
+  }).default({
+    defaultCategory: 'work',
+    defaultPriority: 'medium',
+    defaultDuration: 60,
+    autoScheduleHighPriority: true,
+    schedulingWindow: { hours: 24, urgentHours: 2 }
   }),
   notificationSettings: z.object({
     emailOnTaskCreation: z.boolean().default(false),

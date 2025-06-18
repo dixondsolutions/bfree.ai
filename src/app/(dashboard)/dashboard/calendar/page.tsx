@@ -116,15 +116,34 @@ export default function CalendarPage() {
           </Button>
           <Button 
             variant="default"
-            onClick={() => {
-              // Trigger AI suggestions creation
-              fetch('/api/ai/suggestions', { method: 'POST' })
-                .then(() => fetchEvents(selectedDate))
-                .catch(console.error)
+            onClick={async () => {
+              try {
+                setLoading(true)
+                // Trigger AI processing
+                const response = await fetch('/api/ai/process', { method: 'POST' })
+                const result = await response.json()
+                
+                if (result.success) {
+                  // Refresh events to show new tasks
+                  await fetchEvents(selectedDate)
+                  
+                  // Show success message if tasks were created
+                  if (result.details?.tasksAutoCreated > 0) {
+                    console.log(`Created ${result.details.tasksAutoCreated} tasks from AI analysis`)
+                  }
+                } else {
+                  console.error('AI processing failed:', result.error)
+                }
+              } catch (error) {
+                console.error('Error triggering AI task creation:', error)
+              } finally {
+                setLoading(false)
+              }
             }}
+            disabled={loading}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Create AI Tasks
+            {loading ? 'Processing...' : 'Create AI Tasks'}
           </Button>
           <Button variant="outline">
             <CalendarIcon className="h-4 w-4 mr-2" />
@@ -268,15 +287,29 @@ export default function CalendarPage() {
                     You don't have any tasks or events for {format(selectedDate, 'MMMM d, yyyy')}
                   </p>
                   <Button
-                    onClick={() => {
-                      // Trigger AI suggestions creation
-                      fetch('/api/ai/suggestions', { method: 'POST' })
-                        .then(() => fetchEvents(selectedDate))
-                        .catch(console.error)
+                    onClick={async () => {
+                      try {
+                        setLoading(true)
+                        // Trigger AI processing
+                        const response = await fetch('/api/ai/process', { method: 'POST' })
+                        const result = await response.json()
+                        
+                        if (result.success) {
+                          await fetchEvents(selectedDate)
+                          if (result.details?.tasksAutoCreated > 0) {
+                            console.log(`Created ${result.details.tasksAutoCreated} tasks from AI analysis`)
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Error creating AI tasks:', error)
+                      } finally {
+                        setLoading(false)
+                      }
                     }}
+                    disabled={loading}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Create AI Suggestions
+                    {loading ? 'Processing...' : 'Create AI Tasks'}
                   </Button>
                 </div>
               </CardContent>

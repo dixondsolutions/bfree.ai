@@ -25,6 +25,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { PipelineStatusWidget } from '@/components/automation/PipelineStatusWidget'
 
 // Modern Metric Card Component
 interface MetricCardProps {
@@ -339,6 +340,11 @@ export default async function DashboardPage() {
         {/* Gmail Sync Management */}
         <DashboardSection>
           <GmailSyncManager variant="compact" />
+        </DashboardSection>
+
+        {/* Pipeline Status Widget */}
+        <DashboardSection title="Pipeline Status">
+          <PipelineStatusWidget />
         </DashboardSection>
 
         {/* Recent Activity & Upcoming - Desktop Optimized */}

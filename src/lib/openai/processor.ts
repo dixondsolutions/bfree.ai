@@ -114,45 +114,87 @@ export async function processQueuedEmails(maxItems: number = 10) {
             suggestionsCount++
             console.log(`Created AI suggestion: ${extraction.title} (confidence: ${extraction.confidence})`)
             
-            // Auto-create tasks for medium-confidence suggestions (0.4+)
-            if (extraction.confidence >= 0.4) {
+            // Check user automation settings for auto-creation
+            const { getUserAutomationSettings } = await import('@/lib/automation/settings')
+            const automationSettings = await getUserAutomationSettings()
+            
+            const shouldAutoCreate = automationSettings.enabled && 
+                                   automationSettings.autoCreateTasks && 
+                                   extraction.confidence >= automationSettings.confidenceThreshold
+            
+            if (shouldAutoCreate) {
               try {
-                const taskData = {
-                  user_id: user.id,
+                // Use the TaskService for better task creation
+                const { taskService } = await import('@/lib/tasks/task-service')
+                
+                // Calculate priority using automation settings
+                const { calculateTaskPriority, getSchedulingWindow } = await import('@/lib/automation/settings')
+                const priorityInfo = await calculateTaskPriority({
+                  from: emailContent.from,
+                  subject: emailContent.subject,
+                  body: emailContent.body
+                })
+
+                // Use automation settings for task defaults
+                const taskCategory = extraction.type === 'meeting' ? 'work' : automationSettings.taskDefaults.defaultCategory
+                const taskPriority = priorityInfo.priority
+                const taskDuration = extraction.duration || automationSettings.taskDefaults.defaultDuration
+
+                // Get scheduling suggestions
+                const schedulingInfo = await getSchedulingWindow(taskPriority)
+
+                const taskInput = {
                   title: extraction.title,
-                  description: extraction.description || `${extraction.reasoning}\n\nGenerated from email: ${emailContent.subject}`,
-                  status: 'pending',
-                  priority: extraction.priority,
-                  source_email_record_id: queueItem.email_record_id,
+                  description: extraction.description || `${extraction.reasoning}\n\nGenerated from email: ${emailContent.subject}\n\nPriority factors: ${priorityInfo.factors.join(', ')}`,
+                  category: taskCategory,
+                  priority: taskPriority,
+                  estimated_duration: taskDuration,
+                  due_date: extraction.suggestedDateTime ? new Date(extraction.suggestedDateTime) : undefined,
+                  scheduled_start: schedulingInfo.autoSchedule ? schedulingInfo.suggestedStart : undefined,
+                  scheduled_end: schedulingInfo.autoSchedule ? schedulingInfo.suggestedEnd : undefined,
+                  location: extraction.location,
+                  tags: extraction.participants ? ['ai-generated', 'meeting', ...extraction.participants.slice(0, 3)] : ['ai-generated', 'email'],
+                  notes: `Confidence: ${Math.round(extraction.confidence * 100)}%\nReasoning: ${extraction.reasoning}\nPriority factors: ${priorityInfo.factors.join(', ')}`,
                   ai_generated: true,
-                  confidence_score: extraction.confidence,
+                  source_email_id: queueItem.email_id,
+                  source_email_record_id: queueItem.email_record_id,
                   source_suggestion_id: suggestion.id,
-                  ...(extraction.suggestedDateTime && {
-                    due_date: new Date(extraction.suggestedDateTime).toISOString()
+                  confidence_score: extraction.confidence
+                }
+
+                const task = await taskService.createTask(taskInput)
+                
+                console.log(`Auto-created task: ${extraction.title} (confidence: ${extraction.confidence})`)
+                
+                // Update suggestion status to indicate task was created
+                await supabase
+                  .from('ai_suggestions')
+                  .update({ 
+                    status: 'processed',
+                    feedback: {
+                      ...suggestion.feedback,
+                      converted_to_task: true,
+                      task_id: task.id,
+                      auto_created: true,
+                      created_at: new Date().toISOString()
+                    }
                   })
-                }
-
-                const { data: task, error: taskError } = await supabase
-                  .from('tasks')
-                  .insert(taskData)
-                  .select()
-                  .single()
-
-                if (!taskError) {
-                  console.log(`Auto-created task: ${extraction.title} (confidence: ${extraction.confidence})`)
+                  .eq('id', suggestion.id)
                   
-                  // Update suggestion status to indicate task was created
-                  await supabase
-                    .from('ai_suggestions')
-                    .update({ 
-                      status: 'processed'
-                    })
-                    .eq('id', suggestion.id)
-                } else {
-                  console.error('Error creating auto-task:', taskError)
-                }
               } catch (taskCreationError) {
                 console.error('Error in task auto-creation:', taskCreationError)
+                
+                // Update suggestion with error status
+                await supabase
+                  .from('ai_suggestions')
+                  .update({ 
+                    feedback: {
+                      ...suggestion.feedback,
+                      auto_creation_failed: true,
+                      error: taskCreationError instanceof Error ? taskCreationError.message : 'Unknown error'
+                    }
+                  })
+                  .eq('id', suggestion.id)
               }
             }
           } else {

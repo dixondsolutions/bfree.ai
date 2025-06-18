@@ -253,103 +253,71 @@ export class EmailService {
 
     console.log('EmailService.getEmailById called with:', emailId)
     
-    // Check if the provided ID is a UUID format
+    // First try to find by database ID (UUID)
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(emailId)
-    console.log('ID format check - is UUID:', isUUID)
+    
+    let email = null
+    let error = null
 
-    // Build query based on ID format
-    const queryField = isUUID ? 'id' : 'gmail_id'
-    console.log('Querying by field:', queryField)
+    if (isUUID) {
+      // Try UUID lookup first
+      const result = await supabase
+        .from('emails')
+        .select(`
+          *,
+          email_attachments(*),
+          tasks:tasks!source_email_record_id(
+            id, title, status, priority, created_at, ai_generated, confidence_score
+          ),
+          ai_suggestions:ai_suggestions!email_record_id(
+            id, title, description, confidence_score, status, created_at
+          )
+        `)
+        .eq('id', emailId)
+        .eq('user_id', userId)
+        .single()
+      
+      email = result.data
+      error = result.error
+    }
 
-    const { data: email, error } = await supabase
-      .from('emails')
-      .select(`
-        *,
-        email_attachments(*),
-        tasks:tasks!source_email_record_id(
-          id, title, status, priority, created_at, ai_generated, confidence_score
-        ),
-        ai_suggestions:ai_suggestions!email_record_id(
-          id, title, description, confidence_score, status, created_at
-        )
-      `)
-      .eq(queryField, emailId)
-      .eq('user_id', userId)
-      .single()
+    // If not found by UUID or not a UUID, try gmail_id
+    if (!email && (!isUUID || (isUUID && error?.code === 'PGRST116'))) {
+      console.log('Trying gmail_id lookup for:', emailId)
+      const result = await supabase
+        .from('emails')
+        .select(`
+          *,
+          email_attachments(*),
+          tasks:tasks!source_email_record_id(
+            id, title, status, priority, created_at, ai_generated, confidence_score
+          ),
+          ai_suggestions:ai_suggestions!email_record_id(
+            id, title, description, confidence_score, status, created_at
+          )
+        `)
+        .eq('gmail_id', emailId)
+        .eq('user_id', userId)
+        .single()
+      
+      email = result.data
+      error = result.error
+    }
+
+    if (error && error.code === 'PGRST116') {
+      throw new Error(`Email not found with ID: ${emailId}. This email may not have been synced to the database yet. Try fetching emails first.`)
+    }
 
     if (error) {
       console.log('Database error in getEmailById:', error)
-      
-      // If no email found and we're looking by gmail_id, let's see what gmail_ids exist
-      if (!isUUID && error.code === 'PGRST116') {
-        console.log('No email found with gmail_id:', emailId)
-        console.log('Checking available gmail_ids for user...')
-        
-        try {
-          const { data: availableEmails } = await supabase
-            .from('emails')
-            .select('gmail_id, subject, id')
-            .eq('user_id', userId)
-            .limit(10)
-          
-          console.log('Sample gmail_ids in database:', availableEmails?.map(e => ({ 
-            gmail_id: e.gmail_id, 
-            subject: e.subject,
-            uuid: e.id 
-          })))
-          
-          // Try to find a partial match (in case there's a slight difference)
-          const partialMatch = availableEmails?.find(e => 
-            e.gmail_id.includes(emailId.substring(0, 8)) || 
-            emailId.includes(e.gmail_id.substring(0, 8))
-          )
-          
-          if (partialMatch) {
-            console.log('Found potential partial match:', partialMatch)
-            // Throw a more helpful error with the correct ID
-            throw new Error(`Email not found with ID '${emailId}'. Did you mean '${partialMatch.gmail_id}' (${partialMatch.subject})?`)
-          }
-          
-          // As a last resort, if no exact or partial match, return the most recent email
-          // This is a temporary workaround for the frontend-database ID mismatch
-          if (availableEmails && availableEmails.length > 0) {
-            console.log('No match found. Returning most recent email as fallback:', availableEmails[0])
-            
-            // Re-query for the most recent email with full details
-            const { data: fallbackEmail, error: fallbackError } = await supabase
-              .from('emails')
-              .select(`
-                *,
-                email_attachments(*),
-                tasks:tasks!source_email_record_id(
-                  id, title, status, priority, created_at, ai_generated, confidence_score
-                ),
-                ai_suggestions:ai_suggestions!email_record_id(
-                  id, title, description, confidence_score, status, created_at
-                )
-              `)
-              .eq('id', availableEmails[0].id)
-              .eq('user_id', userId)
-              .single()
-            
-            if (!fallbackError && fallbackEmail) {
-              console.log('Successfully returning fallback email')
-              return fallbackEmail
-            }
-          }
-          
-        } catch (debugError) {
-          console.log('Debug query failed:', debugError)
-        }
-      }
-      
       throw new Error(`Failed to get email: ${error.message}`)
     }
 
     if (!email) {
-      throw new Error('Email not found')
+      throw new Error(`Email not found with ID: ${emailId}`)
     }
 
+    console.log('Successfully found email:', email.id, 'gmail_id:', email.gmail_id)
     return email
   }
 
