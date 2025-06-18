@@ -38,6 +38,40 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
   const [loading, setLoading] = useState(false)
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set())
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [aiProcessing, setAiProcessing] = useState(false)
+  const [processingStats, setProcessingStats] = useState<{
+    emailsProcessed: number
+    suggestionsGenerated: number
+    isProcessing: boolean
+  }>({ emailsProcessed: 0, suggestionsGenerated: 0, isProcessing: false })
+
+  // Check AI processing status
+  useEffect(() => {
+    const checkProcessingStatus = async () => {
+      try {
+        const response = await fetch('/api/ai/process')
+        if (response.ok) {
+          const data = await response.json()
+          setProcessingStats(data)
+          setAiProcessing(data.isProcessing)
+        }
+      } catch (error) {
+        console.error('Error checking processing status:', error)
+        setAiProcessing(false)
+      }
+    }
+
+    checkProcessingStatus()
+    
+    // Poll every 5 seconds if processing
+    const interval = setInterval(() => {
+      if (aiProcessing) {
+        checkProcessingStatus()
+      }
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [aiProcessing])
 
   // Filter suggestions based on status
   useEffect(() => {
@@ -139,10 +173,19 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
 
   const generateMoreSuggestions = async () => {
     setLoading(true)
+    setAiProcessing(true)
     try {
-      // This would trigger AI processing of recent emails
-      // For now, we'll just refresh the suggestions
-      await refreshSuggestions()
+      const response = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (response.ok) {
+        // Refresh suggestions after processing
+        await refreshSuggestions()
+      }
     } catch (error) {
       console.error('Error generating suggestions:', error)
     } finally {
@@ -182,7 +225,7 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
           variant="default" 
           size="default"
           onClick={generateMoreSuggestions}
-          disabled={loading}
+          disabled={loading || aiProcessing}
         >
           <span className="mr-2">🤖</span>
           Generate More
@@ -195,12 +238,32 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-neutral-900">AI Processing Status</h2>
-              <LoadingSpinner size="xs" variant="primary" />
+              {aiProcessing ? (
+                <LoadingSpinner size="xs" variant="primary" />
+              ) : (
+                <span className="text-success-600 text-sm font-medium">✅ Ready</span>
+              )}
             </div>
             <p className="text-sm text-neutral-500 mt-1">Real-time analysis of your email content</p>
           </CardHeader>
           <CardContent>
-            <AIAnalysisLoader />
+            {aiProcessing ? (
+              <AIAnalysisLoader />
+            ) : (
+              <div className="p-4 bg-success-50 rounded-lg border border-success-200">
+                <div className="flex items-center space-x-3">
+                  <span className="text-success-600 text-xl">✅</span>
+                  <div>
+                    <p className="text-sm font-medium text-success-900">
+                      Analysis Complete
+                    </p>
+                    <p className="text-xs text-success-700">
+                      Processed {processingStats.emailsProcessed} emails, generated {processingStats.suggestionsGenerated} suggestions
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </PageSection>
@@ -222,7 +285,7 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
               }
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button variant="default" size="default" onClick={generateMoreSuggestions}>
+              <Button variant="default" size="default" onClick={generateMoreSuggestions} disabled={loading || aiProcessing}>
                 <span className="mr-2">🚀</span>
                 Start AI Analysis
               </Button>
