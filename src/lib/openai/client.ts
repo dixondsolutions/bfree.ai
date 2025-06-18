@@ -369,7 +369,7 @@ Remember: It's better to suggest actionable items that users can decline than to
         emailText.includes('virtual') || 
         emailText.includes('zoom') || 
         emailText.includes('teams') ||
-        emailText.includes('let\'s plan') ||
+        emailText.includes("let's plan") ||
         emailText.includes('works for you')
       ))
     
