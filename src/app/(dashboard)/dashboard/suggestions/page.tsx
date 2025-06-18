@@ -53,8 +53,7 @@ export default async function SuggestionsPage() {
       </PageHeader>
 
       <PageContent>
-
-              {/* AI Processing Status */}
+        {/* AI Processing Status */}
         <PageSection title="AI Processing Status" description="Real-time analysis of your email content">
           <Card className="border border-neutral-200 shadow-sm">
             <CardHeader className="pb-4">
@@ -95,9 +94,10 @@ export default async function SuggestionsPage() {
             </CardContent>
           </Card>
         ) : (
-          <PageSection title="Summary Stats">
-            {/* Summary Stats */}
-            <PageGrid columns={4}>
+          <>
+            <PageSection title="Summary Stats">
+              {/* Summary Stats */}
+              <PageGrid columns={4}>
               <Card className="border border-neutral-200 hover:border-success-300 transition-colors duration-200">
                 <CardContent className="p-6 text-center">
                   <div className="w-12 h-12 bg-gradient-to-br from-success-500 to-success-600 rounded-xl flex items-center justify-center mx-auto mb-3">
@@ -178,7 +178,8 @@ export default async function SuggestionsPage() {
                 ))}
               </div>
             </PageSection>
-          )}
+          </>
+        )}
       </PageContent>
     </PageLayout>
   )

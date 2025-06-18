@@ -104,8 +104,7 @@ export default function CalendarPage() {
       </PageHeader>
 
       <PageContent>
-
-      {/* Gmail Connection Check */}
+        {/* Gmail Connection Check */}
       {emailAccounts.length === 0 && (
         <div className="mb-6 bg-gradient-to-r from-warning-50 to-warning-100 border border-warning-200 rounded-lg p-4">
           <div className="flex items-center space-x-3">
@@ -380,6 +379,7 @@ export default function CalendarPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
       </PageContent>
     </PageLayout>
   )
