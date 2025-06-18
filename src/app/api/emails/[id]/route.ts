@@ -25,6 +25,8 @@ export async function GET(
     }
 
     const emailId = params.id
+    console.log('Email detail endpoint called with ID:', emailId)
+    console.log('ID type:', typeof emailId, 'Length:', emailId.length)
 
     if (!emailId) {
       return NextResponse.json({ error: 'Email ID is required' }, { status: 400 })
