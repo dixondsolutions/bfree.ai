@@ -65,8 +65,11 @@ export async function processQueuedEmails(maxItems: number = 10) {
         }
       }
 
+      console.log(`Processing email: ${emailContent.subject}`)
+
       // Analyze with AI
       const analysis = await analyzeEmailContent(emailContent)
+      console.log(`AI Analysis result: hasSchedulingContent=${analysis.hasSchedulingContent}, extractions=${analysis.extractions.length}`)
 
       if (analysis.hasSchedulingContent && analysis.extractions.length > 0) {
         // Store AI suggestions in the database
@@ -82,28 +85,43 @@ export async function processQueuedEmails(maxItems: number = 10) {
               description: extraction.description,
               suggested_time: extraction.suggestedDateTime,
               confidence_score: extraction.confidence,
-              status: 'pending'
+              status: 'pending',
+              feedback: {
+                reasoning: extraction.reasoning,
+                priority: extraction.priority,
+                participants: extraction.participants,
+                location: extraction.location,
+                duration: extraction.duration
+              }
             })
             .select()
             .single()
 
           if (!suggestionError) {
             suggestionsCount++
+            console.log(`Created AI suggestion: ${extraction.title} (confidence: ${extraction.confidence})`)
+          } else {
+            console.error('Error storing AI suggestion:', suggestionError)
           }
         }
       }
 
-      // Update email record to mark as AI analyzed
+      // **CRITICAL FIX**: Update email record to mark as AI analyzed properly
       if (queueItem.email_record_id) {
-        try {
-          const { emailService } = await import('@/lib/email/email-service')
-          await emailService.updateEmailStatus(queueItem.email_record_id, {
+        const { error: updateError } = await supabase
+          .from('emails')
+          .update({
             ai_analyzed: true,
+            ai_analysis_at: new Date().toISOString(),
             has_scheduling_content: analysis.hasSchedulingContent,
             scheduling_keywords: analysis.extractions.map(e => e.title.toLowerCase().split(' ')).flat()
           })
-        } catch (error) {
-          console.error('Failed to update email record:', error)
+          .eq('id', queueItem.email_record_id)
+
+        if (updateError) {
+          console.error('Failed to update email record:', updateError)
+        } else {
+          console.log(`Marked email ${queueItem.email_record_id} as AI analyzed`)
         }
       }
 
@@ -122,6 +140,7 @@ export async function processQueuedEmails(maxItems: number = 10) {
     }
   }
 
+  console.log(`AI Processing completed: ${processedCount} processed, ${suggestionsCount} suggestions, ${errorsCount} errors`)
   return { processed: processedCount, suggestions: suggestionsCount, errors: errorsCount }
 }
 
@@ -206,14 +225,13 @@ export async function getUserAISuggestions(status?: string) {
     .from('ai_suggestions')
     .select('*')
     .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
 
   if (status) {
     query = query.eq('status', status)
   }
 
   const { data, error } = await query
-    .order('confidence_score', { ascending: false })
-    .order('created_at', { ascending: false })
 
   if (error) {
     console.error('Error fetching AI suggestions:', error)
@@ -224,7 +242,7 @@ export async function getUserAISuggestions(status?: string) {
 }
 
 /**
- * Update AI suggestion status
+ * Update suggestion status
  */
 export async function updateSuggestionStatus(suggestionId: string, status: 'approved' | 'rejected' | 'processed', feedback?: any) {
   const user = await getCurrentUser()
@@ -236,18 +254,19 @@ export async function updateSuggestionStatus(suggestionId: string, status: 'appr
   
   const { data, error } = await supabase
     .from('ai_suggestions')
-    .update({ 
+    .update({
       status,
-      feedback: feedback || null,
+      feedback: feedback ? { ...feedback } : undefined,
       updated_at: new Date().toISOString()
     })
     .eq('id', suggestionId)
-    .eq('user_id', user.id) // Ensure user can only update their own suggestions
+    .eq('user_id', user.id)
     .select()
     .single()
 
   if (error) {
-    throw new Error(`Failed to update suggestion: ${error.message}`)
+    console.error('Error updating suggestion status:', error)
+    throw error
   }
 
   return data
@@ -259,41 +278,31 @@ export async function updateSuggestionStatus(suggestionId: string, status: 'appr
 export async function getAIProcessingStats() {
   const user = await getCurrentUser()
   if (!user) {
-    return {
-      totalSuggestions: 0,
-      pendingSuggestions: 0,
-      approvedSuggestions: 0,
-      averageConfidence: 0
-    }
+    return null
   }
 
   const supabase = await createClient()
   
-  const { data: suggestions } = await supabase
-    .from('ai_suggestions')
-    .select('status, confidence_score')
-    .eq('user_id', user.id)
+  const [suggestionsResult, queueResult] = await Promise.all([
+    supabase
+      .from('ai_suggestions')
+      .select('status')
+      .eq('user_id', user.id),
+    supabase
+      .from('processing_queue')
+      .select('status')
+      .eq('user_id', user.id)
+  ])
 
-  if (!suggestions) {
-    return {
-      totalSuggestions: 0,
-      pendingSuggestions: 0,
-      approvedSuggestions: 0,
-      averageConfidence: 0
-    }
-  }
-
-  const totalSuggestions = suggestions.length
-  const pendingSuggestions = suggestions.filter(s => s.status === 'pending').length
-  const approvedSuggestions = suggestions.filter(s => s.status === 'approved').length
-  const averageConfidence = totalSuggestions > 0 
-    ? suggestions.reduce((sum, s) => sum + (s.confidence_score || 0), 0) / totalSuggestions 
-    : 0
+  const suggestions = suggestionsResult.data || []
+  const queue = queueResult.data || []
 
   return {
-    totalSuggestions,
-    pendingSuggestions,
-    approvedSuggestions,
-    averageConfidence: Math.round(averageConfidence * 100) / 100
+    totalSuggestions: suggestions.length,
+    pendingSuggestions: suggestions.filter(s => s.status === 'pending').length,
+    approvedSuggestions: suggestions.filter(s => s.status === 'approved').length,
+    queuePending: queue.filter(q => q.status === 'pending').length,
+    queueCompleted: queue.filter(q => q.status === 'completed').length,
+    queueFailed: queue.filter(q => q.status === 'failed').length
   }
 }

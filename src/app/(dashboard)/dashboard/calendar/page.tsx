@@ -1,332 +1,272 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
-import { TaskScheduleView } from '@/components/tasks/TaskScheduleView'
-import { DailyTaskReview } from '@/components/tasks/DailyTaskReview'
-import { CalendarSync } from '@/components/calendar/CalendarSync'
-import { SchedulingAssistant } from '@/components/calendar/SchedulingAssistant'
-import { Card, CardContent, CardHeader } from '@/components/ui/Card'
-import { MonthlyCalendar, WeeklyCalendar, CalendarEvent } from '@/components/ui/Calendar'
+import { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { PageLayout, PageHeader, PageContent, PageSection, FullHeightContainer } from '@/components/layout/PageLayout'
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
-import { LoadingSpinner } from '@/components/ui/Loading'
+import { Calendar as CalendarIcon, Clock, CheckCircle2, Circle, AlertCircle, Plus } from 'lucide-react'
+import { TaskScheduleView } from '@/components/tasks/TaskScheduleView'
+import { ModernCalendarScheduler } from '@/components/calendar/ModernCalendarScheduler'
+import { format } from 'date-fns'
+
+interface CalendarEvent {
+  id: string
+  title: string
+  description?: string
+  start: string
+  end?: string
+  type: 'task' | 'event'
+  status?: string
+  priority?: string
+  category?: string
+  ai_generated?: boolean
+  confidence_score?: number
+  estimated_duration?: number
+  source: 'tasks' | 'calendar'
+}
+
+interface CalendarData {
+  events: CalendarEvent[]
+  eventsByDate: Record<string, CalendarEvent[]>
+  summary: {
+    totalEvents: number
+    tasks: number
+    calendarEvents: number
+  }
+}
 
 export default function CalendarPage() {
-  const [user, setUser] = useState(null)
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [calendarData, setCalendarData] = useState<CalendarData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [emailAccounts, setEmailAccounts] = useState([])
-  const [calendars, setCalendars] = useState([])
-  const [recentEvents, setRecentEvents] = useState([])
-  const [selectedDate, setSelectedDate] = useState(new Date())
-  const router = useRouter()
-  const supabase = createClient()
+  const [error, setError] = useState<string | null>(null)
+  const [view, setView] = useState<'schedule' | 'calendar'>('schedule')
 
   useEffect(() => {
-    const getUser = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser()
-        
-        if (error || !user) {
-          router.push('/login')
-          return
-        }
+    loadCalendarData()
+  }, [selectedDate])
 
-        setUser(user)
+  const loadCalendarData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
-        // Get user data with error handling
-        try {
-          const [emailAccountsResult, calendarsResult, eventsResult] = await Promise.all([
-            supabase.from('email_accounts').select('*').eq('user_id', user.id),
-            supabase.from('calendars').select('*').eq('user_id', user.id),
-            supabase
-              .from('events')
-              .select(`
-                *,
-                calendars (name, provider_calendar_id)
-              `)
-              .eq('user_id', user.id)
-              .gte('start_time', new Date().toISOString())
-              .order('start_time')
-              .limit(5)
-          ])
-          
-          setEmailAccounts(emailAccountsResult.data || [])
-          setCalendars(calendarsResult.data || [])
-          setRecentEvents(eventsResult.data || [])
-        } catch (error) {
-          console.error('Error fetching user data:', error)
-          // Continue with empty arrays - graceful degradation
-        }
-      } catch (error) {
-        console.error('Auth error:', error)
-        router.push('/login')
-      } finally {
-        setLoading(false)
+      // Format dates for API
+      const startDate = selectedDate.toISOString().split('T')[0]
+      const endDate = selectedDate.toISOString().split('T')[0]
+      
+      const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        include_completed: 'true'
+      })
+
+      const response = await fetch(`/api/calendar/events?${params}`)
+      const data = await response.json()
+
+      if (data.success) {
+        setCalendarData(data)
+      } else {
+        setError(data.error || 'Failed to load calendar data')
       }
+    } catch (err) {
+      console.error('Error loading calendar data:', err)
+      setError('Network error loading calendar')
+    } finally {
+      setLoading(false)
     }
+  }
 
-    getUser()
-  }, [router, supabase])
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-100 text-red-800 border-red-200'
+      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200'
+      case 'medium': return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'low': return 'bg-gray-100 text-gray-800 border-gray-200'
+      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle2 className="h-4 w-4 text-green-600" />
+      case 'in_progress': return <Clock className="h-4 w-4 text-blue-600" />
+      case 'pending': return <Circle className="h-4 w-4 text-gray-400" />
+      default: return <Circle className="h-4 w-4 text-gray-400" />
+    }
+  }
+
+  const todayEvents = calendarData?.eventsByDate[selectedDate.toISOString().split('T')[0]] || []
 
   if (loading) {
     return (
-      <FullHeightContainer>
-        <div className="flex items-center justify-center h-full">
-          <LoadingSpinner size="lg" />
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
-      </FullHeightContainer>
+      </div>
     )
   }
 
-  if (!user) {
-    return null
-  }
-
   return (
-    <FullHeightContainer>
-      <PageLayout fillHeight={true}>
-        <PageHeader
-          title="Calendar & Task Management"
-          description="Manage your tasks, calendar events, and AI-powered scheduling in one place."
-        >
-          <Button variant="outline" size="default">
-            <span className="mr-2">🔄</span>
-            Sync Now
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Calendar</h1>
+          <p className="text-muted-foreground">
+            Manage your schedule and tasks for {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+          </p>
+        </div>
+        
+        <div className="flex gap-2">
+          <Button
+            variant={view === 'schedule' ? 'default' : 'outline'}
+            onClick={() => setView('schedule')}
+          >
+            <CalendarIcon className="h-4 w-4 mr-2" />
+            Schedule
           </Button>
-          <Button variant="default" size="default">
-            <span className="mr-2">➕</span>
-            New Event
+          <Button
+            variant={view === 'calendar' ? 'default' : 'outline'}
+            onClick={() => setView('calendar')}
+          >
+                         <CalendarIcon className="h-4 w-4 mr-2" />
+            Calendar
           </Button>
-        </PageHeader>
+        </div>
+      </div>
 
-        <PageContent fillHeight={true}>
-          <Tabs defaultValue="tasks" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="tasks">Task Schedule</TabsTrigger>
-              <TabsTrigger value="review">Daily Review</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar View</TabsTrigger>
-            </TabsList>
+      {/* Error Display */}
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-4 w-4" />
+              <span>{error}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-            <TabsContent value="tasks" className="space-y-6">
-              <TaskScheduleView 
-                selectedDate={selectedDate}
-                onDateChange={setSelectedDate}
-              />
-            </TabsContent>
-
-            <TabsContent value="review" className="space-y-6">
-              <DailyTaskReview date={selectedDate} />
-            </TabsContent>
-
-            <TabsContent value="calendar" className="space-y-6">
-          {/* Gmail Connection Check */}
-          {emailAccounts.length === 0 && (
-            <div className="mb-6 bg-gradient-to-r from-warning-50 to-warning-100 border border-warning-200 rounded-lg p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-warning-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-lg">⚠️</span>
-                </div>
+      {/* Summary Stats */}
+      {calendarData && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-warning-800">Gmail Connection Required</h3>
-                  <p className="text-warning-700 text-sm mt-1">
-                    Please connect your Gmail account first to enable calendar sync and scheduling features.
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Events</p>
+                  <p className="text-2xl font-bold">{calendarData.summary.totalEvents}</p>
                 </div>
-                <Button variant="default" size="sm" className="ml-auto">
-                  Connect Gmail
-                </Button>
+                <CalendarIcon className="h-8 w-8 text-muted-foreground" />
               </div>
-            </div>
-          )}
-
-          {/* Main Grid */}
-          <div className="space-y-8 flex-1">
-            {/* Calendar Views */}
-            <PageSection 
-              title="Calendar View" 
-              description="View and manage your events"
-              headerActions={
-                <div className="flex items-center space-x-3">
-                  <Select defaultValue="month">
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Select view" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="month">📅 Month View</SelectItem>
-                      <SelectItem value="week">🗓️ Week View</SelectItem>
-                      <SelectItem value="day">📊 Day View</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" size="sm">
-                    <span className="mr-1">⏪</span>
-                    Prev
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Today
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Next
-                    <span className="ml-1">⏩</span>
-                  </Button>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Tasks</p>
+                  <p className="text-2xl font-bold">{calendarData.summary.tasks}</p>
                 </div>
-              }
-            >
-              <Card className="border border-neutral-200 shadow-sm">
-                <CardContent className="p-6">
-                  <MonthlyCalendar
-                    events={recentEvents?.map((event): CalendarEvent => ({
-                      id: event.id,
-                      title: event.title,
-                      start: new Date(event.start_time),
-                      end: new Date(event.end_time || event.start_time),
-                      isAIGenerated: event.ai_generated,
-                      color: event.ai_generated ? 'green' : 'blue'
-                    })) || []}
-                    onDateClick={(date) => console.log('Date clicked:', date)}
-                    onEventClick={(event) => console.log('Event clicked:', event)}
-                    className="border-0 shadow-none"
-                  />
-                </CardContent>
-              </Card>
-            </PageSection>
+                <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Calendar Events</p>
+                  <p className="text-2xl font-bold">{calendarData.summary.calendarEvents}</p>
+                </div>
+                <Clock className="h-8 w-8 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-            {/* Calendar Management Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <CalendarSync />
-              <SchedulingAssistant />
-            </div>
+      {/* Main Content */}
+      {view === 'schedule' ? (
+        <TaskScheduleView 
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+        />
+      ) : (
+        <ModernCalendarScheduler 
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+        />
+      )}
 
-            {/* Calendar Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Connected Calendars */}
-              <Card className="border border-neutral-200 shadow-sm">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-neutral-900">Connected Calendars</h3>
-                    <LoadingSpinner size="xs" variant="primary" />
-                  </div>
-                  <p className="text-sm text-neutral-500 mt-1">Manage your calendar connections</p>
-                </CardHeader>
-                <CardContent>
-                  {calendars.length === 0 ? (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <span className="text-neutral-400 text-2xl">📅</span>
+      {/* Today's Events List */}
+      {todayEvents.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Today's Schedule ({todayEvents.length} items)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {todayEvents.map((event) => (
+                <div key={event.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {event.status && getStatusIcon(event.status)}
+                    <div>
+                      <h4 className="font-medium">{event.title}</h4>
+                      {event.description && (
+                        <p className="text-sm text-muted-foreground">{event.description}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          {event.type}
+                        </Badge>
+                        {event.priority && (
+                          <Badge className={`text-xs ${getPriorityColor(event.priority)}`}>
+                            {event.priority}
+                          </Badge>
+                        )}
+                        {event.ai_generated && (
+                          <Badge variant="outline" className="text-xs">
+                            AI
+                          </Badge>
+                        )}
                       </div>
-                      <p className="text-neutral-500 font-medium mb-2">No calendars connected</p>
-                      <p className="text-sm text-neutral-400 mb-4">Connect your Google Calendar to get started</p>
-                      <Button variant="outline" size="sm">
-                        <span className="mr-2">🔗</span>
-                        Connect Calendar
-                      </Button>
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {calendars.map((calendar) => (
-                        <div key={calendar.id} className="flex items-center justify-between p-3 border border-neutral-200 rounded-lg">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                            <div>
-                              <p className="font-medium text-neutral-900">{calendar.name}</p>
-                              <p className="text-xs text-neutral-500">Google Calendar</p>
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="text-xs">Active</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Recent Events */}
-              <Card className="border border-neutral-200 shadow-sm">
-                <CardHeader className="pb-4">
-                  <h3 className="text-lg font-semibold text-neutral-900">Upcoming Events</h3>
-                  <p className="text-sm text-neutral-500 mt-1">Your next scheduled events</p>
-                </CardHeader>
-                <CardContent>
-                  {recentEvents.length === 0 ? (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <span className="text-neutral-400 text-2xl">📅</span>
-                      </div>
-                      <p className="text-neutral-500 font-medium mb-2">No upcoming events</p>
-                      <p className="text-sm text-neutral-400 mb-4">Your schedule is clear</p>
-                      <Button variant="outline" size="sm">
-                        <span className="mr-2">➕</span>
-                        Add Event
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {recentEvents.map((event) => (
-                        <div key={event.id} className="p-3 border border-neutral-200 rounded-lg">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-neutral-900 mb-1">{event.title}</h4>
-                              <p className="text-sm text-neutral-500">
-                                {new Date(event.start_time).toLocaleDateString()} at{' '}
-                                {new Date(event.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </p>
-                            </div>
-                            {event.ai_generated && (
-                              <Badge variant="secondary" className="text-xs">
-                                AI
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Quick Actions */}
-              <Card className="border border-neutral-200 shadow-sm">
-                <CardHeader className="pb-4">
-                  <h3 className="text-lg font-semibold text-neutral-900">Quick Actions</h3>
-                  <p className="text-sm text-neutral-500 mt-1">Common calendar tasks</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <Button variant="outline" className="w-full justify-start" size="sm">
-                      <span className="mr-2">➕</span>
-                      Schedule New Meeting
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start" size="sm">
-                      <span className="mr-2">🔄</span>
-                      Sync All Calendars
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start" size="sm">
-                      <span className="mr-2">🤖</span>
-                      AI Schedule Optimization
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start" size="sm">
-                      <span className="mr-2">📊</span>
-                      View Analytics
-                    </Button>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="text-sm text-muted-foreground">
+                    {event.start && format(new Date(event.start), 'h:mm a')}
+                    {event.estimated_duration && ` (${event.estimated_duration}m)`}
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-            </TabsContent>
-          </Tabs>
-        </PageContent>
-      </PageLayout>
-    </FullHeightContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {!loading && (!calendarData || calendarData.summary.totalEvents === 0) && (
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">No events scheduled</h3>
+            <p className="text-muted-foreground mb-4">
+              You don't have any tasks or events for {format(selectedDate, 'MMMM d, yyyy')}
+            </p>
+            <Button onClick={() => window.location.href = '/dashboard/suggestions'}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create AI Suggestions
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }

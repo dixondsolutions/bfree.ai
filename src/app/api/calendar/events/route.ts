@@ -1,57 +1,142 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '@/lib/calendar/google-calendar'
+import { getCurrentUser } from '@/lib/database/utils'
+import { startOfDay, endOfDay } from 'date-fns'
 
+/**
+ * GET /api/calendar/events - Get calendar events and tasks for a date range
+ */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
-
-    if (error || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const supabase = await createClient()
     const { searchParams } = new URL(request.url)
-    const startDate = searchParams.get('start')
-    const endDate = searchParams.get('end')
-    const calendarId = searchParams.get('calendarId')
+    
+    const startDateParam = searchParams.get('start_date')
+    const endDateParam = searchParams.get('end_date')
+    const includeCompleted = searchParams.get('include_completed') === 'true'
+    
+    if (!startDateParam) {
+      return NextResponse.json({ error: 'start_date parameter is required' }, { status: 400 })
+    }
 
-    let query = supabase
-      .from('events')
-      .select(`
-        *,
-        calendars (name, provider_calendar_id)
-      `)
+    const startDate = startOfDay(new Date(startDateParam)).toISOString()
+    const endDate = endDateParam 
+      ? endOfDay(new Date(endDateParam)).toISOString()
+      : endOfDay(new Date(startDateParam)).toISOString()
+
+    // Fetch tasks for the date range
+    let taskQuery = supabase
+      .from('tasks')
+      .select('*')
       .eq('user_id', user.id)
-      .order('start_time')
+      .or(`scheduled_start.gte.${startDate},scheduled_end.gte.${startDate},due_date.gte.${startDate}`)
+      .or(`scheduled_start.lte.${endDate},scheduled_end.lte.${endDate},due_date.lte.${endDate}`)
+      .order('created_at', { ascending: false })
 
-    if (startDate) {
-      query = query.gte('start_time', startDate)
-    }
-    if (endDate) {
-      query = query.lte('end_time', endDate)
-    }
-    if (calendarId) {
-      query = query.eq('calendar_id', calendarId)
+    if (!includeCompleted) {
+      taskQuery = taskQuery.neq('status', 'completed')
     }
 
-    const { data: events, error: eventsError } = await query
+    const { data: tasks, error: tasksError } = await taskQuery
 
-    if (eventsError) {
-      throw eventsError
+    if (tasksError) {
+      console.error('Error fetching tasks:', tasksError)
+      return NextResponse.json({ 
+        error: 'Failed to fetch tasks',
+        details: tasksError.message 
+      }, { status: 500 })
     }
+
+    // Fetch calendar events for the date range (if events table exists)
+    let events = []
+    try {
+      const { data: calendarEvents, error: eventsError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('start_time', startDate)
+        .lte('end_time', endDate)
+        .order('start_time', { ascending: true })
+
+      if (!eventsError) {
+        events = calendarEvents || []
+      }
+    } catch (error) {
+      // Events table might not exist yet - this is OK
+      console.log('Events table not found or accessible')
+    }
+
+    // Transform tasks into calendar-compatible format
+    const taskEvents = (tasks || []).map(task => ({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      start: task.scheduled_start || task.due_date || task.created_at,
+      end: task.scheduled_end || (task.scheduled_start 
+        ? new Date(new Date(task.scheduled_start).getTime() + (task.estimated_duration || 60) * 60000).toISOString()
+        : null),
+      type: 'task',
+      status: task.status,
+      priority: task.priority,
+      category: task.category,
+      ai_generated: task.ai_generated,
+      confidence_score: task.confidence_score,
+      estimated_duration: task.estimated_duration,
+      source: 'tasks'
+    }))
+
+    // Transform calendar events
+    const calendarEvents = events.map(event => ({
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      start: event.start_time,
+      end: event.end_time,
+      type: 'event',
+      location: event.location,
+      attendees: event.attendees,
+      source: 'calendar'
+    }))
+
+    // Combine and sort all events
+    const allEvents = [...taskEvents, ...calendarEvents].sort((a, b) => 
+      new Date(a.start).getTime() - new Date(b.start).getTime()
+    )
+
+    // Group events by date for easier frontend handling
+    const eventsByDate = allEvents.reduce((acc, event) => {
+      const dateKey = new Date(event.start).toISOString().split('T')[0]
+      if (!acc[dateKey]) {
+        acc[dateKey] = []
+      }
+      acc[dateKey].push(event)
+      return acc
+    }, {} as Record<string, any[]>)
 
     return NextResponse.json({
       success: true,
-      events: events || [],
-      count: events?.length || 0
+      events: allEvents,
+      eventsByDate,
+      summary: {
+        totalEvents: allEvents.length,
+        tasks: taskEvents.length,
+        calendarEvents: calendarEvents.length,
+        dateRange: { start: startDate, end: endDate }
+      }
     })
+
   } catch (error) {
-    console.error('Error fetching events:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch events' },
-      { status: 500 }
-    )
+    console.error('Error in GET /api/calendar/events:', error)
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 
