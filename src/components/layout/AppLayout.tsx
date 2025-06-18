@@ -97,7 +97,7 @@ function AppSidebarContent() {
   
   return (
     <Sidebar 
-      collapsible="icon" 
+      collapsible="offcanvas" 
       className="border-r bg-card/95 supports-[backdrop-filter]:bg-card/95"
     >
       <SidebarHeader className="border-b py-3 px-4 bg-background/50">
@@ -258,7 +258,7 @@ function AppMainContent({ children }: { children: React.ReactNode }) {
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider 
-      defaultOpen={true} 
+      defaultOpen={false} 
       style={{
         "--sidebar-width": "280px",
         "--sidebar-width-icon": "64px"
