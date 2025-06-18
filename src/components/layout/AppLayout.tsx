@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { Card } from '@/components/ui/Card'
 import {
   Sidebar,
@@ -241,7 +242,9 @@ function AppMainContent({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </main>
     </SidebarInset>
   )
