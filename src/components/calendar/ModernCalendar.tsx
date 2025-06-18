@@ -112,6 +112,12 @@ export function ModernCalendar({
 
   // Fetch events and tasks for the current view
   const fetchCalendarData = useCallback(async (date: Date) => {
+    // Prevent multiple concurrent calls
+    if (loading) {
+      console.log('Fetch already in progress, skipping...')
+      return
+    }
+    
     try {
       setLoading(true)
       setError(null)
@@ -146,6 +152,7 @@ export function ModernCalendar({
       if (eventsResponse.ok) {
         const eventsData = await eventsResponse.json()
         console.log('Events data received:', eventsData)
+        console.log('Events array length:', eventsData.events?.length || 0)
         setEvents(eventsData.events || [])
       } else {
         const errorText = await eventsResponse.text()
@@ -163,6 +170,7 @@ export function ModernCalendar({
       if (tasksResponse.ok) {
         const tasksData = await tasksResponse.json()
         console.log('Tasks data received:', tasksData)
+        console.log('Tasks array length:', tasksData.tasks?.length || 0)
         setTasks(tasksData.tasks || [])
       } else {
         const errorText = await tasksResponse.text()
@@ -186,7 +194,7 @@ export function ModernCalendar({
   useEffect(() => {
     setCurrentDate(selectedDate)
     fetchCalendarData(selectedDate)
-  }, [selectedDate, fetchCalendarData])
+  }, [selectedDate, view]) // Fixed: use view directly instead of fetchCalendarData to avoid infinite loop
 
   // Navigation functions
   const navigatePrev = () => {
