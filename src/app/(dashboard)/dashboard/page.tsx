@@ -326,10 +326,10 @@ export default async function DashboardPage() {
             gradient="bg-gray-500/10 text-gray-600"
           />
           <QuickAction
-            title="Connect Apps"
-            description="Integrate more tools"
-            icon={<Plus className="h-5 w-5" />}
-            href="/dashboard/settings"
+            title="Automation"
+            description="Manage AI task automation"
+            icon={<Zap className="h-5 w-5" />}
+            href="/dashboard/automation"
             gradient="bg-emerald-500/10 text-emerald-600"
           />
           </PageGrid>

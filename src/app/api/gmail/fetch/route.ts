@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchRecentEmails, processEmails } from '@/lib/gmail/processor'
+import { fetchRecentEmails, processEmails, processEmailsWithAIAnalysis } from '@/lib/gmail/processor'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,26 +23,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No Gmail account connected' }, { status: 400 })
     }
 
-    const { maxResults = 50, query } = await request.json().catch(() => ({}))
+    const { maxResults = 50, query, enableAI = true } = await request.json().catch(() => ({}))
 
     // Fetch emails from Gmail
     const messages = await fetchRecentEmails(maxResults, query)
     
-    // Process emails for scheduling content
-    const processedEmails = await processEmails(messages)
+    // Process emails with or without AI analysis
+    if (enableAI) {
+      const result = await processEmailsWithAIAnalysis(messages)
+      
+      return NextResponse.json({
+        success: true,
+        totalFetched: messages.length,
+        schedulingRelevant: result.processedEmails.length,
+        aiAnalyzed: result.aiAnalysisResults.length > 0,
+        tasksCreated: result.tasksCreated.length,
+        emails: result.processedEmails.map(email => ({
+          id: email.id,
+          subject: email.subject,
+          from: email.from,
+          date: email.date,
+          snippet: email.body.substring(0, 200) + '...'
+        })),
+        statistics: {
+          emails_processed: result.processedEmails.length,
+          ai_suggestions: result.aiAnalysisResults.reduce((sum, r) => sum + (r.suggestions || 0), 0),
+          auto_created_tasks: result.tasksCreated.length,
+          high_confidence_conversions: result.tasksCreated.filter(t => t.auto_created).length
+        }
+      })
+    } else {
+      // Process emails for scheduling content only
+      const processedEmails = await processEmails(messages)
 
-    return NextResponse.json({
-      success: true,
-      totalFetched: messages.length,
-      schedulingRelevant: processedEmails.length,
-      emails: processedEmails.map(email => ({
-        id: email.id,
-        subject: email.subject,
-        from: email.from,
-        date: email.date,
-        snippet: email.body.substring(0, 200) + '...'
-      }))
-    })
+      return NextResponse.json({
+        success: true,
+        totalFetched: messages.length,
+        schedulingRelevant: processedEmails.length,
+        aiAnalyzed: false,
+        emails: processedEmails.map(email => ({
+          id: email.id,
+          subject: email.subject,
+          from: email.from,
+          date: email.date,
+          snippet: email.body.substring(0, 200) + '...'
+        }))
+      })
+    }
   } catch (error) {
     console.error('Error fetching Gmail emails:', error)
     return NextResponse.json(

@@ -16,11 +16,25 @@ interface EmailProcessorProps {
   emailAccountConnected: boolean
 }
 
+interface ProcessingResult {
+  totalFetched: number
+  schedulingRelevant: number
+  aiAnalyzed: boolean
+  tasksCreated?: number
+  statistics?: {
+    emails_processed: number
+    ai_suggestions: number
+    auto_created_tasks: number
+    high_confidence_conversions: number
+  }
+}
+
 export function EmailProcessor({ emailAccountConnected }: EmailProcessorProps) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [status, setStatus] = useState<ProcessingStatus>({ pending: 0, processing: 0, completed: 0, failed: 0 })
-  const [lastResult, setLastResult] = useState<any>(null)
+  const [lastResult, setLastResult] = useState<ProcessingResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [aiEnabled, setAiEnabled] = useState(true)
 
   const fetchStatus = async () => {
     try {
@@ -54,7 +68,8 @@ export function EmailProcessor({ emailAccountConnected }: EmailProcessorProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          maxResults: 50
+          maxResults: 50,
+          enableAI: aiEnabled
         })
       })
       
@@ -100,13 +115,25 @@ export function EmailProcessor({ emailAccountConnected }: EmailProcessorProps) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">Email Processing</h3>
-          <Button 
-            onClick={handleProcessEmails} 
-            disabled={isProcessing}
-            size="sm"
-          >
-            {isProcessing ? 'Processing...' : 'Process Emails'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={aiEnabled}
+                onChange={(e) => setAiEnabled(e.target.checked)}
+                className="rounded border-gray-300 text-primary focus:ring-primary"
+                disabled={isProcessing}
+              />
+              AI Analysis
+            </label>
+            <Button 
+              onClick={handleProcessEmails} 
+              disabled={isProcessing}
+              size="sm"
+            >
+              {isProcessing ? 'Processing...' : 'Process Emails'}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -137,8 +164,20 @@ export function EmailProcessor({ emailAccountConnected }: EmailProcessorProps) {
             <div className="text-sm text-green-700 space-y-1">
               <p>• Fetched {lastResult.totalFetched} emails</p>
               <p>• Found {lastResult.schedulingRelevant} scheduling-relevant emails</p>
-              {lastResult.emails?.length > 0 && (
-                <p>• Ready for AI analysis</p>
+              {lastResult.aiAnalyzed && (
+                <>
+                  <p>• AI analysis completed</p>
+                  {lastResult.statistics && (
+                    <>
+                      <p>• Generated {lastResult.statistics.ai_suggestions} AI suggestions</p>
+                      <p>• Auto-created {lastResult.statistics.auto_created_tasks} tasks</p>
+                      <p>• High-confidence conversions: {lastResult.statistics.high_confidence_conversions}</p>
+                    </>
+                  )}
+                </>
+              )}
+              {!lastResult.aiAnalyzed && (
+                <p>• Ready for AI analysis (disabled)</p>
               )}
             </div>
           </div>

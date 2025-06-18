@@ -43,17 +43,26 @@ export async function processQueuedEmails(maxItems: number = 10) {
         .update({ status: 'processing' })
         .eq('id', queueItem.id)
 
-      // We need to fetch the email content from Gmail or stored data
-      // For now, we'll simulate this with the stored email_id
-      // In a real implementation, you'd fetch the full email content here
-      
-      // Simulate email content for demonstration
-      const emailContent = {
-        subject: `Email ${queueItem.email_id}`,
-        from: 'sender@example.com',
-        to: user.email || '',
-        body: 'Sample email content for processing',
-        date: new Date(queueItem.created_at)
+      // Use the stored email content from the queue
+      let emailContent
+      if (queueItem.content && typeof queueItem.content === 'object') {
+        emailContent = {
+          subject: queueItem.content.subject || 'No Subject',
+          from: queueItem.content.from || 'Unknown Sender',
+          to: queueItem.content.to || user.email || '',
+          body: queueItem.content.body || 'No content available',
+          date: queueItem.content.date ? new Date(queueItem.content.date) : new Date(queueItem.created_at)
+        }
+      } else {
+        // Fallback to metadata if content structure is different
+        const metadata = queueItem.metadata as any || {}
+        emailContent = {
+          subject: metadata.subject || `Email ${queueItem.email_id}`,
+          from: metadata.from || 'Unknown Sender',
+          to: metadata.to || user.email || '',
+          body: metadata.body || queueItem.content || 'Sample email content for processing',
+          date: metadata.date ? new Date(metadata.date) : new Date(queueItem.created_at)
+        }
       }
 
       // Analyze with AI
@@ -62,11 +71,12 @@ export async function processQueuedEmails(maxItems: number = 10) {
       if (analysis.hasSchedulingContent && analysis.extractions.length > 0) {
         // Store AI suggestions in the database
         for (const extraction of analysis.extractions) {
-          const { error: suggestionError } = await supabase
+          const { data: suggestion, error: suggestionError } = await supabase
             .from('ai_suggestions')
             .insert({
               user_id: user.id,
               source_email_id: queueItem.email_id,
+              email_record_id: queueItem.email_record_id,
               suggestion_type: extraction.type,
               title: extraction.title,
               description: extraction.description,
@@ -74,10 +84,26 @@ export async function processQueuedEmails(maxItems: number = 10) {
               confidence_score: extraction.confidence,
               status: 'pending'
             })
+            .select()
+            .single()
 
           if (!suggestionError) {
             suggestionsCount++
           }
+        }
+      }
+
+      // Update email record to mark as AI analyzed
+      if (queueItem.email_record_id) {
+        try {
+          const { emailService } = await import('@/lib/email/email-service')
+          await emailService.updateEmailStatus(queueItem.email_record_id, {
+            ai_analyzed: true,
+            has_scheduling_content: analysis.hasSchedulingContent,
+            scheduling_keywords: analysis.extractions.map(e => e.title.toLowerCase().split(' ')).flat()
+          })
+        } catch (error) {
+          console.error('Failed to update email record:', error)
         }
       }
 

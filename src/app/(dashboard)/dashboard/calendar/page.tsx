@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { TaskScheduleView } from '@/components/tasks/TaskScheduleView'
+import { DailyTaskReview } from '@/components/tasks/DailyTaskReview'
 import { CalendarSync } from '@/components/calendar/CalendarSync'
 import { SchedulingAssistant } from '@/components/calendar/SchedulingAssistant'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { MonthlyCalendar, WeeklyCalendar, CalendarEvent } from '@/components/ui/Calendar'
 import { Button } from '@/components/ui/Button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageLayout, PageHeader, PageContent, PageSection, FullHeightContainer } from '@/components/layout/PageLayout'
 import { 
   Select,
@@ -25,6 +28,7 @@ export default function CalendarPage() {
   const [emailAccounts, setEmailAccounts] = useState([])
   const [calendars, setCalendars] = useState([])
   const [recentEvents, setRecentEvents] = useState([])
+  const [selectedDate, setSelectedDate] = useState(new Date())
   const router = useRouter()
   const supabase = createClient()
 
@@ -93,8 +97,8 @@ export default function CalendarPage() {
     <FullHeightContainer>
       <PageLayout fillHeight={true}>
         <PageHeader
-          title="Calendar Management"
-          description="Sync your calendars and use AI-powered scheduling to optimize your time."
+          title="Calendar & Task Management"
+          description="Manage your tasks, calendar events, and AI-powered scheduling in one place."
         >
           <Button variant="outline" size="default">
             <span className="mr-2">🔄</span>
@@ -107,6 +111,25 @@ export default function CalendarPage() {
         </PageHeader>
 
         <PageContent fillHeight={true}>
+          <Tabs defaultValue="tasks" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="tasks">Task Schedule</TabsTrigger>
+              <TabsTrigger value="review">Daily Review</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="tasks" className="space-y-6">
+              <TaskScheduleView 
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+              />
+            </TabsContent>
+
+            <TabsContent value="review" className="space-y-6">
+              <DailyTaskReview date={selectedDate} />
+            </TabsContent>
+
+            <TabsContent value="calendar" className="space-y-6">
           {/* Gmail Connection Check */}
           {emailAccounts.length === 0 && (
             <div className="mb-6 bg-gradient-to-r from-warning-50 to-warning-100 border border-warning-200 rounded-lg p-4">
@@ -300,6 +323,8 @@ export default function CalendarPage() {
               </Card>
             </div>
           </div>
+            </TabsContent>
+          </Tabs>
         </PageContent>
       </PageLayout>
     </FullHeightContainer>

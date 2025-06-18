@@ -218,6 +218,108 @@ export async function PUT(
 }
 
 /**
+ * PATCH /api/tasks/[id] - Partially update a task
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const validatedData = UpdateTaskSchema.parse(body)
+    const taskId = params.id
+
+    const supabase = await createClient()
+
+    // Check if task exists and belongs to user
+    const { data: existingTask, error: fetchError } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('id', taskId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (fetchError || !existingTask) {
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    }
+
+    // Prepare update data
+    const updateData: any = { ...validatedData }
+    
+    // Convert datetime strings to proper format
+    if (validatedData.due_date !== undefined) {
+      updateData.due_date = validatedData.due_date ? new Date(validatedData.due_date).toISOString() : null
+    }
+    if (validatedData.scheduled_start !== undefined) {
+      updateData.scheduled_start = validatedData.scheduled_start ? new Date(validatedData.scheduled_start).toISOString() : null
+    }
+    if (validatedData.scheduled_end !== undefined) {
+      updateData.scheduled_end = validatedData.scheduled_end ? new Date(validatedData.scheduled_end).toISOString() : null
+    }
+
+    // Set completed_at if status is being changed to completed
+    if (validatedData.status === 'completed' && existingTask.status !== 'completed') {
+      updateData.completed_at = new Date().toISOString()
+    } else if (validatedData.status && validatedData.status !== 'completed') {
+      updateData.completed_at = null
+    }
+
+    const { data: task, error } = await supabase
+      .from('tasks')
+      .update(updateData)
+      .eq('id', taskId)
+      .eq('user_id', user.id)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.error('Error updating task:', error)
+      return NextResponse.json({ error: 'Failed to update task' }, { status: 500 })
+    }
+
+    // Log significant changes
+    const significantChanges = []
+    if (validatedData.status && validatedData.status !== existingTask.status) {
+      significantChanges.push(`Status changed from ${existingTask.status} to ${validatedData.status}`)
+    }
+    if (validatedData.priority && validatedData.priority !== existingTask.priority) {
+      significantChanges.push(`Priority changed from ${existingTask.priority} to ${validatedData.priority}`)
+    }
+
+    if (significantChanges.length > 0) {
+      await supabase.from('task_comments').insert({
+        task_id: taskId,
+        user_id: user.id,
+        comment: significantChanges.join('; '),
+        is_system_comment: true
+      })
+    }
+
+    return NextResponse.json({ 
+      success: true,
+      task,
+      message: 'Task updated successfully'
+    })
+
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ 
+        error: 'Validation error', 
+        details: error.errors 
+      }, { status: 400 })
+    }
+
+    console.error('Error in PATCH /api/tasks/[id]:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+/**
  * DELETE /api/tasks/[id] - Delete a task
  */
 export async function DELETE(

@@ -17,6 +17,7 @@ export interface CreateTaskInput {
   parent_task_id?: string
   ai_generated?: boolean
   source_email_id?: string
+  source_email_record_id?: string
   source_suggestion_id?: string
   confidence_score?: number
 }

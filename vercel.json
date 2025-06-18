@@ -69,6 +69,18 @@
     },
     "src/app/api/calendar/sync/route.ts": {
       "maxDuration": 45
+    },
+    "src/app/api/automation/daily-process/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/automation/webhook/route.ts": {
+      "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/automation/daily-process",
+      "schedule": "0 9 * * *"
+    }
+  ]
 }
