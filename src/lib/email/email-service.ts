@@ -279,6 +279,25 @@ export class EmailService {
 
     if (error) {
       console.log('Database error in getEmailById:', error)
+      
+      // If no email found and we're looking by gmail_id, let's see what gmail_ids exist
+      if (!isUUID && error.code === 'PGRST116') {
+        console.log('No email found with gmail_id:', emailId)
+        console.log('Checking available gmail_ids for user...')
+        
+        try {
+          const { data: availableEmails } = await supabase
+            .from('emails')
+            .select('gmail_id, subject')
+            .eq('user_id', userId)
+            .limit(5)
+          
+          console.log('Sample gmail_ids in database:', availableEmails?.map(e => ({ gmail_id: e.gmail_id, subject: e.subject })))
+        } catch (debugError) {
+          console.log('Debug query failed:', debugError)
+        }
+      }
+      
       throw new Error(`Failed to get email: ${error.message}`)
     }
 
