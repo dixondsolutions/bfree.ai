@@ -109,20 +109,16 @@ export function ModernCalendar({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentDate, setCurrentDate] = useState(selectedDate)
-  
-  console.log('ModernCalendar component initialized with error:', error)
 
   // Fetch events and tasks for the current view
   const fetchCalendarData = useCallback(async (date: Date) => {
     // Prevent multiple concurrent calls
     if (loading) {
-      console.log('Fetch already in progress, skipping...')
       return
     }
     
     // Clear error state immediately when starting fetch
     setError(null)
-    console.log('Cleared error state at start of fetch')
     
     try {
       setLoading(true)
@@ -148,50 +144,33 @@ export function ModernCalendar({
       }
 
       // Fetch calendar events
-      console.log('Fetching calendar events for range:', { startDate, endDate })
       const eventsResponse = await fetch(
         `/api/calendar/events?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`
       )
       
-      console.log('Events response status:', eventsResponse.status)
       if (eventsResponse.ok) {
         const eventsData = await eventsResponse.json()
-        console.log('Events data received:', eventsData)
-        console.log('Events array length:', eventsData.events?.length || 0)
         setEvents(eventsData.events || [])
       } else {
         const errorText = await eventsResponse.text()
-        console.error('Events fetch failed:', eventsResponse.status, errorText)
         throw new Error(`Events API failed: ${eventsResponse.status} ${errorText}`)
       }
 
       // Fetch tasks
-      console.log('Fetching tasks for range:', { startDate, endDate })
       const tasksResponse = await fetch(
         `/api/tasks?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}&status=pending,in_progress,completed&limit=100`
       )
       
-      console.log('Tasks response status:', tasksResponse.status)
       if (tasksResponse.ok) {
         const tasksData = await tasksResponse.json()
-        console.log('Tasks data received:', tasksData)
-        console.log('Tasks array length:', tasksData.tasks?.length || 0)
         setTasks(tasksData.tasks || [])
       } else {
         const errorText = await tasksResponse.text()
-        console.error('Tasks fetch failed:', tasksResponse.status, errorText)
         throw new Error(`Tasks API failed: ${tasksResponse.status} ${errorText}`)
       }
 
       // Clear any previous errors since we got here successfully
       setError(null)
-      console.log('Successfully fetched calendar data - clearing error state')
-      
-      // Force re-render to ensure error state is cleared
-      setTimeout(() => {
-        setError(null)
-        console.log('Force clearing error state after timeout')
-      }, 0)
 
     } catch (err) {
       setError('Failed to load calendar data')
@@ -203,7 +182,6 @@ export function ModernCalendar({
       })
     } finally {
       setLoading(false)
-      console.log('Fetch complete - loading set to false')
     }
   }, [view])
 
@@ -227,7 +205,8 @@ export function ModernCalendar({
         newDate = addMonths(currentDate, -1)
         break
     }
-    setCurrentDate(newDate)
+    // Only call onDateChange - let parent handle the state
+    // The useEffect will update currentDate when selectedDate changes
     onDateChange(newDate)
   }
 
@@ -245,13 +224,15 @@ export function ModernCalendar({
         newDate = addMonths(currentDate, 1)
         break
     }
-    setCurrentDate(newDate)
+    // Only call onDateChange - let parent handle the state
+    // The useEffect will update currentDate when selectedDate changes
     onDateChange(newDate)
   }
 
   const goToToday = () => {
     const today = new Date()
-    setCurrentDate(today)
+    // Only call onDateChange - let parent handle the state
+    // The useEffect will update currentDate when selectedDate changes
     onDateChange(today)
   }
 
@@ -572,18 +553,8 @@ export function ModernCalendar({
     }
   }
 
-  // Debug logging for component state
-  console.log('ModernCalendar render state:', {
-    loading: loading,
-    error: error,
-    eventsCount: events.length,
-    tasksCount: tasks.length,
-    view: view,
-    currentDate: format(currentDate, 'yyyy-MM-dd'),
-    willShowError: !!error,
-    willShowContent: !loading && !error
-  })
-  console.log('DETAILED STATE:', 'loading=' + loading, 'error=' + error, 'willShowContent=' + (!loading && !error))
+  // Component is ready when not loading and no error
+  const isReady = !loading && !error
 
   return (
     <Card className={className}>
@@ -650,7 +621,7 @@ export function ModernCalendar({
       </CardHeader>
       
       <CardContent>
-        {!loading && !error && (
+        {isReady && (
           <>
             {view === 'month' && renderMonthView()}
             {view === 'week' && renderWeekView()}
