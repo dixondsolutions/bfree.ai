@@ -7,6 +7,7 @@ interface PageLayoutProps {
   maxWidth?: 'default' | 'wide' | 'full'
   padding?: 'default' | 'tight' | 'loose'
   density?: 'compact' | 'default' | 'spacious'
+  fillHeight?: boolean
 }
 
 interface PageHeaderProps {
@@ -20,6 +21,7 @@ interface PageHeaderProps {
 interface PageContentProps {
   children: ReactNode
   className?: string
+  fillHeight?: boolean
 }
 
 // Main Page Layout Component - Desktop First
@@ -28,7 +30,8 @@ export function PageLayout({
   className,
   maxWidth = 'wide',
   padding = 'default',
-  density = 'default'
+  density = 'default',
+  fillHeight = true
 }: PageLayoutProps) {
   const maxWidthClasses = {
     default: 'max-w-7xl',
@@ -51,6 +54,7 @@ export function PageLayout({
   return (
     <div className={cn(
       "w-full mx-auto",
+      fillHeight && "min-h-full flex flex-col",
       maxWidthClasses[maxWidth],
       paddingClasses[padding],
       densityClasses[density],
@@ -70,7 +74,7 @@ export function PageHeader({
   compact = false
 }: PageHeaderProps) {
   return (
-    <div className={cn("", className)}>
+    <div className={cn("flex-shrink-0", className)}>
       <div className="flex items-start justify-between gap-6">
         <div className="flex-1 min-w-0">
           <h1 className={cn(
@@ -99,9 +103,13 @@ export function PageHeader({
 }
 
 // Standardized Page Content Area
-export function PageContent({ children, className }: PageContentProps) {
+export function PageContent({ children, className, fillHeight = true }: PageContentProps) {
   return (
-    <div className={cn("space-y-6", className)}>
+    <div className={cn(
+      "space-y-6",
+      fillHeight && "flex-1 min-h-0",
+      className
+    )}>
       {children}
     </div>
   )
@@ -211,54 +219,16 @@ export function PageSection({
 
   if (layout === 'sidebar') {
     return (
-      <div className={cn("lg:grid lg:grid-cols-4 lg:gap-8", className)}>
-        <div className="lg:col-span-1 mb-4 lg:mb-0">
-          {title && (
-            <h2 className="text-xl font-semibold text-foreground mb-2">
-              {title}
-            </h2>
-          )}
-          {description && (
-            <p className="text-sm text-muted-foreground">
-              {description}
-            </p>
-          )}
-          {headerActions && (
-            <div className="mt-4">
-              {headerActions}
-            </div>
-          )}
-        </div>
-        <div className="lg:col-span-3">
-          {children}
-        </div>
+      <div className={cn("grid grid-cols-1 lg:grid-cols-4 gap-6", className)}>
+        <div className="lg:col-span-3">{sectionContent}</div>
       </div>
     )
   }
 
   if (layout === 'split') {
     return (
-      <div className={cn("lg:grid lg:grid-cols-2 lg:gap-8", className)}>
-        <div>
-          {title && (
-            <h2 className="text-xl font-semibold text-foreground mb-2">
-              {title}
-            </h2>
-          )}
-          {description && (
-            <p className="text-sm text-muted-foreground mb-4">
-              {description}
-            </p>
-          )}
-        </div>
-        <div>
-          {headerActions && (
-            <div className="flex justify-end mb-4">
-              {headerActions}
-            </div>
-          )}
-          {children}
-        </div>
+      <div className={cn("grid grid-cols-1 lg:grid-cols-2 gap-6", className)}>
+        {sectionContent}
       </div>
     )
   }
@@ -270,12 +240,20 @@ export function PageSection({
   )
 }
 
-// New: Dashboard-specific layouts
+// Full Height Container for pages that need to fill the viewport
+export function FullHeightContainer({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("h-full flex flex-col", className)}>
+      {children}
+    </div>
+  )
+}
+
+// Updated Dashboard Components with better layout consistency
 export function DashboardGrid({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cn(
-      "grid gap-4 lg:gap-6",
-      "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6",
+      "grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
       className
     )}>
       {children}

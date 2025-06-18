@@ -8,7 +8,7 @@ import { SchedulingAssistant } from '@/components/calendar/SchedulingAssistant'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { MonthlyCalendar, WeeklyCalendar, CalendarEvent } from '@/components/ui/Calendar'
 import { Button } from '@/components/ui/Button'
-import { PageLayout, PageHeader, PageContent, PageSection } from '@/components/layout/PageLayout'
+import { PageLayout, PageHeader, PageContent, PageSection, FullHeightContainer } from '@/components/layout/PageLayout'
 import { 
   Select,
   SelectContent,
@@ -77,9 +77,11 @@ export default function CalendarPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner size="lg" />
-      </div>
+      <FullHeightContainer>
+        <div className="flex items-center justify-center h-full">
+          <LoadingSpinner size="lg" />
+        </div>
+      </FullHeightContainer>
     )
   }
 
@@ -88,299 +90,218 @@ export default function CalendarPage() {
   }
 
   return (
-    <PageLayout>
-      <PageHeader
-        title="Calendar Management"
-        description="Sync your calendars and use AI-powered scheduling to optimize your time."
-      >
-        <Button variant="outline" size="default">
-          <span className="mr-2">🔄</span>
-          Sync Now
-        </Button>
-        <Button variant="default" size="default">
-          <span className="mr-2">➕</span>
-          New Event
-        </Button>
-      </PageHeader>
+    <FullHeightContainer>
+      <PageLayout fillHeight={true}>
+        <PageHeader
+          title="Calendar Management"
+          description="Sync your calendars and use AI-powered scheduling to optimize your time."
+        >
+          <Button variant="outline" size="default">
+            <span className="mr-2">🔄</span>
+            Sync Now
+          </Button>
+          <Button variant="default" size="default">
+            <span className="mr-2">➕</span>
+            New Event
+          </Button>
+        </PageHeader>
 
-      <PageContent>
-        {/* Gmail Connection Check */}
-      {emailAccounts.length === 0 && (
-        <div className="mb-6 bg-gradient-to-r from-warning-50 to-warning-100 border border-warning-200 rounded-lg p-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-warning-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-lg">⚠️</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-warning-800">Gmail Connection Required</h3>
-              <p className="text-warning-700 text-sm mt-1">
-                Please connect your Gmail account first to enable calendar sync and scheduling features.
-              </p>
-            </div>
-            <Button variant="default" size="sm" className="ml-auto">
-              Connect Gmail
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Main Grid */}
-      <div className="space-y-8">
-        {/* Calendar Views */}
-        <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-neutral-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-neutral-900">Calendar View</h2>
-                <p className="text-sm text-neutral-600 mt-1">View and manage your events</p>
-              </div>
+        <PageContent fillHeight={true}>
+          {/* Gmail Connection Check */}
+          {emailAccounts.length === 0 && (
+            <div className="mb-6 bg-gradient-to-r from-warning-50 to-warning-100 border border-warning-200 rounded-lg p-4">
               <div className="flex items-center space-x-3">
-                <Select defaultValue="month">
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Select view" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="month">📅 Month View</SelectItem>
-                    <SelectItem value="week">🗓️ Week View</SelectItem>
-                    <SelectItem value="day">📊 Day View</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm">
-                  <span className="mr-1">⏪</span>
-                  Prev
-                </Button>
-                <Button variant="outline" size="sm">
-                  Today
-                </Button>
-                <Button variant="outline" size="sm">
-                  Next
-                  <span className="ml-1">⏩</span>
+                <div className="w-10 h-10 bg-warning-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-lg">⚠️</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-warning-800">Gmail Connection Required</h3>
+                  <p className="text-warning-700 text-sm mt-1">
+                    Please connect your Gmail account first to enable calendar sync and scheduling features.
+                  </p>
+                </div>
+                <Button variant="default" size="sm" className="ml-auto">
+                  Connect Gmail
                 </Button>
               </div>
             </div>
-          </div>
-          <div className="p-6">
-            <MonthlyCalendar
-              events={recentEvents?.map((event): CalendarEvent => ({
-                id: event.id,
-                title: event.title,
-                start: new Date(event.start_time),
-                end: new Date(event.end_time || event.start_time),
-                isAIGenerated: event.ai_generated,
-                color: event.ai_generated ? 'green' : 'blue'
-              })) || []}
-              onDateClick={(date) => console.log('Date clicked:', date)}
-              onEventClick={(event) => console.log('Event clicked:', event)}
-              className="border-0 shadow-none"
-            />
-          </div>
-        </div>
+          )}
 
-        {/* Calendar Management Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <CalendarSync />
-          <SchedulingAssistant />
-        </div>
-
-        {/* Calendar Overview */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Connected Calendars */}
-          <Card className="border border-neutral-200 shadow-sm">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-neutral-900">Connected Calendars</h3>
-                <LoadingSpinner size="xs" variant="primary" />
-              </div>
-              <p className="text-sm text-neutral-500 mt-1">Manage your calendar connections</p>
-            </CardHeader>
-            <CardContent>
-              {calendars.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <span className="text-neutral-400 text-2xl">📅</span>
-                  </div>
-                  <h4 className="font-medium text-neutral-900 mb-2">No calendars connected</h4>
-                  <p className="text-sm text-neutral-500 mb-4">
-                    Sync with Google Calendar to get started with scheduling.
-                  </p>
-                  <Button variant="default" size="sm">
-                    <span className="mr-2">🔗</span>
-                    Connect Calendar
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {calendars.map((calendar) => (
-                    <div key={calendar.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-neutral-50 to-neutral-100 rounded-lg border border-neutral-200 hover:border-neutral-300 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          calendar.sync_enabled ? 'bg-success-100' : 'bg-neutral-200'
-                        }`}>
-                          <span className={`text-lg ${
-                            calendar.sync_enabled ? 'text-success-600' : 'text-neutral-400'
-                          }`}>
-                            📅
-                          </span>
-                        </div>
-                        <div>
-                          <div className="font-medium text-neutral-900">{calendar.name}</div>
-                          <div className="text-sm text-neutral-500 capitalize flex items-center space-x-2">
-                            <span>{calendar.provider}</span>
-                            {calendar.is_primary && (
-                              <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">Primary</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-3 h-3 rounded-full shadow-sm ${
-                          calendar.sync_enabled ? 'bg-success-400' : 'bg-neutral-300'
-                        }`} />
-                        <span className={`text-xs font-medium ${
-                          calendar.sync_enabled ? 'text-success-600' : 'text-neutral-500'
-                        }`}>
-                          {calendar.sync_enabled ? 'Synced' : 'Offline'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Upcoming Events */}
-          <Card className="border border-neutral-200 shadow-sm">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-neutral-900">Upcoming Events</h3>
-                <Button variant="ghost" size="sm">
-                  <span className="text-xs">View All →</span>
-                </Button>
-              </div>
-              <p className="text-sm text-neutral-500 mt-1">Next 5 scheduled events</p>
-            </CardHeader>
-            <CardContent>
-              {!recentEvents || recentEvents.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <span className="text-neutral-400 text-2xl">📋</span>
-                  </div>
-                  <h4 className="font-medium text-neutral-900 mb-2">No upcoming events</h4>
-                  <p className="text-sm text-neutral-500 mb-4">
-                    Sync your calendar or create new events to get started.
-                  </p>
+          {/* Main Grid */}
+          <div className="space-y-8 flex-1">
+            {/* Calendar Views */}
+            <PageSection 
+              title="Calendar View" 
+              description="View and manage your events"
+              headerActions={
+                <div className="flex items-center space-x-3">
+                  <Select defaultValue="month">
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Select view" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="month">📅 Month View</SelectItem>
+                      <SelectItem value="week">🗓️ Week View</SelectItem>
+                      <SelectItem value="day">📊 Day View</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button variant="outline" size="sm">
-                    <span className="mr-2">➕</span>
-                    Create Event
+                    <span className="mr-1">⏪</span>
+                    Prev
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    Today
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    Next
+                    <span className="ml-1">⏩</span>
                   </Button>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {recentEvents.map((event) => (
-                    <div key={event.id} className="group p-4 border border-neutral-200 rounded-lg hover:border-neutral-300 hover:shadow-sm transition-all duration-200 cursor-pointer">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h4 className="font-medium text-neutral-900 group-hover:text-primary-600 transition-colors">
-                              {event.title}
-                            </h4>
+              }
+            >
+              <Card className="border border-neutral-200 shadow-sm">
+                <CardContent className="p-6">
+                  <MonthlyCalendar
+                    events={recentEvents?.map((event): CalendarEvent => ({
+                      id: event.id,
+                      title: event.title,
+                      start: new Date(event.start_time),
+                      end: new Date(event.end_time || event.start_time),
+                      isAIGenerated: event.ai_generated,
+                      color: event.ai_generated ? 'green' : 'blue'
+                    })) || []}
+                    onDateClick={(date) => console.log('Date clicked:', date)}
+                    onEventClick={(event) => console.log('Event clicked:', event)}
+                    className="border-0 shadow-none"
+                  />
+                </CardContent>
+              </Card>
+            </PageSection>
+
+            {/* Calendar Management Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <CalendarSync />
+              <SchedulingAssistant />
+            </div>
+
+            {/* Calendar Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Connected Calendars */}
+              <Card className="border border-neutral-200 shadow-sm">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-neutral-900">Connected Calendars</h3>
+                    <LoadingSpinner size="xs" variant="primary" />
+                  </div>
+                  <p className="text-sm text-neutral-500 mt-1">Manage your calendar connections</p>
+                </CardHeader>
+                <CardContent>
+                  {calendars.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <span className="text-neutral-400 text-2xl">📅</span>
+                      </div>
+                      <p className="text-neutral-500 font-medium mb-2">No calendars connected</p>
+                      <p className="text-sm text-neutral-400 mb-4">Connect your Google Calendar to get started</p>
+                      <Button variant="outline" size="sm">
+                        <span className="mr-2">🔗</span>
+                        Connect Calendar
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {calendars.map((calendar) => (
+                        <div key={calendar.id} className="flex items-center justify-between p-3 border border-neutral-200 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <div>
+                              <p className="font-medium text-neutral-900">{calendar.name}</p>
+                              <p className="text-xs text-neutral-500">Google Calendar</p>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-xs">Active</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Recent Events */}
+              <Card className="border border-neutral-200 shadow-sm">
+                <CardHeader className="pb-4">
+                  <h3 className="text-lg font-semibold text-neutral-900">Upcoming Events</h3>
+                  <p className="text-sm text-neutral-500 mt-1">Your next scheduled events</p>
+                </CardHeader>
+                <CardContent>
+                  {recentEvents.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <span className="text-neutral-400 text-2xl">📅</span>
+                      </div>
+                      <p className="text-neutral-500 font-medium mb-2">No upcoming events</p>
+                      <p className="text-sm text-neutral-400 mb-4">Your schedule is clear</p>
+                      <Button variant="outline" size="sm">
+                        <span className="mr-2">➕</span>
+                        Add Event
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {recentEvents.map((event) => (
+                        <div key={event.id} className="p-3 border border-neutral-200 rounded-lg">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-neutral-900 mb-1">{event.title}</h4>
+                              <p className="text-sm text-neutral-500">
+                                {new Date(event.start_time).toLocaleDateString()} at{' '}
+                                {new Date(event.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
                             {event.ai_generated && (
-                              <Badge className="bg-success-100 text-success-700 border-success-200 text-xs">
-                                🤖 AI
+                              <Badge variant="secondary" className="text-xs">
+                                AI
                               </Badge>
                             )}
                           </div>
-                          <div className="text-sm text-neutral-600 flex items-center space-x-4">
-                            <span className="flex items-center space-x-1">
-                              <span>📅</span>
-                              <span>{new Date(event.start_time).toLocaleDateString()}</span>
-                            </span>
-                            <span className="flex items-center space-x-1">
-                              <span>🕐</span>
-                              <span>{new Date(event.start_time).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}</span>
-                            </span>
-                          </div>
-                          {event.calendars && (
-                            <div className="text-xs text-neutral-500 mt-2 flex items-center space-x-1">
-                              <span>🗓️</span>
-                              <span>{event.calendars.name}</span>
-                            </div>
-                          )}
                         </div>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="sm">
-                            <span className="text-xs">→</span>
-                          </Button>
-                        </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  )}
+                </CardContent>
+              </Card>
 
-          {/* Calendar Stats */}
-          <Card className="border border-neutral-200 shadow-sm">
-            <CardHeader className="pb-4">
-              <h3 className="text-lg font-semibold text-neutral-900">Calendar Stats</h3>
-              <p className="text-sm text-neutral-500 mt-1">Quick overview of your calendar data</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-4">
-                <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200">
-                  <div className="text-3xl font-bold text-blue-600 mb-1">{calendars.length}</div>
-                  <div className="text-sm font-medium text-blue-700">Connected Calendars</div>
-                  <div className="text-xs text-blue-600 mt-1">
-                    {calendars.filter(c => c.sync_enabled).length} syncing
+              {/* Quick Actions */}
+              <Card className="border border-neutral-200 shadow-sm">
+                <CardHeader className="pb-4">
+                  <h3 className="text-lg font-semibold text-neutral-900">Quick Actions</h3>
+                  <p className="text-sm text-neutral-500 mt-1">Common calendar tasks</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <Button variant="outline" className="w-full justify-start" size="sm">
+                      <span className="mr-2">➕</span>
+                      Schedule New Meeting
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start" size="sm">
+                      <span className="mr-2">🔄</span>
+                      Sync All Calendars
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start" size="sm">
+                      <span className="mr-2">🤖</span>
+                      AI Schedule Optimization
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start" size="sm">
+                      <span className="mr-2">📊</span>
+                      View Analytics
+                    </Button>
                   </div>
-                </div>
-                
-                <div className="text-center p-4 bg-gradient-to-br from-success-50 to-success-100 rounded-xl border border-success-200">
-                  <div className="text-3xl font-bold text-success-600 mb-1">{recentEvents?.length || 0}</div>
-                  <div className="text-sm font-medium text-success-700">Upcoming Events</div>
-                  <div className="text-xs text-success-600 mt-1">Next 30 days</div>
-                </div>
-                
-                <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200">
-                  <div className="text-3xl font-bold text-purple-600 mb-1">
-                    {recentEvents?.filter(e => e.ai_generated).length || 0}
-                  </div>
-                  <div className="text-sm font-medium text-purple-700">AI Generated</div>
-                  <div className="text-xs text-purple-600 mt-1">Smart scheduling</div>
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-4 border-t border-neutral-200">
-                <h4 className="text-sm font-medium text-neutral-900 mb-3">Features</h4>
-                <div className="space-y-2 text-xs text-neutral-600">
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2 h-2 bg-success-400 rounded-full"></span>
-                    <span>Real-time calendar synchronization</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2 h-2 bg-success-400 rounded-full"></span>
-                    <span>AI-powered scheduling optimization</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2 h-2 bg-success-400 rounded-full"></span>
-                    <span>Conflict detection and resolution</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2 h-2 bg-success-400 rounded-full"></span>
-                    <span>Smart meeting suggestions</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-      </PageContent>
-    </PageLayout>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </PageContent>
+      </PageLayout>
+    </FullHeightContainer>
   )
 }

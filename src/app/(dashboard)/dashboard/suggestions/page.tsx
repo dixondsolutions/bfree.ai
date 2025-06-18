@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { SuggestionsClient } from '@/components/ai/SuggestionsClient'
-import { PageLayout, PageHeader, PageContent } from '@/components/layout/PageLayout'
+import { PageLayout, PageHeader, PageContent, FullHeightContainer } from '@/components/layout/PageLayout'
 import { getUserAISuggestions } from '@/lib/openai/processor'
 
 export default async function SuggestionsPage() {
@@ -15,15 +15,17 @@ export default async function SuggestionsPage() {
   const suggestions = await getUserAISuggestions()
 
   return (
-    <PageLayout>
-      <PageHeader
-        title="AI Suggestions"
-        description="Review and manage AI-generated scheduling suggestions from your emails."
-      />
+    <FullHeightContainer>
+      <PageLayout fillHeight={true}>
+        <PageHeader
+          title="AI Suggestions"
+          description="Review and manage AI-generated scheduling suggestions from your emails."
+        />
 
-      <PageContent>
-        <SuggestionsClient initialSuggestions={suggestions} />
-      </PageContent>
-    </PageLayout>
+        <PageContent fillHeight={true}>
+          <SuggestionsClient initialSuggestions={suggestions} />
+        </PageContent>
+      </PageLayout>
+    </FullHeightContainer>
   )
 }
