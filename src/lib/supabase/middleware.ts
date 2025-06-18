@@ -6,6 +6,15 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
+  // Skip auth checks for prefetch requests to prevent infinite loops
+  const isPrefetch = request.headers.get('purpose') === 'prefetch' ||
+                    request.headers.get('x-purpose') === 'prefetch' ||
+                    request.headers.get('sec-purpose') === 'prefetch'
+
+  if (isPrefetch) {
+    return supabaseResponse
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

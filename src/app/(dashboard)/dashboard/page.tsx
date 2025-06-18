@@ -165,7 +165,7 @@ interface QuickActionProps {
 function QuickAction({ title, description, icon, href, gradient }: QuickActionProps) {
   return (
     <Card className="hover-lift group cursor-pointer transition-all duration-200 hover:shadow-md">
-      <Link href={href}>
+      <Link href={href} prefetch={false}>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
             <div className={cn(

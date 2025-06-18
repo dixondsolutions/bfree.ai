@@ -1,6 +1,5 @@
-'use client'
-
-import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Progress } from '@/components/ui/progress'
@@ -25,63 +24,33 @@ interface AnalyticsData {
   }>
 }
 
-export default function AnalyticsPage() {
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
-  const [loading, setLoading] = useState(true)
+export default async function AnalyticsPage() {
+  const supabase = await createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [])
-
-  const fetchAnalytics = async () => {
-    try {
-      // For now, use mock data since API endpoints might not be fully set up
-      setAnalytics({
-        taskStats: {
-          total: 127,
-          completed: 89,
-          pending: 38,
-          completionRate: 70
-        },
-        productivity: {
-          dailyAverage: 6.2,
-          weeklyTrend: 12,
-          peakHours: ['9:00 AM', '2:00 PM', '7:00 PM']
-        },
-        categories: [
-          { name: 'Work', count: 45, completionRate: 78 },
-          { name: 'Personal', count: 32, completionRate: 65 },
-          { name: 'Health', count: 28, completionRate: 82 },
-          { name: 'Finance', count: 22, completionRate: 91 }
-        ]
-      })
-      setLoading(false)
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error)
-      setLoading(false)
-    }
+  if (error || !user) {
+    redirect('/login')
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto" />
-          <p>Loading analytics...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!analytics) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <BarChart3 className="h-12 w-12 text-gray-400 mx-auto" />
-          <p>No analytics data available</p>
-        </div>
-      </div>
-    )
+  // For now, use mock data since API endpoints might not be fully set up
+  const analytics: AnalyticsData = {
+    taskStats: {
+      total: 127,
+      completed: 89,
+      pending: 38,
+      completionRate: 70
+    },
+    productivity: {
+      dailyAverage: 6.2,
+      weeklyTrend: 12,
+      peakHours: ['9:00 AM', '2:00 PM', '7:00 PM']
+    },
+    categories: [
+      { name: 'Work', count: 45, completionRate: 78 },
+      { name: 'Personal', count: 32, completionRate: 65 },
+      { name: 'Health', count: 28, completionRate: 82 },
+      { name: 'Finance', count: 22, completionRate: 91 }
+    ]
   }
 
   return (
