@@ -109,6 +109,8 @@ export function ModernCalendar({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentDate, setCurrentDate] = useState(selectedDate)
+  
+  console.log('ModernCalendar component initialized with error:', error)
 
   // Fetch events and tasks for the current view
   const fetchCalendarData = useCallback(async (date: Date) => {
@@ -572,15 +574,16 @@ export function ModernCalendar({
 
   // Debug logging for component state
   console.log('ModernCalendar render state:', {
-    loading,
-    error,
+    loading: loading,
+    error: error,
     eventsCount: events.length,
     tasksCount: tasks.length,
-    view,
+    view: view,
     currentDate: format(currentDate, 'yyyy-MM-dd'),
     willShowError: !!error,
     willShowContent: !loading && !error
   })
+  console.log('DETAILED STATE:', 'loading=' + loading, 'error=' + error, 'willShowContent=' + (!loading && !error))
 
   return (
     <Card className={className}>
@@ -634,10 +637,10 @@ export function ModernCalendar({
           <div className="flex flex-col gap-2 text-red-600 bg-red-50 p-3 rounded-lg">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
-              <span className="text-sm font-medium">{error}</span>
+              <span className="text-sm font-medium">ERROR: {JSON.stringify(error)}</span>
             </div>
             <div className="text-xs text-red-500 font-mono">
-              Check the browser console for detailed error information
+              State debug: loading={String(loading)}, error={String(error)}, content={String(!loading && !error)}
             </div>
             <Button variant="outline" size="sm" onClick={() => fetchCalendarData(currentDate)} className="self-start">
               Retry
