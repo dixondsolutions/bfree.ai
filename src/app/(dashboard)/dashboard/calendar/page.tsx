@@ -1,5 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 import { CalendarSync } from '@/components/calendar/CalendarSync'
 import { SchedulingAssistant } from '@/components/calendar/SchedulingAssistant'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
@@ -14,48 +17,73 @@ import {
 } from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/ui/Loading'
-import { getUserEmailAccounts, getUserCalendars } from '@/lib/database/utils'
 
-export default async function CalendarPage() {
-  const supabase = await createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
+export default function CalendarPage() {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [emailAccounts, setEmailAccounts] = useState([])
+  const [calendars, setCalendars] = useState([])
+  const [recentEvents, setRecentEvents] = useState([])
+  const router = useRouter()
+  const supabase = createClient()
 
-  if (error || !user) {
-    redirect('/login')
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser()
+        
+        if (error || !user) {
+          router.push('/login')
+          return
+        }
+
+        setUser(user)
+
+        // Get user data with error handling
+        try {
+          const [emailAccountsResult, calendarsResult, eventsResult] = await Promise.all([
+            supabase.from('email_accounts').select('*').eq('user_id', user.id),
+            supabase.from('calendars').select('*').eq('user_id', user.id),
+            supabase
+              .from('events')
+              .select(`
+                *,
+                calendars (name, provider_calendar_id)
+              `)
+              .eq('user_id', user.id)
+              .gte('start_time', new Date().toISOString())
+              .order('start_time')
+              .limit(5)
+          ])
+          
+          setEmailAccounts(emailAccountsResult.data || [])
+          setCalendars(calendarsResult.data || [])
+          setRecentEvents(eventsResult.data || [])
+        } catch (error) {
+          console.error('Error fetching user data:', error)
+          // Continue with empty arrays - graceful degradation
+        }
+      } catch (error) {
+        console.error('Auth error:', error)
+        router.push('/login')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    getUser()
+  }, [router, supabase])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
   }
 
-  // Get user data with error handling
-  let emailAccounts: any[] = []
-  let calendars: any[] = []
-  let recentEvents: any[] = []
-
-  try {
-    const [emailAccountsResult, calendarsResult] = await Promise.all([
-      getUserEmailAccounts().catch(() => []),
-      getUserCalendars().catch(() => [])
-    ])
-    
-    emailAccounts = emailAccountsResult
-    calendars = calendarsResult
-
-    // Get recent events with error handling
-    const { data: eventsData } = await supabase
-      .from('events')
-      .select(`
-        *,
-        calendars (name, provider_calendar_id)
-      `)
-      .eq('user_id', user.id)
-      .gte('start_time', new Date().toISOString())
-      .order('start_time')
-      .limit(5)
-      .then(result => result || { data: [] })
-      .catch(() => ({ data: [] }))
-    
-    recentEvents = eventsData || []
-  } catch (error) {
-    console.error('Error loading calendar data:', error)
-    // Continue with empty arrays - page will still render
+  if (!user) {
+    return null
   }
 
   return (
