@@ -352,8 +352,41 @@ Remember: It's better to suggest actionable items that users can decline than to
     }))
     
     // Validate and sanitize the result
+    const hasSchedulingFromContent = Boolean(result.hasSchedulingContent) || adjustedExtractions.length > 0
+    
+    // Additional heuristic check for common scheduling patterns (safety net)
+    const emailText = `${emailContent.subject} ${emailContent.body}`.toLowerCase()
+    const hasSchedulingHeuristics = 
+      emailText.includes('meeting') ||
+      emailText.includes('schedule') ||
+      emailText.includes('calendar') ||
+      emailText.includes('appointment') ||
+      emailText.includes('call') ||
+      /\d{1,2}(:\d{2})?\s*(am|pm)/i.test(emailContent.body) || // Time patterns
+      /\b(tomorrow|today|next week|this week)\b/i.test(emailContent.body) ||
+      emailText.includes('send it') && emailText.includes('time') ||
+      (classification.type === 'work_internal' && (
+        emailText.includes('virtual') || 
+        emailText.includes('zoom') || 
+        emailText.includes('teams') ||
+        emailText.includes('let\\'s plan') ||
+        emailText.includes('works for you')
+      ))
+    
+    // Use heuristics as fallback if AI missed obvious scheduling content
+    const finalHasScheduling = hasSchedulingFromContent || (hasSchedulingHeuristics && adjustedConfidence > 0.3)
+    
+    console.log(`Email analysis result for "${emailContent.subject.substring(0, 50)}":`, {
+      aiDetected: result.hasSchedulingContent,
+      extractionCount: adjustedExtractions.length,
+      heuristicDetected: hasSchedulingHeuristics,
+      finalDecision: finalHasScheduling,
+      confidence: adjustedConfidence,
+      emailType: classification.type
+    })
+    
     return {
-      hasSchedulingContent: Boolean(result.hasSchedulingContent) || adjustedExtractions.length > 0,
+      hasSchedulingContent: finalHasScheduling,
       extractions: adjustedExtractions,
       summary: String(result.summary || 'No summary available'),
       overallConfidence: adjustedConfidence
