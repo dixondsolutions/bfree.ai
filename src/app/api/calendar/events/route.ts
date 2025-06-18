@@ -35,13 +35,15 @@ export async function GET(request: NextRequest) {
       .from('tasks')
       .select('*')
       .eq('user_id', user.id)
-      .or(`scheduled_start.gte.${startDate},scheduled_end.gte.${startDate},due_date.gte.${startDate}`)
-      .or(`scheduled_start.lte.${endDate},scheduled_end.lte.${endDate},due_date.lte.${endDate}`)
-      .order('created_at', { ascending: false })
 
     if (!includeCompleted) {
       taskQuery = taskQuery.neq('status', 'completed')
     }
+
+    // Apply date filtering - get tasks with dates in our range
+    taskQuery = taskQuery.or(`and(scheduled_start.gte.${startDate},scheduled_start.lte.${endDate}),and(scheduled_end.gte.${startDate},scheduled_end.lte.${endDate}),and(due_date.gte.${startDate},due_date.lte.${endDate})`)
+    
+    taskQuery = taskQuery.order('created_at', { ascending: false })
 
     const { data: tasks, error: tasksError } = await taskQuery
 

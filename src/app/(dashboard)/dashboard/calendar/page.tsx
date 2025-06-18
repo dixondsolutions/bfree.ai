@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Calendar as CalendarIcon, Clock, CheckCircle2, Circle, AlertCircle, Plus } from 'lucide-react'
 import { TaskScheduleView } from '@/components/tasks/TaskScheduleView'
 import { ModernCalendarScheduler } from '@/components/calendar/ModernCalendarScheduler'
-import { format } from 'date-fns'
+import { format, startOfDay, endOfDay } from 'date-fns'
 
 interface CalendarEvent {
   id: string
@@ -25,247 +25,259 @@ interface CalendarEvent {
   source: 'tasks' | 'calendar'
 }
 
-interface CalendarData {
-  events: CalendarEvent[]
-  eventsByDate: Record<string, CalendarEvent[]>
-  summary: {
-    totalEvents: number
-    tasks: number
-    calendarEvents: number
-  }
+interface EventSummary {
+  totalEvents: number
+  tasks: number
+  calendarEvents: number
+  dateRange: { start: string; end: string }
 }
 
 export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-  const [calendarData, setCalendarData] = useState<CalendarData | null>(null)
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [eventsByDate, setEventsByDate] = useState<Record<string, CalendarEvent[]>>({})
+  const [summary, setSummary] = useState<EventSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [view, setView] = useState<'schedule' | 'calendar'>('schedule')
 
-  useEffect(() => {
-    loadCalendarData()
-  }, [selectedDate])
-
-  const loadCalendarData = async () => {
+  // Fetch events for the selected date
+  const fetchEvents = async (date: Date) => {
     try {
       setLoading(true)
       setError(null)
-
-      // Format dates for API
-      const startDate = selectedDate.toISOString().split('T')[0]
-      const endDate = selectedDate.toISOString().split('T')[0]
       
-      const params = new URLSearchParams({
-        start_date: startDate,
-        end_date: endDate,
-        include_completed: 'true'
-      })
-
-      const response = await fetch(`/api/calendar/events?${params}`)
+      const startDate = startOfDay(date).toISOString()
+      const endDate = endOfDay(date).toISOString()
+      
+      const response = await fetch(`/api/calendar/events?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&include_completed=false`)
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
+      
       const data = await response.json()
-
+      
       if (data.success) {
-        setCalendarData(data)
+        setEvents(data.events || [])
+        setEventsByDate(data.eventsByDate || {})
+        setSummary(data.summary || null)
       } else {
-        setError(data.error || 'Failed to load calendar data')
+        throw new Error(data.error || 'Failed to fetch events')
       }
     } catch (err) {
-      console.error('Error loading calendar data:', err)
-      setError('Network error loading calendar')
+      console.error('Error fetching events:', err)
+      setError(err instanceof Error ? err.message : 'Unknown error occurred')
+      setEvents([])
+      setEventsByDate({})
+      setSummary(null)
     } finally {
       setLoading(false)
     }
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-200'
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200'
-      case 'medium': return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'low': return 'bg-gray-100 text-gray-800 border-gray-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
+  // Load events when component mounts or date changes
+  useEffect(() => {
+    fetchEvents(selectedDate)
+  }, [selectedDate])
+
+  // Get events for the selected date
+  const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
+  const todaysEvents = eventsByDate[selectedDateKey] || []
+
+  const priorityColors = {
+    urgent: 'bg-red-500',
+    high: 'bg-orange-500',
+    medium: 'bg-yellow-500',
+    low: 'bg-green-500'
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle2 className="h-4 w-4 text-green-600" />
-      case 'in_progress': return <Clock className="h-4 w-4 text-blue-600" />
-      case 'pending': return <Circle className="h-4 w-4 text-gray-400" />
-      default: return <Circle className="h-4 w-4 text-gray-400" />
-    }
-  }
-
-  const todayEvents = calendarData?.eventsByDate[selectedDate.toISOString().split('T')[0]] || []
-
-  if (loading) {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      </div>
-    )
+  const statusIcons = {
+    pending: Circle,
+    in_progress: Clock,
+    completed: CheckCircle2,
+    deferred: AlertCircle
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Calendar</h1>
+          <h1 className="text-3xl font-bold">Calendar</h1>
           <p className="text-muted-foreground">
             Manage your schedule and tasks for {format(selectedDate, 'EEEE, MMMM d, yyyy')}
           </p>
         </div>
-        
         <div className="flex gap-2">
-          <Button
-            variant={view === 'schedule' ? 'default' : 'outline'}
-            onClick={() => setView('schedule')}
-          >
+          <Button variant="outline" onClick={() => fetchEvents(selectedDate)}>
             <CalendarIcon className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button variant="default">
+            <Plus className="h-4 w-4 mr-2" />
             Schedule
           </Button>
-          <Button
-            variant={view === 'calendar' ? 'default' : 'outline'}
-            onClick={() => setView('calendar')}
-          >
-                         <CalendarIcon className="h-4 w-4 mr-2" />
+          <Button variant="outline">
+            <CalendarIcon className="h-4 w-4 mr-2" />
             Calendar
           </Button>
         </div>
       </div>
 
-      {/* Error Display */}
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summary?.totalEvents || 0}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tasks</CardTitle>
+            <Circle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summary?.tasks || 0}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Calendar Events</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summary?.calendarEvents || 0}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Error State */}
       {error && (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-red-600">
               <AlertCircle className="h-4 w-4" />
-              <span>{error}</span>
+              <span className="font-medium">Failed to load schedule</span>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Summary Stats */}
-      {calendarData && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Events</p>
-                  <p className="text-2xl font-bold">{calendarData.summary.totalEvents}</p>
-                </div>
-                <CalendarIcon className="h-8 w-8 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Tasks</p>
-                  <p className="text-2xl font-bold">{calendarData.summary.tasks}</p>
-                </div>
-                <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Calendar Events</p>
-                  <p className="text-2xl font-bold">{calendarData.summary.calendarEvents}</p>
-                </div>
-                <Clock className="h-8 w-8 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Main Content */}
-      {view === 'schedule' ? (
-        <TaskScheduleView 
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-        />
-      ) : (
-        <ModernCalendarScheduler 
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-        />
-      )}
-
-      {/* Today's Events List */}
-      {todayEvents.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5" />
-              Today's Schedule ({todayEvents.length} items)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {todayEvents.map((event) => (
-                <div key={event.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {event.status && getStatusIcon(event.status)}
-                    <div>
-                      <h4 className="font-medium">{event.title}</h4>
-                      {event.description && (
-                        <p className="text-sm text-muted-foreground">{event.description}</p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-xs">
-                          {event.type}
-                        </Badge>
-                        {event.priority && (
-                          <Badge className={`text-xs ${getPriorityColor(event.priority)}`}>
-                            {event.priority}
-                          </Badge>
-                        )}
-                        {event.ai_generated && (
-                          <Badge variant="outline" className="text-xs">
-                            AI
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {event.start && format(new Date(event.start), 'h:mm a')}
-                    {event.estimated_duration && ` (${event.estimated_duration}m)`}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Empty State */}
-      {!loading && (!calendarData || calendarData.summary.totalEvents === 0) && (
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No events scheduled</h3>
-            <p className="text-muted-foreground mb-4">
-              You don't have any tasks or events for {format(selectedDate, 'MMMM d, yyyy')}
-            </p>
-            <Button onClick={() => window.location.href = '/dashboard/suggestions'}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create AI Suggestions
+            <p className="text-sm text-red-500 mt-1">{error}</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-3"
+              onClick={() => fetchEvents(selectedDate)}
+            >
+              <CalendarIcon className="h-4 w-4 mr-2" />
+              Retry
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-2 text-muted-foreground">Loading schedule...</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Main Content */}
+      {!loading && !error && (
+        <>
+          {/* Today's Events List */}
+          {todaysEvents.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Today's Schedule</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {todaysEvents.map((event) => {
+                    const StatusIcon = statusIcons[event.status as keyof typeof statusIcons] || Circle
+                    
+                    return (
+                      <div
+                        key={event.id}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <StatusIcon className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <div className="font-medium">{event.title}</div>
+                            {event.description && (
+                              <div className="text-sm text-muted-foreground">
+                                {event.description}
+                              </div>
+                            )}
+                            <div className="text-xs text-muted-foreground">
+                              {format(new Date(event.start), 'h:mm a')}
+                              {event.end && ` - ${format(new Date(event.end), 'h:mm a')}`}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {event.priority && (
+                            <Badge
+                              variant="secondary"
+                              className={`${priorityColors[event.priority as keyof typeof priorityColors]} text-white text-xs`}
+                            >
+                              {event.priority}
+                            </Badge>
+                          )}
+                          {event.ai_generated && (
+                            <Badge variant="outline" className="text-xs">
+                              AI
+                            </Badge>
+                          )}
+                          <Badge variant={event.type === 'task' ? 'default' : 'secondary'} className="text-xs">
+                            {event.type}
+                          </Badge>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center py-8">
+                  <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No events scheduled</h3>
+                  <p className="text-muted-foreground mb-4">
+                    You don't have any tasks or events for {format(selectedDate, 'MMMM d, yyyy')}
+                  </p>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create AI Suggestions
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Task Schedule Component */}
+          <TaskScheduleView onRefresh={() => fetchEvents(selectedDate)} />
+
+          {/* Calendar Scheduler Component */}
+          <ModernCalendarScheduler 
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            events={events}
+          />
+        </>
       )}
     </div>
   )
