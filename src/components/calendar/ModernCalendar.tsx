@@ -118,9 +118,12 @@ export function ModernCalendar({
       return
     }
     
+    // Clear error state immediately when starting fetch
+    setError(null)
+    console.log('Cleared error state at start of fetch')
+    
     try {
       setLoading(true)
-      setError(null)
 
       let startDate: Date
       let endDate: Date
@@ -181,6 +184,12 @@ export function ModernCalendar({
       // Clear any previous errors since we got here successfully
       setError(null)
       console.log('Successfully fetched calendar data - clearing error state')
+      
+      // Force re-render to ensure error state is cleared
+      setTimeout(() => {
+        setError(null)
+        console.log('Force clearing error state after timeout')
+      }, 0)
 
     } catch (err) {
       setError('Failed to load calendar data')
@@ -568,7 +577,9 @@ export function ModernCalendar({
     eventsCount: events.length,
     tasksCount: tasks.length,
     view,
-    currentDate: format(currentDate, 'yyyy-MM-dd')
+    currentDate: format(currentDate, 'yyyy-MM-dd'),
+    willShowError: !!error,
+    willShowContent: !loading && !error
   })
 
   return (
