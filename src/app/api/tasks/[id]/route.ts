@@ -7,7 +7,7 @@ const UpdateTaskSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   category: z.enum(['work', 'personal', 'health', 'finance', 'education', 'social', 'household', 'travel', 'project', 'other']).optional(),
-  status: z.enum(['pending', 'in_progress', 'completed', 'cancelled', 'blocked', 'deferred']).optional(),
+  status: z.enum(['pending', 'in_progress', 'completed', 'cancelled', 'blocked', 'deferred', 'pending_schedule', 'scheduled']).optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   estimated_duration: z.number().positive().optional(),
   due_date: z.string().datetime().optional().nullable(),
@@ -37,7 +37,7 @@ export async function GET(
 
     // Get task details
     const { data: task, error } = await supabase
-      .from('task_overview')
+      .from('tasks')
       .select('*')
       .eq('id', taskId)
       .eq('user_id', user.id)
@@ -57,7 +57,7 @@ export async function GET(
     ] = await Promise.all([
       // Subtasks
       supabase
-        .from('task_overview')
+        .from('tasks')
         .select('*')
         .eq('parent_task_id', taskId)
         .order('created_at', { ascending: false }),

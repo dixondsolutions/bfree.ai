@@ -24,8 +24,8 @@ interface PendingTask {
   category?: string
   ai_generated: boolean
   confidence_score?: number
-  suggested_start?: string
-  suggested_end?: string
+  scheduled_start?: string
+  scheduled_end?: string
   conflicts_detected?: boolean
   conflicting_events?: any[]
 }
@@ -60,7 +60,7 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
   }
 
   const handleApprove = async (task: PendingTask) => {
-    if (!task.suggested_start || !task.suggested_end) return
+    if (!task.scheduled_start || !task.scheduled_end) return
     
     setProcessingIds(prev => new Set(prev).add(task.id))
     
@@ -69,8 +69,8 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          scheduled_start: task.suggested_start,
-          scheduled_end: task.suggested_end,
+          scheduled_start: task.scheduled_start,
+          scheduled_end: task.scheduled_end,
           status: 'scheduled'
         })
       })
@@ -124,12 +124,12 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
   }
 
   const handleModify = async (task: PendingTask, timeAdjustment: number) => {
-    if (!task.suggested_start) return
+    if (!task.scheduled_start) return
     
     setProcessingIds(prev => new Set(prev).add(task.id))
     
     try {
-      const currentStart = new Date(task.suggested_start)
+      const currentStart = new Date(task.scheduled_start)
       const newStart = addMinutes(currentStart, timeAdjustment)
       const newEnd = addMinutes(newStart, task.estimated_duration)
       
@@ -151,8 +151,8 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
         t.id === task.id 
           ? { 
               ...t, 
-              suggested_start: newStart.toISOString(), 
-              suggested_end: newEnd.toISOString() 
+              scheduled_start: newStart.toISOString(), 
+              scheduled_end: newEnd.toISOString() 
             }
           : t
       ))
@@ -169,7 +169,7 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
 
   const handleBulkApprove = async () => {
     const tasksToApprove = pendingTasks.filter(t => 
-      t.suggested_start && t.suggested_end && !t.conflicts_detected
+      t.scheduled_start && t.scheduled_end && !t.conflicts_detected
     )
     
     for (const task of tasksToApprove) {
@@ -280,12 +280,12 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
                       </p>
                     )}
 
-                    {task.suggested_start && task.suggested_end ? (
+                    {task.scheduled_start && task.scheduled_end ? (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm">
                           <CalendarIcon className="h-4 w-4" />
                           <span>
-                            {format(new Date(task.suggested_start), 'MMM d, h:mm a')} - {format(new Date(task.suggested_end), 'h:mm a')}
+                            {format(new Date(task.scheduled_start), 'MMM d, h:mm a')} - {format(new Date(task.scheduled_end), 'h:mm a')}
                           </span>
                           <span className="text-muted-foreground">
                             ({task.estimated_duration}m)
@@ -335,7 +335,7 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
                         variant="default"
                         size="sm"
                         onClick={() => handleApprove(task)}
-                        disabled={processingIds.has(task.id) || !task.suggested_start}
+                        disabled={processingIds.has(task.id) || !task.scheduled_start}
                       >
                         <CheckCircle2 className="h-4 w-4 mr-1" />
                         Approve

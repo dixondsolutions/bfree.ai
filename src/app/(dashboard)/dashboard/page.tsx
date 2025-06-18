@@ -339,8 +339,8 @@ export default async function DashboardPage() {
         </DashboardSection>
 
         {/* Gmail Sync Management */}
-        <DashboardSection>
-          <GmailSyncManager variant="compact" />
+        <DashboardSection title="Gmail Sync">
+          <GmailSyncManager />
         </DashboardSection>
 
         {/* Pipeline Status Widget */}

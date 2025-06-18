@@ -24,7 +24,7 @@ const CreateTaskSchema = z.object({
 })
 
 const UpdateTaskSchema = CreateTaskSchema.partial().extend({
-  status: z.enum(['pending', 'in_progress', 'completed', 'cancelled', 'blocked', 'deferred']).optional()
+  status: z.enum(['pending', 'in_progress', 'completed', 'cancelled', 'blocked', 'deferred', 'pending_schedule', 'scheduled']).optional()
 })
 
 /**
