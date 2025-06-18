@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { 
   Search, 
@@ -17,8 +17,14 @@ import {
   CheckCircle,
   AlertTriangle,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  Loader2,
+  RefreshCw,
+  Mail,
+  Settings,
+  Plus
 } from 'lucide-react';
+import Link from 'next/link';
 
 // Email Item Component
 interface EmailProps {
@@ -162,9 +168,25 @@ const EmailItem: React.FC<EmailProps & { onClick: () => void }> = ({
 };
 
 // Email List Header with Search and Filters
-const EmailListHeader: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
+interface EmailListHeaderProps {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  activeFilter: string;
+  setActiveFilter: (filter: string) => void;
+  totalEmails: number;
+  isLoading: boolean;
+  onRefresh: () => void;
+}
 
+const EmailListHeader: React.FC<EmailListHeaderProps> = ({ 
+  searchQuery, 
+  setSearchQuery, 
+  activeFilter, 
+  setActiveFilter, 
+  totalEmails,
+  isLoading,
+  onRefresh 
+}) => {
   return (
     <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4 space-y-4">
       {/* Search Bar */}
@@ -182,24 +204,54 @@ const EmailListHeader: React.FC = () => {
       {/* Filters and Stats */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <button className="flex items-center space-x-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+          <button 
+            onClick={() => setActiveFilter('all')}
+            className={cn(
+              "flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+              activeFilter === 'all' 
+                ? "bg-primary text-primary-foreground" 
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            )}
+          >
             <MessageSquare className="h-4 w-4" />
             <span>All Mail</span>
           </button>
-          <button className="flex items-center space-x-2 px-3 py-1.5 text-muted-foreground hover:text-foreground rounded-lg text-sm">
+          <button 
+            onClick={() => setActiveFilter('ai-priority')}
+            className={cn(
+              "flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+              activeFilter === 'ai-priority' 
+                ? "bg-primary text-primary-foreground" 
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            )}
+          >
             <Brain className="h-4 w-4" />
             <span>AI Priority</span>
           </button>
-          <button className="flex items-center space-x-2 px-3 py-1.5 text-muted-foreground hover:text-foreground rounded-lg text-sm">
+          <button 
+            onClick={() => setActiveFilter('needs-scheduling')}
+            className={cn(
+              "flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+              activeFilter === 'needs-scheduling' 
+                ? "bg-primary text-primary-foreground" 
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            )}
+          >
             <Calendar className="h-4 w-4" />
             <span>Needs Scheduling</span>
           </button>
         </div>
 
         <div className="flex items-center space-x-2">
-          <span className="text-sm text-muted-foreground">247 emails</span>
-          <button className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground">
-            <Filter className="h-4 w-4" />
+          <span className="text-sm text-muted-foreground">
+            {totalEmails} email{totalEmails !== 1 ? 's' : ''}
+          </span>
+          <button 
+            onClick={onRefresh}
+            disabled={isLoading}
+            className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
           </button>
         </div>
       </div>
@@ -274,76 +326,229 @@ const AISuggestionsPanel: React.FC = () => {
   );
 };
 
+// Email state management interfaces
+interface EmailsResponse {
+  emails: EmailProps[];
+  total: number;
+  page: number;
+  limit: number;
+  hasNextPage: boolean;
+  totalFetched?: number;
+  aiSuggestionsCount?: number;
+  fallbackMode?: boolean;
+  error?: string;
+  message?: string;
+}
+
 // Main Email Interface Component
 export const ModernEmailInterface: React.FC = () => {
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+  const [emails, setEmails] = useState<EmailProps[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [totalEmails, setTotalEmails] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Sample email data
-  const emails: EmailProps[] = [
-    {
-      id: '1',
-      from: { name: 'Alice Johnson', email: 'alice@company.com' },
-      subject: 'Q4 Planning Meeting Discussion',
-      preview: 'Hi there! I wanted to follow up on our Q4 planning session. Could we schedule a meeting next week to discuss...',
-      time: '2 min ago',
-      isRead: false,
-      isStarred: true,
-      hasAttachment: false,
-      aiAnalysis: {
-        priority: 'high',
-        needsScheduling: true,
-        sentiment: 'positive',
-        suggestedActions: ['Schedule meeting', 'Send availability']
+  // Fetch emails function
+  const fetchEmails = async (page: number = 1, reset: boolean = true) => {
+    try {
+      if (reset) setLoading(true);
+      
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20',
+        filter: activeFilter,
+        ...(searchQuery && { query: searchQuery })
+      });
+
+      const response = await fetch(`/api/emails/list?${params}`);
+      const data: EmailsResponse = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch emails');
       }
-    },
-    {
-      id: '2',
-      from: { name: 'Bob Smith', email: 'bob@client.com' },
-      subject: 'Project Update Required',
-      preview: 'Hope you are doing well. I need an update on the current project status. When can we expect the next deliverable...',
-      time: '15 min ago',
-      isRead: false,
-      isStarred: false,
-      hasAttachment: true,
-      aiAnalysis: {
-        priority: 'medium',
-        needsScheduling: false,
-        sentiment: 'neutral',
-        suggestedActions: ['Draft response', 'Check project status']
+
+      // Transform API response to match EmailProps interface
+      const transformedEmails: EmailProps[] = data.emails.map(email => ({
+        id: email.id,
+        from: email.from,
+        subject: email.subject,
+        preview: email.preview,
+        time: email.time,
+        isRead: email.isRead,
+        isStarred: email.isStarred,
+        hasAttachment: email.hasAttachment,
+        aiAnalysis: email.aiAnalysis
+      }));
+
+      if (reset) {
+        setEmails(transformedEmails);
+      } else {
+        setEmails(prev => [...prev, ...transformedEmails]);
       }
-    },
-    {
-      id: '3',
-      from: { name: 'Carol Williams', email: 'carol@vendor.com' },
-      subject: 'Budget Review Schedule',
-      preview: 'Thank you for your email. I have reviewed the budget proposal and would like to schedule a call to discuss...',
-      time: '1 hour ago',
-      isRead: true,
-      isStarred: false,
-      hasAttachment: false,
-      aiAnalysis: {
-        priority: 'low',
-        needsScheduling: true,
-        sentiment: 'positive',
-        suggestedActions: ['Schedule call', 'Prepare budget docs']
-      }
+      
+      setTotalEmails(data.total);
+      setHasNextPage(data.hasNextPage);
+      setCurrentPage(page);
+      setError(data.error || null);
+      
+    } catch (err) {
+      console.error('Error fetching emails:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch emails');
+      if (reset) setEmails([]);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
     }
-  ];
+  };
+
+  // Load more emails (pagination)
+  const loadMoreEmails = () => {
+    if (!loading && hasNextPage) {
+      fetchEmails(currentPage + 1, false);
+    }
+  };
+
+  // Refresh emails
+  const refreshEmails = async () => {
+    setIsRefreshing(true);
+    await fetchEmails(1, true);
+  };
+
+  // Initial load and filter/search effects
+  useEffect(() => {
+    fetchEmails(1, true);
+  }, [activeFilter]);
+
+  // Search debounce effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery !== '') {
+        fetchEmails(1, true);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Clear search effect
+  useEffect(() => {
+    if (searchQuery === '') {
+      fetchEmails(1, true);
+    }
+  }, [searchQuery]);
 
   return (
     <div className="flex h-full bg-background">
       {/* Email List */}
       <div className="flex-1 flex flex-col">
-        <EmailListHeader />
+        <EmailListHeader 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          activeFilter={activeFilter}
+          setActiveFilter={setActiveFilter}
+          totalEmails={totalEmails}
+          isLoading={loading || isRefreshing}
+          onRefresh={refreshEmails}
+        />
         
         <div className="flex-1 overflow-auto">
-          {emails.map((email) => (
-            <EmailItem
-              key={email.id}
-              {...email}
-              onClick={() => setSelectedEmail(email.id)}
-            />
-          ))}
+          {loading && emails.length === 0 ? (
+            // Loading state
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Loading emails...</p>
+              </div>
+            </div>
+          ) : error && emails.length === 0 ? (
+            // Error state
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center max-w-md">
+                <AlertTriangle className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">Unable to Load Emails</h3>
+                <p className="text-sm text-muted-foreground mb-4">{error}</p>
+                <div className="space-y-2">
+                  <button 
+                    onClick={refreshEmails}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : emails.length === 0 ? (
+            // Empty state
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center max-w-md">
+                <Mail className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">
+                  {activeFilter === 'all' ? 'No Emails Found' : 
+                   activeFilter === 'ai-priority' ? 'No High Priority Emails' :
+                   'No Emails Need Scheduling'}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {activeFilter === 'all' 
+                    ? 'Connect your Gmail account to start managing your emails with AI assistance.' 
+                    : 'Try adjusting your filters or check back later.'}
+                </p>
+                <div className="space-y-2">
+                  <Link href="/dashboard/settings">
+                    <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                      <Settings className="h-4 w-4 mr-2 inline" />
+                      Connect Gmail
+                    </button>
+                  </Link>
+                  {activeFilter !== 'all' && (
+                    <button 
+                      onClick={() => setActiveFilter('all')}
+                      className="block px-4 py-2 bg-accent text-accent-foreground rounded-lg text-sm font-medium hover:bg-accent/80 transition-colors mx-auto"
+                    >
+                      View All Emails
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {emails.map((email) => (
+                <EmailItem
+                  key={email.id}
+                  {...email}
+                  onClick={() => setSelectedEmail(email.id)}
+                />
+              ))}
+              
+              {/* Load More Button */}
+              {hasNextPage && (
+                <div className="p-4 text-center border-t">
+                  <button
+                    onClick={loadMoreEmails}
+                    disabled={loading}
+                    className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2 inline" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2 inline" />
+                        Load More Emails
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
