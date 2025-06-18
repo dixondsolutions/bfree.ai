@@ -85,7 +85,7 @@ export async function processQueuedEmails(maxItems: number = 10) {
       console.log(`AI Analysis result: hasSchedulingContent=${analysis.hasSchedulingContent}, extractions=${analysis.extractions.length}`)
 
       if (analysis.hasSchedulingContent && analysis.extractions.length > 0) {
-        // Store AI suggestions in the database
+        // Store AI suggestions in the database AND create tasks for high-confidence items
         for (const extraction of analysis.extractions) {
           const { data: suggestion, error: suggestionError } = await supabase
             .from('ai_suggestions')
@@ -113,6 +113,48 @@ export async function processQueuedEmails(maxItems: number = 10) {
           if (!suggestionError) {
             suggestionsCount++
             console.log(`Created AI suggestion: ${extraction.title} (confidence: ${extraction.confidence})`)
+            
+            // Auto-create tasks for high-confidence suggestions (0.6+)
+            if (extraction.confidence >= 0.6) {
+              try {
+                const taskData = {
+                  user_id: user.id,
+                  title: extraction.title,
+                  description: extraction.description || `${extraction.reasoning}\n\nGenerated from email: ${emailContent.subject}`,
+                  status: 'pending',
+                  priority: extraction.priority,
+                  source_email_record_id: queueItem.email_record_id,
+                  ai_generated: true,
+                  confidence_score: extraction.confidence,
+                  source_suggestion_id: suggestion.id,
+                  ...(extraction.suggestedDateTime && {
+                    due_date: new Date(extraction.suggestedDateTime).toISOString()
+                  })
+                }
+
+                const { data: task, error: taskError } = await supabase
+                  .from('tasks')
+                  .insert(taskData)
+                  .select()
+                  .single()
+
+                if (!taskError) {
+                  console.log(`Auto-created task: ${extraction.title} (confidence: ${extraction.confidence})`)
+                  
+                  // Update suggestion status to indicate task was created
+                  await supabase
+                    .from('ai_suggestions')
+                    .update({ 
+                      status: 'processed'
+                    })
+                    .eq('id', suggestion.id)
+                } else {
+                  console.error('Error creating auto-task:', taskError)
+                }
+              } catch (taskCreationError) {
+                console.error('Error in task auto-creation:', taskCreationError)
+              }
+            }
           } else {
             console.error('Error storing AI suggestion:', suggestionError)
           }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { EmailViewer } from './EmailViewer';
 import { 
   Search, 
   Filter, 
@@ -22,7 +23,8 @@ import {
   RefreshCw,
   Mail,
   Settings,
-  Plus
+  Plus,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -445,7 +447,7 @@ export const ModernEmailInterface: React.FC = () => {
   return (
     <div className="flex h-full bg-background">
       {/* Email List */}
-      <div className="flex-1 flex flex-col">
+      <div className={cn("flex flex-col", selectedEmail ? "w-1/2" : "flex-1")}>
         <EmailListHeader 
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -552,8 +554,26 @@ export const ModernEmailInterface: React.FC = () => {
         </div>
       </div>
 
-      {/* AI Suggestions Sidebar */}
-      <AISuggestionsPanel />
+      {/* Email Viewer */}
+      {selectedEmail && (
+        <div className="w-1/2 border-l border-border flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur">
+            <h2 className="text-sm font-medium">Email Details</h2>
+            <button
+              onClick={() => setSelectedEmail(null)}
+              className="p-2 rounded-lg hover:bg-accent/80 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto">
+            <EmailViewer emailId={selectedEmail} />
+          </div>
+        </div>
+      )}
+
+      {/* AI Suggestions Sidebar - only show if no email selected */}
+      {!selectedEmail && <AISuggestionsPanel />}
     </div>
   );
 };

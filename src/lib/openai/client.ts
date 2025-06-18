@@ -41,27 +41,33 @@ export interface EmailAnalysisResult {
 /**
  * System prompt for email analysis
  */
-const SYSTEM_PROMPT = `You are an expert AI assistant specialized in extracting scheduling and task information from emails. Your job is to analyze email content and identify actionable items that need to be scheduled or tracked.
+const SYSTEM_PROMPT = `You are a practical AI assistant specialized in extracting scheduling and task information from emails. Your goal is to help users stay organized by identifying actionable items that need attention.
 
-IMPORTANT INSTRUCTIONS:
-1. Only extract items that are clearly actionable and scheduling-related
-2. Be conservative - it's better to miss something than to create false positives
-3. Assign confidence scores based on how explicit and clear the scheduling intent is
-4. Consider context clues like sender relationship, email tone, and specific keywords
-5. Extract multiple items if the email contains several scheduling requests
+APPROACH:
+1. Look for ANY actionable content that requires scheduling, follow-up, or task completion
+2. Be practical and helpful - users prefer suggestions they can decline rather than missing important items
+3. Consider context like email chains, sender relationships, and business vs personal communication
+4. Extract multiple items if the email contains several actionable elements
+5. Pay special attention to reply chains and quoted text for context
 
-SCHEDULING TYPES:
-- meeting: Face-to-face, video calls, phone calls, appointments
-- task: Work items, assignments, deliverables that need completion
-- deadline: Items with specific due dates or time constraints
-- reminder: Follow-ups, check-ins, recurring items
+SCHEDULING TYPES TO DETECT:
+- meeting: Any proposed gatherings, calls, appointments, or face-to-face meetings
+- task: Work assignments, deliverables, reviews, action items that need completion  
+- deadline: Items with specific due dates, time-sensitive requests, or urgent matters
+- reminder: Follow-ups, check-ins, confirmations, or recurring items
 
-CONFIDENCE SCORING:
-- 0.9-1.0: Explicit scheduling language ("Let's meet", "Schedule a call", "Due by Friday")
-- 0.7-0.8: Strong implied scheduling ("Can we discuss", "Need to review", specific dates mentioned)
-- 0.5-0.6: Moderate scheduling hints (general time references, collaborative language)
-- 0.3-0.4: Weak scheduling signals (vague future references)
-- 0.0-0.2: No clear scheduling intent
+CONFIDENCE SCORING (be generous but accurate):
+- 0.8-1.0: Direct scheduling language ("let's meet", "schedule a call", "due by", specific times/dates)
+- 0.6-0.7: Strong business context requiring action ("review needed", "can we discuss", "need to follow up")
+- 0.4-0.5: Implied scheduling needs ("we should talk", collaborative planning, project coordination)
+- 0.2-0.3: Weak signals (vague future references, general inquiries)
+- 0.0-0.1: Clearly no scheduling intent (newsletters, confirmations, FYI messages)
+
+SPECIAL CASES:
+- Meeting replies/confirmations: High confidence (0.7+) if time/logistics being discussed
+- Project emails: Medium confidence (0.5+) if action items or deadlines mentioned
+- Follow-up requests: Medium-high confidence (0.6+) if specific next steps implied
+- Email chains: Extract context from quoted messages to understand full conversation
 
 Respond with a JSON object matching the EmailAnalysisResult interface.`
 
@@ -76,17 +82,35 @@ export async function analyzeEmailContent(emailContent: {
   date: Date
 }): Promise<EmailAnalysisResult> {
   try {
+    // Enhanced email parsing for better context
+    const isReply = emailContent.subject.toLowerCase().startsWith('re:') || 
+                   emailContent.subject.toLowerCase().startsWith('fwd:')
+    
+    const emailDate = emailContent.date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric', 
+      month: 'short',
+      day: 'numeric'
+    })
+    
     const prompt = `Analyze this email for scheduling and task-related content:
 
 SUBJECT: ${emailContent.subject}
 FROM: ${emailContent.from}
 TO: ${emailContent.to}
-DATE: ${emailContent.date.toISOString()}
+DATE: ${emailDate} (${emailContent.date.toISOString()})
+TYPE: ${isReply ? 'Email Reply/Chain' : 'New Email'}
 
-EMAIL BODY:
-${emailContent.body.substring(0, 4000)} ${emailContent.body.length > 4000 ? '...' : ''}
+EMAIL CONTENT:
+${emailContent.body.substring(0, 5000)} ${emailContent.body.length > 5000 ? '...' : ''}
 
-Please analyze this email and extract any scheduling-relevant information.`
+CONTEXT INSTRUCTIONS:
+${isReply ? 
+  `This is a reply/forward. Pay attention to both the new message and any quoted/original content for full context. Meeting confirmations, time changes, and logistics discussions in replies are especially important.` : 
+  `This is a new email. Look for direct scheduling requests, meeting proposals, deadlines, and action items.`
+}
+
+Please analyze this email and extract any scheduling-relevant information. Be practical and helpful - it's better to suggest actionable items that users can decline than to miss important scheduling opportunities.`
 
     const openai = getOpenAIClient()
     const response = await openai.chat.completions.create({
