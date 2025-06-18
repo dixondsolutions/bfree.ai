@@ -46,7 +46,7 @@ export async function processQueuedEmails(maxItems: number = 10) {
       // Get the email content from the emails table
       const { data: emailRecord, error: emailError } = await supabase
         .from('emails')
-        .select('subject, from_address, to_address, content_text, received_at')
+        .select('subject, from_address, to_address, content_text, content_html, received_at')
         .eq('id', queueItem.email_record_id)
         .single()
 
@@ -55,11 +55,26 @@ export async function processQueuedEmails(maxItems: number = 10) {
         throw new Error(`Email record not found: ${queueItem.email_record_id}`)
       }
 
+      // Use text content, or convert HTML to text if text is empty
+      let bodyContent = emailRecord.content_text
+      if (!bodyContent && emailRecord.content_html) {
+        bodyContent = emailRecord.content_html
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/\s+/g, ' ')
+          .trim()
+      }
+
       const emailContent = {
         subject: emailRecord.subject || 'No Subject',
         from: emailRecord.from_address || 'Unknown Sender',
         to: emailRecord.to_address || user.email || '',
-        body: emailRecord.content_text || 'No content available',
+        body: bodyContent || 'No content available',
         date: emailRecord.received_at ? new Date(emailRecord.received_at) : new Date(queueItem.created_at)
       }
 

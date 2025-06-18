@@ -22,7 +22,8 @@ import {
   Bot,
   FileText,
   Target,
-  Zap
+  Zap,
+  RefreshCw
 } from 'lucide-react'
 
 interface EmailViewerProps {
@@ -327,14 +328,21 @@ export function EmailViewer({ emailId, onClose, className }: EmailViewerProps) {
           </h3>
         </CardHeader>
         <CardContent>
-          {email.content_html ? (
+          {email.content_text ? (
+            <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+              {email.content_text}
+            </div>
+          ) : email.content_html ? (
             <div 
               className="prose prose-sm max-w-none"
               dangerouslySetInnerHTML={{ __html: email.content_html }}
             />
-          ) : email.content_text ? (
-            <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-              {email.content_text}
+          ) : email.snippet ? (
+            <div className="text-gray-600 italic p-4 bg-blue-50 rounded border border-blue-200">
+              <Mail className="h-5 w-5 mx-auto mb-2 text-blue-400" />
+              <p className="text-center mb-2">Snippet Preview:</p>
+              <p className="text-center text-sm">{email.snippet}</p>
+              <p className="text-center text-xs mt-2">Try syncing emails to get full content.</p>
             </div>
           ) : (
             <div className="text-gray-500 italic p-4 bg-gray-50 rounded border border-dashed">

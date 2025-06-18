@@ -104,12 +104,26 @@ export async function POST(request: NextRequest) {
         let contentText = ''
         let contentHtml = ''
 
+        const decodeBase64Url = (str: string): string => {
+          try {
+            // Replace base64url chars and add padding if needed
+            const base64 = str.replace(/-/g, '+').replace(/_/g, '/')
+            const padding = base64.length % 4
+            const paddedBase64 = padding ? base64 + '='.repeat(4 - padding) : base64
+            
+            return Buffer.from(paddedBase64, 'base64').toString('utf-8')
+          } catch (error) {
+            console.error('Error decoding base64url:', error)
+            return ''
+          }
+        }
+
         const extractTextFromPart = (part: any): string => {
           if (part.mimeType === 'text/plain' && part.body?.data) {
-            return Buffer.from(part.body.data, 'base64').toString('utf-8')
+            return decodeBase64Url(part.body.data)
           }
           if (part.mimeType === 'text/html' && part.body?.data) {
-            return Buffer.from(part.body.data, 'base64').toString('utf-8')
+            return decodeBase64Url(part.body.data)
           }
           if (part.parts) {
             return part.parts.map(extractTextFromPart).join('')
@@ -119,18 +133,18 @@ export async function POST(request: NextRequest) {
 
         if (messageData.payload) {
           if (messageData.payload.mimeType === 'text/plain' && messageData.payload.body?.data) {
-            contentText = Buffer.from(messageData.payload.body.data, 'base64').toString('utf-8')
+            contentText = decodeBase64Url(messageData.payload.body.data)
           } else if (messageData.payload.mimeType === 'text/html' && messageData.payload.body?.data) {
-            contentHtml = Buffer.from(messageData.payload.body.data, 'base64').toString('utf-8')
+            contentHtml = decodeBase64Url(messageData.payload.body.data)
           } else if (messageData.payload.parts) {
             const textPart = messageData.payload.parts.find(p => p.mimeType === 'text/plain')
             const htmlPart = messageData.payload.parts.find(p => p.mimeType === 'text/html')
             
             if (textPart?.body?.data) {
-              contentText = Buffer.from(textPart.body.data, 'base64').toString('utf-8')
+              contentText = decodeBase64Url(textPart.body.data)
             }
             if (htmlPart?.body?.data) {
-              contentHtml = Buffer.from(htmlPart.body.data, 'base64').toString('utf-8')
+              contentHtml = decodeBase64Url(htmlPart.body.data)
             }
             
             // If no direct text/html parts, try to extract from nested parts
@@ -140,8 +154,29 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Use text content primarily, fall back to HTML
-        body = contentText || contentHtml
+        // Use text content primarily, fall back to cleaned HTML
+        if (contentText) {
+          body = contentText
+        } else if (contentHtml) {
+          // Convert HTML to text by stripping tags and cleaning whitespace
+          body = contentHtml
+            .replace(/<[^>]*>/g, ' ')  // Remove HTML tags
+            .replace(/&nbsp;/g, ' ')   // Replace &nbsp; with spaces
+            .replace(/&lt;/g, '<')     // Decode HTML entities
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/\s+/g, ' ')      // Collapse multiple spaces
+            .trim()
+        } else {
+          body = ''
+        }
+
+        // If we still don't have contentText but have HTML, create it from cleaned HTML
+        if (!contentText && contentHtml && body) {
+          contentText = body
+        }
 
         // Extract thread ID
         const threadId = messageData.threadId
