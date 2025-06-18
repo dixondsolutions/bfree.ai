@@ -78,6 +78,78 @@ export async function GET(request: NextRequest) {
           const messageData = messageResponse.data
           const content = extractMessageContent(messageData as any)
           
+          // Auto-sync email to database if it doesn't exist
+          let databaseId = msg.id! // Default to Gmail ID
+          try {
+            // Check if email already exists in database
+            const { data: existingEmail } = await supabase
+              .from('emails')
+              .select('id, gmail_id')
+              .eq('gmail_id', msg.id!)
+              .eq('user_id', user.id)
+              .single()
+            
+            if (existingEmail) {
+              // Use database ID instead of Gmail ID
+              databaseId = existingEmail.id
+            } else {
+              // Auto-sync email to database
+              const headers = messageData.payload?.headers || []
+              const getHeader = (name: string) => 
+                headers.find(h => h.name?.toLowerCase() === name.toLowerCase())?.value || ''
+
+              const subject = getHeader('Subject')
+              const from = getHeader('From')
+              const to = getHeader('To')
+              const date = getHeader('Date')
+              const messageId = getHeader('Message-ID')
+              const threadId = messageData.threadId
+
+              // Parse email addresses
+              const parseEmailAddress = (emailStr: string) => {
+                const match = emailStr.match(/<(.+?)>/)
+                return match ? match[1] : emailStr.trim()
+              }
+
+              const fromAddress = parseEmailAddress(from)
+              const toAddress = parseEmailAddress(to)
+
+              // Determine if sent by user
+              const userEmail = user.email
+              const isSent = from.toLowerCase().includes(userEmail?.toLowerCase() || '')
+
+              const emailRecord = {
+                user_id: user.id,
+                gmail_id: msg.id!,
+                thread_id: threadId,
+                message_id: messageId,
+                subject: subject.substring(0, 500),
+                from_address: fromAddress,
+                from_name: from.split('<')[0].trim(),
+                to_address: toAddress,
+                content_text: content.body.substring(0, 10000),
+                content_html: '', // We'd need to extract HTML separately
+                snippet: messageData.snippet?.substring(0, 200) || '',
+                received_at: new Date(date).toISOString(),
+                sent_at: isSent ? new Date(date).toISOString() : null,
+                ai_analyzed: false
+              }
+
+              const { data: insertedEmail, error: insertError } = await supabase
+                .from('emails')
+                .insert(emailRecord)
+                .select('id')
+                .single()
+
+              if (!insertError && insertedEmail) {
+                databaseId = insertedEmail.id
+              }
+            }
+          } catch (syncError) {
+            console.error('Error auto-syncing email:', syncError)
+            // Continue with Gmail ID if database sync fails
+          }
+          
           // Check if we have AI analysis for this email in processing_queue
           const { data: aiSuggestion } = await supabase
             .from('ai_suggestions')
@@ -117,7 +189,7 @@ export async function GET(request: NextRequest) {
           }
 
           return {
-            id: msg.id!,
+            id: databaseId, // Now using database ID instead of Gmail ID
             from: {
               name: fromName,
               email: fromEmail,
