@@ -192,16 +192,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Parse request body to check for specific email ID
+    const body = await request.json()
+    const { emailId, maxItems = 10 } = body
+
     // Initialize automation settings if they don't exist
     const settings = await initializeAutomationSettings(user.id)
 
-    // Check if there are any unprocessed emails that need to be added to the queue
-    const { data: unprocessedEmails, error: emailError } = await supabase
-      .from('emails')
-      .select('id, gmail_id, subject, from_address, to_address, content_text, received_at')
-      .eq('user_id', user.id)
-      .or('ai_analyzed.is.null,ai_analyzed.eq.false')
-      .limit(10)
+    let unprocessedEmails
+    let emailError
+
+    if (emailId) {
+      // Process specific email by ID
+      const { data: specificEmail, error } = await supabase
+        .from('emails')
+        .select('id, gmail_id, subject, from_address, to_address, content_text, received_at')
+        .eq('user_id', user.id)
+        .eq('id', emailId)
+        .single()
+
+      emailError = error
+      unprocessedEmails = specificEmail ? [specificEmail] : []
+    } else {
+      // Check if there are any unprocessed emails that need to be added to the queue
+      const { data, error } = await supabase
+        .from('emails')
+        .select('id, gmail_id, subject, from_address, to_address, content_text, received_at')
+        .eq('user_id', user.id)
+        .or('ai_analyzed.is.null,ai_analyzed.eq.false')
+        .limit(maxItems)
+
+      emailError = error
+      unprocessedEmails = data
+    }
 
     if (emailError) {
       console.error('Error fetching unprocessed emails:', emailError)
@@ -240,15 +263,20 @@ export async function POST(request: NextRequest) {
     // Get updated stats
     const finalStats = await getAIProcessingStats()
 
+    const message = emailId 
+      ? `Processed email ${emailId}, created ${aiResult.suggestions} suggestions, auto-created ${taskResult.tasksCreated} tasks`
+      : `Processed ${aiResult.processed} emails, created ${aiResult.suggestions} suggestions, auto-created ${taskResult.tasksCreated} tasks`
+
     return NextResponse.json({
       success: true,
-      message: `Processed ${aiResult.processed} emails, created ${aiResult.suggestions} suggestions, auto-created ${taskResult.tasksCreated} tasks`,
+      message,
       details: {
         emailsQueued: queuedEmails,
         emailsProcessed: aiResult.processed,
         suggestionsCreated: aiResult.suggestions,
         tasksAutoCreated: taskResult.tasksCreated,
-        errors: aiResult.errors
+        errors: aiResult.errors,
+        specificEmailId: emailId
       },
       stats: finalStats,
       automationSettings: settings
