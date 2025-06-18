@@ -117,16 +117,7 @@ export async function processEmails(messages: GmailMessage[]) {
               user_id: user.id,
               email_id: message.id,
               email_record_id: storedEmail.id,
-              status: 'pending',
-              content: content,
-              metadata: {
-                has_scheduling_content: true,
-                subject: content.subject,
-                from: content.from,
-                to: content.to,
-                date: content.date.toISOString(),
-                thread_id: message.threadId
-              }
+              status: 'pending'
             })
             .select()
             .single()
@@ -156,13 +147,7 @@ export async function processEmails(messages: GmailMessage[]) {
               email_id: message.id,
               email_record_id: storedEmail.id,
               status: 'completed',
-              processed_at: new Date().toISOString(),
-              metadata: {
-                has_scheduling_content: false,
-                subject: content.subject,
-                from: content.from,
-                reason: 'No scheduling-relevant content found'
-              }
+              processed_at: new Date().toISOString()
             })
         }
       } catch (emailError) {
@@ -174,16 +159,7 @@ export async function processEmails(messages: GmailMessage[]) {
             .insert({
               user_id: user.id,
               email_id: message.id,
-              status: 'pending',
-              content: content,
-              metadata: {
-                has_scheduling_content: true,
-                subject: content.subject,
-                from: content.from,
-                to: content.to,
-                date: content.date.toISOString(),
-                thread_id: message.threadId
-              }
+              status: 'pending'
             })
             .select()
             .single()

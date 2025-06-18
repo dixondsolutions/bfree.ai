@@ -43,26 +43,24 @@ export async function processQueuedEmails(maxItems: number = 10) {
         .update({ status: 'processing' })
         .eq('id', queueItem.id)
 
-      // Use the stored email content from the queue
-      let emailContent
-      if (queueItem.content && typeof queueItem.content === 'object') {
-        emailContent = {
-          subject: queueItem.content.subject || 'No Subject',
-          from: queueItem.content.from || 'Unknown Sender',
-          to: queueItem.content.to || user.email || '',
-          body: queueItem.content.body || 'No content available',
-          date: queueItem.content.date ? new Date(queueItem.content.date) : new Date(queueItem.created_at)
-        }
-      } else {
-        // Fallback to metadata if content structure is different
-        const metadata = queueItem.metadata as any || {}
-        emailContent = {
-          subject: metadata.subject || `Email ${queueItem.email_id}`,
-          from: metadata.from || 'Unknown Sender',
-          to: metadata.to || user.email || '',
-          body: metadata.body || queueItem.content || 'Sample email content for processing',
-          date: metadata.date ? new Date(metadata.date) : new Date(queueItem.created_at)
-        }
+      // Get the email content from the emails table
+      const { data: emailRecord, error: emailError } = await supabase
+        .from('emails')
+        .select('subject, from_address, to_address, content_text, received_at')
+        .eq('id', queueItem.email_record_id)
+        .single()
+
+      if (emailError || !emailRecord) {
+        console.error(`Failed to get email content for ${queueItem.email_record_id}:`, emailError)
+        throw new Error(`Email record not found: ${queueItem.email_record_id}`)
+      }
+
+      const emailContent = {
+        subject: emailRecord.subject || 'No Subject',
+        from: emailRecord.from_address || 'Unknown Sender',
+        to: emailRecord.to_address || user.email || '',
+        body: emailRecord.content_text || 'No content available',
+        date: emailRecord.received_at ? new Date(emailRecord.received_at) : new Date(queueItem.created_at)
       }
 
       console.log(`Processing email: ${emailContent.subject}`)

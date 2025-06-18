@@ -216,18 +216,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         email_id: email.gmail_id || email.id,
         email_record_id: email.id,
-        status: 'pending',
-        content: {
-          subject: email.subject,
-          from: email.from_address,
-          to: email.to_address,
-          body: email.content_text,
-          date: email.received_at
-        },
-        metadata: {
-          source: 'manual_trigger',
-          email_count: unprocessedEmails.length
-        }
+        status: 'pending'
       }))
 
       const { error: insertError } = await supabase
