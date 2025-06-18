@@ -1,13 +1,23 @@
-import { signInWithEmail, signUpWithEmail, signInWithGoogle } from '@/lib/auth/actions'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Input } from '@/components/ui/Input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/Badge'
+import { 
+  Brain, 
+  Mail, 
+  ArrowRight,
+  Shield,
+  Zap,
+  CheckCircle,
+  Github,
+  Chrome
+} from 'lucide-react'
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ message?: string; error?: string }>
-}) {
-  const params = await searchParams
+export default async function LoginPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -15,119 +25,230 @@ export default async function LoginPage({
     redirect('/dashboard')
   }
 
+  const signInWithGoogle = async () => {
+    'use server'
+    const supabase = await createClient()
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+      },
+    })
+    
+    if (data.url) {
+      redirect(data.url)
+    }
+  }
+
+  const signInWithGithub = async () => {
+    'use server'
+    const supabase = await createClient()
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'github',
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+      },
+    })
+    
+    if (data.url) {
+      redirect(data.url)
+    }
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-            Welcome to B Free.AI
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in to your AI-powered scheduling assistant
-          </p>
+    <div className="min-h-screen bg-background flex">
+      {/* Left Side - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        <div className="absolute inset-0 gradient-bg"></div>
+        <div className="relative z-10 flex flex-col justify-center p-12 text-white">
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                <Brain className="h-7 w-7 text-white" />
+              </div>
+              <span className="text-3xl font-bold">B Free.AI</span>
+            </div>
+            <h2 className="text-4xl font-bold mb-4 text-balance">
+              Your AI-Powered Productivity Assistant
+            </h2>
+            <p className="text-xl text-white/80 text-pretty">
+              Transform your email chaos into organized productivity with intelligent scheduling and task management.
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
+                <Mail className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Smart Email Processing</h3>
+                <p className="text-white/70 text-sm">AI extracts tasks and events automatically</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
+                <Zap className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Intelligent Scheduling</h3>
+                <p className="text-white/70 text-sm">Find perfect meeting times effortlessly</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
+                <Shield className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Enterprise Security</h3>
+                <p className="text-white/70 text-sm">Bank-level encryption for your data</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-12 flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              <span>14-day free trial</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              <span>No credit card required</span>
+            </div>
+          </div>
         </div>
+      </div>
 
-        {params.error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-            {params.error === 'invalid_credentials' && 'Invalid email or password'}
-            {params.error === 'signup_failed' && 'Failed to create account'}
-            {params.error === 'oauth_failed' && 'OAuth authentication failed'}
-            {params.error === 'auth_failed' && 'Authentication failed'}
-          </div>
-        )}
-
-        {params.message && (
-          <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-md">
-            {params.message === 'check_email' && 'Check your email for a confirmation link'}
-          </div>
-        )}
-
-        <div className="space-y-6">
-          {/* Google OAuth Button */}
-          <form action={signInWithGoogle}>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-3 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-            >
-              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              Continue with Google
-            </button>
-          </form>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
+      {/* Right Side - Login Form */}
+      <div className="flex-1 flex flex-col justify-center p-8 lg:p-12">
+        <div className="mx-auto w-full max-w-md">
+          {/* Mobile Header */}
+          <div className="lg:hidden mb-8 text-center">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                <Brain className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <span className="text-xl font-bold gradient-text">B Free.AI</span>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-50 text-gray-500">Or continue with email</span>
-            </div>
+            <h1 className="text-2xl font-bold">Welcome back!</h1>
+            <p className="text-muted-foreground">Sign in to your account to continue</p>
           </div>
 
-          {/* Email/Password Form */}
-          <form className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
-                placeholder="Enter your email"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
-                placeholder="Enter your password"
-              />
-            </div>
+          <Card className="glass-card border-0 shadow-xl">
+            <CardHeader className="text-center pb-6">
+              <div className="hidden lg:block">
+                <Badge variant="secondary" className="mb-4">
+                  <Zap className="w-3 h-3 mr-1" />
+                  AI-Powered
+                </Badge>
+                <CardTitle className="text-2xl font-bold">Welcome back!</CardTitle>
+                <CardDescription className="text-base">
+                  Sign in to your account to continue your productivity journey
+                </CardDescription>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="space-y-6">
+              {/* Social Login Buttons */}
+              <div className="space-y-3">
+                <form action={signInWithGoogle}>
+                  <Button 
+                    type="submit" 
+                    variant="outline" 
+                    className="w-full h-11 hover-glow"
+                  >
+                    <Chrome className="mr-3 h-4 w-4" />
+                    Continue with Google
+                  </Button>
+                </form>
+                <form action={signInWithGithub}>
+                  <Button 
+                    type="submit" 
+                    variant="outline" 
+                    className="w-full h-11 hover-glow"
+                  >
+                    <Github className="mr-3 h-4 w-4" />
+                    Continue with GitHub
+                  </Button>
+                </form>
+              </div>
 
-            <div className="flex space-x-3">
-              <button
-                formAction={signInWithEmail}
-                type="submit"
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-              >
-                Sign in
-              </button>
-              <button
-                formAction={signUpWithEmail}
-                type="submit"
-                className="group relative w-full flex justify-center py-2 px-4 border border-primary text-sm font-medium rounded-md text-primary bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-              >
-                Sign up
-              </button>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Or continue with email
+                  </span>
+                </div>
+              </div>
+
+              {/* Email Form */}
+              <form className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email address"
+                    className="h-11 focus-ring"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    className="h-11 focus-ring"
+                    required
+                  />
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="remember"
+                      className="rounded border-border"
+                    />
+                    <Label htmlFor="remember" className="text-sm font-normal">
+                      Remember me
+                    </Label>
+                  </div>
+                  <Link
+                    href="/forgot-password"
+                    className="text-primary hover:text-primary/80 font-medium"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <Button type="submit" className="w-full h-11 hover-glow">
+                  Sign in
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </form>
+
+              <div className="text-center text-sm text-muted-foreground">
+                Don&apos;t have an account?{' '}
+                <Link
+                  href="/signup"
+                  className="text-primary hover:text-primary/80 font-medium"
+                >
+                  Sign up for free
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Security Notice */}
+          <div className="mt-8 text-center">
+            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <Shield className="h-3 w-3" />
+              <span>Your data is encrypted and secure</span>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>

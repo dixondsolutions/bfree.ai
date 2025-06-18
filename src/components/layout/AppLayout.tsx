@@ -1,11 +1,23 @@
 'use client'
 
-import { ReactNode, useState } from 'react'
-import Link from 'next/link'
+import * as React from 'react'
 import { usePathname } from 'next/navigation'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Card } from '@/components/ui/Card'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/ui/sidebar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,215 +26,196 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Avatar } from '@/components/ui/avatar'
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from '@/components/ui/sidebar'
-import { 
-  Calendar, 
-  Mail, 
-  Settings, 
   Brain,
-  CalendarDays,
+  Calendar,
+  Mail,
   MessageSquare,
-  Home,
-  LogOut,
-  User,
+  Settings,
+  Users,
   Bell,
   Search,
-  Menu
+  LogOut,
+  User,
+  Sparkles,
+  BarChart3,
+  Home,
+  ChevronRight
 } from 'lucide-react'
-import { signOut } from '@/lib/auth/actions'
+
+const navigationItems = [
+  {
+    title: 'Dashboard',
+    url: '/dashboard',
+    icon: Home,
+    description: 'Overview and quick actions'
+  },
+  {
+    title: 'Emails',
+    url: '/dashboard/emails',
+    icon: Mail,
+    description: 'AI-processed email insights',
+    badge: '12'
+  },
+  {
+    title: 'Calendar',
+    url: '/dashboard/calendar',
+    icon: Calendar,
+    description: 'Smart scheduling assistant'
+  },
+  {
+    title: 'AI Suggestions',
+    url: '/dashboard/suggestions',
+    icon: Sparkles,
+    description: 'Intelligent recommendations',
+    badge: '3'
+  },
+  {
+    title: 'Analytics',
+    url: '/dashboard/analytics',
+    icon: BarChart3,
+    description: 'Productivity insights'
+  },
+  {
+    title: 'Settings',
+    url: '/dashboard/settings',
+    icon: Settings,
+    description: 'Account and preferences'
+  }
+]
 
 interface AppLayoutProps {
-  children: ReactNode
-  user?: {
-    email?: string
-    name?: string
-    image?: string
-  }
+  children: React.ReactNode
 }
 
-export function AppLayout({ children, user }: AppLayoutProps) {
+export function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname()
-  
-  const navItems = [
-    { 
-      icon: Home, 
-      label: 'Dashboard', 
-      href: '/dashboard',
-      active: pathname === '/dashboard'
-    },
-    { 
-      icon: Mail, 
-      label: 'Gmail', 
-      href: '/dashboard/emails',
-      active: pathname === '/dashboard/emails',
-      badge: '12'
-    },
-    { 
-      icon: CalendarDays, 
-      label: 'Calendar', 
-      href: '/dashboard/calendar',
-      active: pathname === '/dashboard/calendar'
-    },
-    { 
-      icon: MessageSquare, 
-      label: 'AI Suggestions', 
-      href: '/dashboard/suggestions',
-      active: pathname === '/dashboard/suggestions'
-    },
-    { 
-      icon: Settings, 
-      label: 'Settings', 
-      href: '/dashboard/settings',
-      active: pathname === '/dashboard/settings'
-    },
-  ]
-
-  const getPageTitle = () => {
-    const currentNav = navItems.find(item => item.active)
-    return currentNav?.label || 'Dashboard'
-  }
-
-  const getPageDescription = () => {
-    switch (pathname) {
-      case '/dashboard':
-        return "Welcome back! Here's your AI assistant overview."
-      case '/dashboard/emails':
-        return 'Manage and process your emails with AI assistance.'
-      case '/dashboard/calendar':
-        return 'View and manage your calendar events.'
-      case '/dashboard/suggestions':
-        return 'Review AI-generated suggestions for your schedule.'
-      case '/dashboard/settings':
-        return 'Configure your preferences and integrations.'
-      default:
-        return ''
-    }
-  }
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen w-full">
-        <Sidebar>
-          <SidebarHeader>
-            <div className="flex items-center gap-2 px-4 py-2">
+      <div className="flex min-h-screen bg-background">
+        <Sidebar className="border-r">
+          <SidebarHeader className="border-b px-6 py-4">
+            <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                 <Brain className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold">B Free.AI</span>
-            </div>
-          </SidebarHeader>
-          
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {navItems.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild isActive={item.active}>
-                        <Link href={item.href}>
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.label}</span>
-                          {item.badge && (
-                            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs text-primary-foreground">
-                              {item.badge}
-                            </span>
-                          )}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-          
-          <SidebarFooter>
-            <div className="p-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-start gap-2 p-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user?.image} />
-                      <AvatarFallback>
-                        {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col items-start text-xs">
-                      <span className="font-medium">{user?.name || 'User'}</span>
-                      <span className="text-muted-foreground">{user?.email}</span>
-                    </div>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <form action={signOut}>
-                      <button type="submit" className="flex w-full items-center">
-                        <LogOut className="mr-2 h-4 w-4" />
-                        Sign out
-                      </button>
-                    </form>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </SidebarFooter>
-        </Sidebar>
-        
-        <div className="flex flex-1 flex-col">
-          <header className="flex h-16 items-center justify-between border-b bg-background px-6">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger>
-                <Menu className="h-5 w-5" />
-              </SidebarTrigger>
-              
-              <div>
-                <h1 className="text-xl font-semibold">{getPageTitle()}</h1>
-                <p className="text-sm text-muted-foreground">{getPageDescription()}</p>
+              <div className="flex flex-col">
+                <span className="text-lg font-bold gradient-text">B Free.AI</span>
+                <span className="text-xs text-muted-foreground">AI Assistant</span>
               </div>
             </div>
-            
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon">
-                <Search className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-xs text-destructive-foreground">
-                  3
-                </span>
-              </Button>
+          </SidebarHeader>
+
+          <SidebarContent className="px-3 py-4">
+            <SidebarMenu>
+              {navigationItems.map((item) => {
+                const isActive = pathname === item.url
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      className={cn(
+                        'w-full justify-start gap-3 px-3 py-2.5 text-left transition-all',
+                        isActive
+                          ? 'bg-primary/10 text-primary border-r-2 border-primary'
+                          : 'hover:bg-accent hover:text-accent-foreground'
+                      )}
+                    >
+                      <Link href={item.url}>
+                        <item.icon className="h-4 w-4" />
+                        <div className="flex-1">
+                          <div className="font-medium">{item.title}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {item.description}
+                          </div>
+                        </div>
+                        {item.badge && (
+                          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                            {item.badge}
+                          </span>
+                        )}
+                        {isActive && <ChevronRight className="h-4 w-4 ml-auto" />}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarContent>
+
+          <SidebarFooter className="border-t p-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="w-full justify-start gap-3 px-3 py-2">
+                  <Avatar className="h-8 w-8">
+                    <div className="flex h-full w-full items-center justify-center rounded-full bg-primary">
+                      <User className="h-4 w-4 text-primary-foreground" />
+                    </div>
+                  </Avatar>
+                  <div className="flex-1 text-left">
+                    <div className="text-sm font-medium">John Doe</div>
+                    <div className="text-xs text-muted-foreground">john@example.com</div>
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarFooter>
+        </Sidebar>
+
+        <SidebarInset className="flex-1">
+          {/* Header */}
+          <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="flex h-16 items-center gap-4 px-6">
+              <SidebarTrigger className="lg:hidden" />
+              
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-semibold">
+                    {navigationItems.find(item => item.url === pathname)?.title || 'Dashboard'}
+                  </h1>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <Search className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 relative">
+                  <Bell className="h-4 w-4" />
+                  <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 text-[10px] font-medium text-white flex items-center justify-center">
+                    3
+                  </span>
+                </Button>
+              </div>
             </div>
           </header>
-          
-          <main className="flex-1 overflow-auto bg-background">
-            {children}
+
+          {/* Main Content */}
+          <main className="flex-1 overflow-auto">
+            <div className="p-6">
+              {children}
+            </div>
           </main>
-        </div>
+        </SidebarInset>
       </div>
     </SidebarProvider>
   )
