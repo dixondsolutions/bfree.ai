@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PipelineStatusWidget } from '@/components/automation/PipelineStatusWidget'
+import { TaskScheduleApproval } from '@/components/scheduling/TaskScheduleApproval'
 
 // Modern Metric Card Component
 interface MetricCardProps {
@@ -345,6 +346,64 @@ export default async function DashboardPage() {
         {/* Pipeline Status Widget */}
         <DashboardSection title="Pipeline Status">
           <PipelineStatusWidget />
+        </DashboardSection>
+
+        {/* Task Scheduling Approval */}
+        <DashboardSection title="Task Scheduling">
+          <TaskScheduleApproval 
+            onApproveSchedule={async (taskId: string, scheduleData: any) => {
+              try {
+                const response = await fetch(`/api/tasks/${taskId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(scheduleData)
+                })
+                if (!response.ok) {
+                  throw new Error('Failed to approve schedule')
+                }
+              } catch (error) {
+                console.error('Error approving schedule:', error)
+                throw error
+              }
+            }}
+            onRejectSchedule={async (taskId: string) => {
+              try {
+                const response = await fetch(`/api/tasks/${taskId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    status: 'pending',
+                    scheduled_start: null,
+                    scheduled_end: null
+                  })
+                })
+                if (!response.ok) {
+                  throw new Error('Failed to reject schedule')
+                }
+              } catch (error) {
+                console.error('Error rejecting schedule:', error)
+                throw error
+              }
+            }}
+            onModifySchedule={async (taskId: string, newStart: Date, newEnd: Date) => {
+              try {
+                const response = await fetch(`/api/tasks/${taskId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    scheduled_start: newStart.toISOString(),
+                    scheduled_end: newEnd.toISOString()
+                  })
+                })
+                if (!response.ok) {
+                  throw new Error('Failed to modify schedule')
+                }
+              } catch (error) {
+                console.error('Error modifying schedule:', error)
+                throw error
+              }
+            }}
+          />
         </DashboardSection>
 
         {/* Recent Activity & Upcoming - Desktop Optimized */}

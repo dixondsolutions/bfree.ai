@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Calendar as CalendarIcon, Clock, CheckCircle2, Circle, AlertCircle, Plus } from 'lucide-react'
-import { TaskScheduleView } from '@/components/tasks/TaskScheduleView'
 import { ModernCalendarScheduler } from '@/components/calendar/ModernCalendarScheduler'
 import { format, startOfDay, endOfDay } from 'date-fns'
 
@@ -100,39 +99,34 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4">
+      {/* Simplified Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Calendar</h1>
-          <p className="text-muted-foreground">
-            Manage your schedule and tasks for {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+          <h1 className="text-2xl font-bold">Calendar & Tasks</h1>
+          <p className="text-sm text-muted-foreground">
+            {format(selectedDate, 'EEEE, MMMM d, yyyy')} • {summary?.totalEvents || 0} events
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => fetchEvents(selectedDate)}>
+          <Button variant="outline" size="sm" onClick={() => fetchEvents(selectedDate)} disabled={loading}>
             <CalendarIcon className="h-4 w-4 mr-2" />
             Refresh
           </Button>
           <Button 
             variant="default"
+            size="sm"
             onClick={async () => {
               try {
                 setLoading(true)
-                // Trigger AI processing
                 const response = await fetch('/api/ai/process', { method: 'POST' })
                 const result = await response.json()
                 
                 if (result.success) {
-                  // Refresh events to show new tasks
                   await fetchEvents(selectedDate)
-                  
-                  // Show success message if tasks were created
                   if (result.details?.tasksAutoCreated > 0) {
-                    console.log(`Created ${result.details.tasksAutoCreated} tasks from AI analysis`)
+                    console.log(`✅ Created ${result.details.tasksAutoCreated} tasks from AI analysis`)
                   }
-                } else {
-                  console.error('AI processing failed:', result.error)
                 }
               } catch (error) {
                 console.error('Error triggering AI task creation:', error)
@@ -145,44 +139,7 @@ export default function CalendarPage() {
             <Plus className="h-4 w-4 mr-2" />
             {loading ? 'Processing...' : 'Create AI Tasks'}
           </Button>
-          <Button variant="outline">
-            <CalendarIcon className="h-4 w-4 mr-2" />
-            Calendar
-          </Button>
         </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Events</CardTitle>
-            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary?.totalEvents || 0}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tasks</CardTitle>
-            <Circle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary?.tasks || 0}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Calendar Events</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary?.calendarEvents || 0}</div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Error State */}
@@ -219,113 +176,83 @@ export default function CalendarPage() {
         </Card>
       )}
 
-      {/* Main Content */}
+      {/* Simplified Schedule View */}
       {!loading && !error && (
-        <>
-          {/* Today's Events List */}
-          {todaysEvents.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Today's Schedule</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left: Today's Schedule */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Today's Schedule</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {todaysEvents.length} events • {todaysEvents.filter(e => e.type === 'task').length} tasks
+              </p>
+            </CardHeader>
+            <CardContent>
+              {todaysEvents.length > 0 ? (
+                <div className="space-y-3">
                   {todaysEvents.map((event) => {
                     const StatusIcon = statusIcons[event.status as keyof typeof statusIcons] || Circle
                     
                     return (
                       <div
                         key={event.id}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                        className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/30 transition-colors"
                       >
-                        <div className="flex items-center gap-3">
-                          <StatusIcon className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="font-medium">{event.title}</div>
-                            {event.description && (
-                              <div className="text-sm text-muted-foreground">
-                                {event.description}
-                              </div>
-                            )}
-                            <div className="text-xs text-muted-foreground">
-                              {format(new Date(event.start), 'h:mm a')}
-                              {event.end && ` - ${format(new Date(event.end), 'h:mm a')}`}
-                            </div>
+                        <StatusIcon className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{event.title}</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {format(new Date(event.start), 'h:mm a')}
+                            {event.end && ` - ${format(new Date(event.end), 'h:mm a')}`}
+                            {event.estimated_duration && ` (${event.estimated_duration}m)`}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {event.priority && (
-                            <Badge
-                              variant="secondary"
-                              className={`${priorityColors[event.priority as keyof typeof priorityColors]} text-white text-xs`}
-                            >
-                              {event.priority}
+                          <div className="flex items-center gap-1 mt-2">
+                            {event.priority && (
+                              <Badge className={`${priorityColors[event.priority as keyof typeof priorityColors]} text-white text-xs`}>
+                                {event.priority}
+                              </Badge>
+                            )}
+                            {event.ai_generated && (
+                              <Badge variant="outline" className="text-xs">AI</Badge>
+                            )}
+                            <Badge variant={event.type === 'task' ? 'default' : 'secondary'} className="text-xs">
+                              {event.type}
                             </Badge>
-                          )}
-                          {event.ai_generated && (
-                            <Badge variant="outline" className="text-xs">
-                              AI
-                            </Badge>
-                          )}
-                          <Badge variant={event.type === 'task' ? 'default' : 'secondary'} className="text-xs">
-                            {event.type}
-                          </Badge>
+                          </div>
                         </div>
                       </div>
                     )
                   })}
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="pt-6">
+              ) : (
                 <div className="text-center py-8">
-                  <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No events scheduled</h3>
-                  <p className="text-muted-foreground mb-4">
-                    You don't have any tasks or events for {format(selectedDate, 'MMMM d, yyyy')}
+                  <CalendarIcon className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground mb-3">
+                    No events for {format(selectedDate, 'MMM d')}
                   </p>
-                  <Button
-                    onClick={async () => {
-                      try {
-                        setLoading(true)
-                        // Trigger AI processing
-                        const response = await fetch('/api/ai/process', { method: 'POST' })
-                        const result = await response.json()
-                        
-                        if (result.success) {
-                          await fetchEvents(selectedDate)
-                          if (result.details?.tasksAutoCreated > 0) {
-                            console.log(`Created ${result.details.tasksAutoCreated} tasks from AI analysis`)
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Error creating AI tasks:', error)
-                      } finally {
-                        setLoading(false)
-                      }
-                    }}
-                    disabled={loading}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    {loading ? 'Processing...' : 'Create AI Tasks'}
+                  <Button variant="outline" onClick={() => fetchEvents(selectedDate)}>
+                    Check for updates
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
 
-          {/* Task Schedule Component */}
-          <TaskScheduleView selectedDate={selectedDate} onDateChange={setSelectedDate} />
-
-          {/* Calendar Scheduler Component */}
-          <ModernCalendarScheduler 
-            selectedDate={selectedDate}
-            onDateChange={setSelectedDate}
-            events={events}
-          />
-        </>
+          {/* Right: Calendar Component */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Calendar View</CardTitle>
+              <p className="text-sm text-muted-foreground">Navigate dates and view schedule</p>
+            </CardHeader>
+            <CardContent>
+              <ModernCalendarScheduler 
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+                events={events}
+              />
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   )

@@ -19,7 +19,7 @@ interface Suggestion {
   id: string
   title: string
   description: string
-  status: 'pending' | 'approved' | 'rejected' | 'processed'
+  status: 'pending' | 'approved' | 'rejected' | 'processed' | 'converted'
   suggestion_type: string
   confidence_score: number
   suggested_time: string | null
@@ -39,6 +39,15 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set())
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [aiProcessing, setAiProcessing] = useState(false)
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set())
+  const [bulkProcessing, setBulkProcessing] = useState(false)
+  const [notifications, setNotifications] = useState<Array<{
+    id: string
+    type: 'success' | 'error' | 'info'
+    message: string
+    timestamp: Date
+  }>>([])
+  const [autoRefresh, setAutoRefresh] = useState(true)
   const [processingStats, setProcessingStats] = useState<{
     emailsProcessed: number
     suggestionsGenerated: number
@@ -82,6 +91,35 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
     }
   }, [suggestions, filterStatus])
 
+  // Auto-refresh suggestions periodically
+  useEffect(() => {
+    if (!autoRefresh) return
+    
+    const interval = setInterval(() => {
+      if (!loading && !bulkProcessing && processingIds.size === 0) {
+        refreshSuggestions()
+      }
+    }, 30000) // Refresh every 30 seconds
+    
+    return () => clearInterval(interval)
+  }, [autoRefresh, loading, bulkProcessing, processingIds.size])
+
+  const addNotification = (type: 'success' | 'error' | 'info', message: string) => {
+    const notification = {
+      id: Date.now().toString(),
+      type,
+      message,
+      timestamp: new Date()
+    }
+    
+    setNotifications(prev => [notification, ...prev.slice(0, 4)]) // Keep only 5 latest
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== notification.id))
+    }, 5000)
+  }
+
   const refreshSuggestions = async () => {
     setLoading(true)
     try {
@@ -101,7 +139,8 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
     setProcessingIds(prev => new Set(prev).add(suggestionId))
     
     try {
-      const response = await fetch('/api/ai/suggestions', {
+      // First, approve the suggestion
+      const approveResponse = await fetch('/api/ai/suggestions', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -112,7 +151,43 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
         }),
       })
 
-      if (response.ok) {
+      if (!approveResponse.ok) {
+        throw new Error('Failed to approve suggestion')
+      }
+
+      // Then automatically create a task from the approved suggestion
+      const createTaskResponse = await fetch('/api/ai/create-task?action=from-suggestion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          suggestionId,
+          customizations: {} // Use default values from suggestion
+        }),
+      })
+
+      if (createTaskResponse.ok) {
+        const taskResult = await createTaskResponse.json()
+        
+        // Update the suggestion status to show it's been converted
+        setSuggestions(prev => 
+          prev.map(s => 
+            s.id === suggestionId 
+              ? { ...s, status: 'converted' as const }
+              : s
+          )
+        )
+
+        // Show success notification
+        addNotification('success', `✅ Task created: ${taskResult.task.title}`)
+        if (taskResult.task.auto_scheduled) {
+          addNotification('info', `📅 Scheduled for: ${new Date(taskResult.task.schedule_result.scheduled_start).toLocaleString()}`)
+        } else {
+          addNotification('info', `⏳ Task created but needs manual scheduling`)
+        }
+      } else {
+        // If task creation fails, still show approved status
         setSuggestions(prev => 
           prev.map(s => 
             s.id === suggestionId 
@@ -120,11 +195,11 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
               : s
           )
         )
-      } else {
-        console.error('Failed to approve suggestion')
+        addNotification('error', 'Failed to create task, but suggestion was approved')
       }
     } catch (error) {
-      console.error('Error approving suggestion:', error)
+      console.error('Error in approval process:', error)
+      addNotification('error', 'Failed to process suggestion approval')
     } finally {
       setProcessingIds(prev => {
         const next = new Set(prev)
@@ -193,8 +268,117 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
     }
   }
 
+  const handleBulkApprove = async () => {
+    if (selectedSuggestions.size === 0) return
+    
+    setBulkProcessing(true)
+    const suggestionIds = Array.from(selectedSuggestions)
+    
+    try {
+      // Batch create tasks from selected suggestions
+      const response = await fetch('/api/ai/create-task?action=batch-from-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          suggestionIds,
+          bulkCustomizations: {
+            // Can add default bulk settings here
+          }
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        
+        // Update suggestions status to converted
+        setSuggestions(prev => 
+          prev.map(s => 
+            selectedSuggestions.has(s.id) 
+              ? { ...s, status: 'converted' as const }
+              : s
+          )
+        )
+        
+        // Clear selection
+        setSelectedSuggestions(new Set())
+        
+        addNotification('success', `✅ Created ${result.tasks.length} tasks from ${suggestionIds.length} suggestions`)
+        
+        // Show scheduling summary
+        const autoScheduled = result.tasks.filter((t: any) => t.auto_scheduled).length
+        if (autoScheduled > 0) {
+          addNotification('info', `📅 ${autoScheduled} tasks were auto-scheduled`)
+        }
+        const needsScheduling = result.tasks.length - autoScheduled
+        if (needsScheduling > 0) {
+          addNotification('info', `⏳ ${needsScheduling} tasks need manual scheduling`)
+        }
+      } else {
+        addNotification('error', 'Failed to bulk create tasks')
+      }
+    } catch (error) {
+      console.error('Error in bulk approval:', error)
+      addNotification('error', 'Bulk approval failed')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  const toggleSuggestionSelection = (suggestionId: string) => {
+    setSelectedSuggestions(prev => {
+      const next = new Set(prev)
+      if (next.has(suggestionId)) {
+        next.delete(suggestionId)
+      } else {
+        next.add(suggestionId)
+      }
+      return next
+    })
+  }
+
+  const selectAllPending = () => {
+    const pendingIds = filteredSuggestions
+      .filter(s => s.status === 'pending')
+      .map(s => s.id)
+    setSelectedSuggestions(new Set(pendingIds))
+  }
+
+  const clearSelection = () => {
+    setSelectedSuggestions(new Set())
+  }
+
   return (
     <>
+      {/* Notifications */}
+      {notifications.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 space-y-2">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`p-3 rounded-lg shadow-lg border transition-all duration-300 ${
+                notification.type === 'success' 
+                  ? 'bg-green-50 border-green-200 text-green-800'
+                  : notification.type === 'error'
+                  ? 'bg-red-50 border-red-200 text-red-800'
+                  : 'bg-blue-50 border-blue-200 text-blue-800'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{notification.message}</span>
+                <button
+                  onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
+                  className="ml-2 text-current opacity-50 hover:opacity-100"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Header Actions */}
       <div className="flex items-center space-x-4 mb-6">
         <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -205,6 +389,7 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
             <SelectItem value="all">📊 All Suggestions</SelectItem>
             <SelectItem value="pending">⏳ Pending Review</SelectItem>
             <SelectItem value="approved">✅ Approved</SelectItem>
+            <SelectItem value="converted">🎯 Converted to Tasks</SelectItem>
             <SelectItem value="rejected">❌ Rejected</SelectItem>
           </SelectContent>
         </Select>
@@ -230,6 +415,58 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
           <span className="mr-2">🤖</span>
           Generate More
         </Button>
+        
+        {/* Bulk Operations - Show when there are pending suggestions */}
+        {filteredSuggestions.some(s => s.status === 'pending') && (
+          <>
+            <Button 
+              variant="outline" 
+              size="default"
+              onClick={selectAllPending}
+              disabled={bulkProcessing}
+            >
+              <span className="mr-2">☑️</span>
+              Select All Pending
+            </Button>
+            
+            {selectedSuggestions.size > 0 && (
+              <>
+                <Button 
+                  variant="default" 
+                  size="default"
+                  onClick={handleBulkApprove}
+                  disabled={bulkProcessing || selectedSuggestions.size === 0}
+                >
+                  <span className="mr-2">⚡</span>
+                  {bulkProcessing ? 'Creating Tasks...' : `Approve & Create ${selectedSuggestions.size} Tasks`}
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="default"
+                  onClick={clearSelection}
+                  disabled={bulkProcessing}
+                >
+                  Clear Selection
+                </Button>
+              </>
+            )}
+          </>
+        )}
+        
+        {/* Auto-refresh toggle */}
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="auto-refresh"
+            checked={autoRefresh}
+            onChange={(e) => setAutoRefresh(e.target.checked)}
+            className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+          />
+          <label htmlFor="auto-refresh" className="text-sm text-gray-600">
+            Auto-refresh
+          </label>
+        </div>
       </div>
 
       {/* AI Processing Status */}
@@ -300,7 +537,7 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
         <>
           <PageSection title="Summary Stats">
             {/* Summary Stats */}
-            <PageGrid columns={4}>
+            <PageGrid columns={5}>
               <Card className="border border-neutral-200 hover:border-success-300 transition-colors duration-200">
                 <CardContent className="p-6 text-center">
                   <div className="w-12 h-12 bg-gradient-to-br from-success-500 to-success-600 rounded-xl flex items-center justify-center mx-auto mb-3">
@@ -332,6 +569,18 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
                     {suggestions.filter(s => s.status === 'approved').length}
                   </div>
                   <div className="text-sm text-neutral-500">Approved</div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border border-neutral-200 hover:border-green-300 transition-colors duration-200">
+                <CardContent className="p-6 text-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <span className="text-white text-xl">🎯</span>
+                  </div>
+                  <div className="text-2xl font-bold text-neutral-900">
+                    {suggestions.filter(s => s.status === 'converted').length}
+                  </div>
+                  <div className="text-sm text-neutral-500">Converted to Tasks</div>
                 </CardContent>
               </Card>
               
@@ -369,6 +618,23 @@ export function SuggestionsClient({ initialSuggestions }: SuggestionsClientProps
               {filteredSuggestions.map((suggestion) => (
                 <Card key={suggestion.id} className="border border-neutral-200 hover:border-neutral-300 hover:shadow-md transition-all duration-200">
                   <CardContent className="p-6">
+                    {/* Selection checkbox for pending suggestions */}
+                    {suggestion.status === 'pending' && (
+                      <div className="mb-4 flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`select-${suggestion.id}`}
+                          checked={selectedSuggestions.has(suggestion.id)}
+                          onChange={() => toggleSuggestionSelection(suggestion.id)}
+                          className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+                          disabled={bulkProcessing || processingIds.has(suggestion.id)}
+                        />
+                        <label htmlFor={`select-${suggestion.id}`} className="ml-2 text-sm text-gray-600">
+                          Include in bulk operations
+                        </label>
+                      </div>
+                    )}
+                    
                     <SuggestionCard
                       suggestion={suggestion}
                       onApprove={processingIds.has(suggestion.id) ? undefined : handleApprove}

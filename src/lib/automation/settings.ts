@@ -44,7 +44,7 @@ const DEFAULT_AUTOMATION_SETTINGS: AutomationSettings = {
   enabled: true,
   autoCreateTasks: true,
   confidenceThreshold: 0.4, // Lowered from 0.7 to 0.4 for better task creation
-  autoScheduleTasks: false,
+  autoScheduleTasks: true,
   dailyProcessing: true,
   webhookProcessing: true,
   maxEmailsPerDay: 50,

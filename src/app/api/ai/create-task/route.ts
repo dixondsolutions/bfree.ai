@@ -34,15 +34,16 @@ async function autoScheduleTaskIfPossible(task: any) {
       }
     }
 
-    // Update the task with scheduling information
+    // Update the task with scheduling information - set as pending approval
     const { taskService } = await import('@/lib/tasks/task-service')
     
     const updateResult = await taskService.updateTask(task.id, {
       scheduled_start: schedulingInfo.suggestedStart,
       scheduled_end: schedulingInfo.suggestedEnd,
+      status: 'pending_schedule', // Requires user approval
       notes: task.notes ? 
-        `${task.notes}\n\nAuto-scheduled for ${schedulingInfo.suggestedStart.toLocaleString()} (${task.priority} priority)` : 
-        `Auto-scheduled for ${schedulingInfo.suggestedStart.toLocaleString()} (${task.priority} priority)`
+        `${task.notes}\n\nAI suggested schedule: ${schedulingInfo.suggestedStart.toLocaleString()} (${task.priority} priority, pending approval)` : 
+        `AI suggested schedule: ${schedulingInfo.suggestedStart.toLocaleString()} (${task.priority} priority, pending approval)`
     })
 
     // Check for potential calendar conflicts (basic check)
