@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -50,6 +50,7 @@ interface TaskScheduleViewProps {
   className?: string
   selectedDate?: Date
   onDateChange?: (date: Date) => void
+  onRefresh?: () => void
 }
 
 interface DailySchedule {
@@ -75,7 +76,7 @@ const priorityIcons = {
   low: Circle
 }
 
-export function TaskScheduleView({ className, selectedDate = new Date(), onDateChange }: TaskScheduleViewProps) {
+export function TaskScheduleView({ className, selectedDate = new Date(), onDateChange, onRefresh }: TaskScheduleViewProps) {
   const [schedule, setSchedule] = useState<DailySchedule | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -83,9 +84,9 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
 
   useEffect(() => {
     loadDailySchedule(selectedDate)
-  }, [selectedDate])
+  }, [loadDailySchedule, selectedDate])
 
-  const loadDailySchedule = async (date: Date) => {
+  const loadDailySchedule = useCallback(async (date: Date) => {
     try {
       setLoading(true)
       setError(null)
@@ -125,9 +126,9 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const updateTaskStatus = async (taskId: string, newStatus: 'pending' | 'in_progress' | 'completed') => {
+  const updateTaskStatus = useCallback(async (taskId: string, newStatus: 'pending' | 'in_progress' | 'completed') => {
     try {
       setUpdatingTask(taskId)
       
@@ -150,7 +151,7 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
     } finally {
       setUpdatingTask(null)
     }
-  }
+  }, [loadDailySchedule, selectedDate])
 
   const formatDuration = (minutes: number) => {
     if (minutes < 60) return `${minutes}m`
@@ -165,15 +166,15 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
     return priorityIcons[task.priority]
   }
 
-  const navigateDate = (direction: 'prev' | 'next') => {
+  const navigateDate = useCallback((direction: 'prev' | 'next') => {
     const newDate = addDays(selectedDate, direction === 'next' ? 1 : -1)
     onDateChange?.(newDate)
-  }
+  }, [selectedDate, onDateChange])
 
-  const goToToday = () => {
+  const goToToday = useCallback(() => {
     const today = new Date()
     onDateChange?.(today)
-  }
+  }, [onDateChange])
 
   if (loading) {
     return (

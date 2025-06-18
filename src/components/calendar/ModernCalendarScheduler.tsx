@@ -278,11 +278,42 @@ const MeetingDetailsForm: React.FC<MeetingDetailsProps> = ({ selectedDate, selec
   );
 };
 
+// CalendarEvent interface to match the usage
+interface CalendarEvent {
+  id: string
+  title: string
+  description?: string
+  start: string
+  end?: string
+  type: 'task' | 'event'
+  status?: string
+  priority?: string
+  category?: string
+  ai_generated?: boolean
+  confidence_score?: number
+  estimated_duration?: number
+  source: 'tasks' | 'calendar'
+}
+
+// Props interface for the component
+interface ModernCalendarSchedulerProps {
+  selectedDate?: Date
+  onDateChange?: (date: Date) => void
+  events?: CalendarEvent[]
+}
+
 // Main Calendar Scheduler Component
-export const ModernCalendarScheduler: React.FC = () => {
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+export const ModernCalendarScheduler: React.FC<ModernCalendarSchedulerProps> = ({ 
+  selectedDate: propSelectedDate, 
+  onDateChange, 
+  events = [] 
+}) => {
+  const [internalSelectedDate, setInternalSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date()));
+  
+  // Use prop selectedDate if provided, otherwise use internal state
+  const selectedDate = propSelectedDate || internalSelectedDate;
 
   // Generate time slots
   const timeSlots = Array.from({ length: 18 }, (_, i) => {
@@ -320,7 +351,21 @@ export const ModernCalendarScheduler: React.FC = () => {
 
   const navigateWeek = (direction: 'prev' | 'next') => {
     setCurrentWeek(prev => addWeeks(prev, direction === 'next' ? 1 : -1));
-    setSelectedDate(null);
+    const newDate = null;
+    if (onDateChange && newDate) {
+      onDateChange(newDate);
+    } else {
+      setInternalSelectedDate(newDate);
+    }
+    setSelectedTime(null);
+  };
+
+  const handleDateSelect = (date: Date) => {
+    if (onDateChange) {
+      onDateChange(date);
+    } else {
+      setInternalSelectedDate(date);
+    }
     setSelectedTime(null);
   };
 
@@ -363,11 +408,8 @@ export const ModernCalendarScheduler: React.FC = () => {
                   isSelected={selectedDate ? isSameDay(date, selectedDate) : false}
                   isToday={isToday(date)}
                   isCurrentMonth={true}
-                  hasEvents={Math.random() > 0.7}
-                  onClick={() => {
-                    setSelectedDate(date);
-                    setSelectedTime(null);
-                  }}
+                  hasEvents={events.some(event => isSameDay(new Date(event.start), date))}
+                  onClick={() => handleDateSelect(date)}
                 />
               </div>
             ))}

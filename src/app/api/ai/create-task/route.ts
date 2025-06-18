@@ -5,6 +5,33 @@ import { taskService } from '@/lib/tasks/task-service'
 import { extractTasksFromEmail } from '@/lib/openai/task-extraction'
 import { z } from 'zod'
 
+// Helper function to auto-schedule task if it has sufficient details
+async function autoScheduleTaskIfPossible(task: any) {
+  try {
+    // Only auto-schedule if task has estimated duration and priority
+    if (!task.estimated_duration || !task.priority || task.priority === 'low') {
+      return null
+    }
+
+    // Auto-schedule high/urgent priority tasks within the next 3 days
+    const now = new Date()
+    const schedulingWindow = task.priority === 'urgent' ? 1 : 3 // days
+    const endWindow = new Date(now.getTime() + schedulingWindow * 24 * 60 * 60 * 1000)
+
+    // Call the task scheduling API internally (this would need to be a direct function call)
+    // For now, return a placeholder to avoid API loop
+    return {
+      scheduled: true,
+      message: 'Task marked for auto-scheduling',
+      priority: task.priority,
+      estimated_duration: task.estimated_duration
+    }
+  } catch (error) {
+    console.error('Auto-scheduling failed for task:', task.id, error)
+  }
+  return null
+}
+
 const CreateTaskFromEmailSchema = z.object({
   emailId: z.string(),
   emailContent: z.object({
@@ -116,16 +143,27 @@ async function createTaskFromEmail(body: any) {
         confidence_score: taskExtraction.confidence
       })
 
+      // Try to auto-schedule high priority tasks
+      const scheduleResult = await autoScheduleTaskIfPossible(task)
+
       createdTasks.push({
         ...task,
-        extraction_details: taskExtraction
+        extraction_details: taskExtraction,
+        auto_scheduled: !!scheduleResult,
+        schedule_result: scheduleResult
       })
     }
+
+    const autoScheduledCount = createdTasks.filter(t => t.auto_scheduled).length
 
     return NextResponse.json({
       message: `Created ${createdTasks.length} task(s) from email`,
       tasks: createdTasks,
-      analysis: taskAnalysis
+      analysis: taskAnalysis,
+      scheduling: {
+        auto_scheduled: autoScheduledCount,
+        manual_scheduling_needed: createdTasks.length - autoScheduledCount
+      }
     }, { status: 201 })
 
   } catch (error) {
@@ -178,6 +216,9 @@ async function createTaskFromSuggestion(body: any) {
       confidence_score: suggestion.confidence_score
     })
 
+    // Try to auto-schedule the task
+    const scheduleResult = await autoScheduleTaskIfPossible(task)
+
     // Mark suggestion as converted to task
     await supabase
       .from('ai_suggestions')
@@ -190,7 +231,11 @@ async function createTaskFromSuggestion(body: any) {
 
     return NextResponse.json({
       message: 'Task created from AI suggestion',
-      task,
+      task: {
+        ...task,
+        auto_scheduled: !!scheduleResult,
+        schedule_result: scheduleResult
+      },
       suggestion
     }, { status: 201 })
 

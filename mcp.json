@@ -20,6 +20,15 @@
       ],
       "env": {}
     },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "sbp_f983441d6e4dbd5fd2a7485652ec6a28a7cb221f"
+      ]
+    },
     "context7": {
       "url": "https://mcp.context7.com/mcp"
     }

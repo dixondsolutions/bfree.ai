@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -41,7 +41,7 @@ export default function CalendarPage() {
   const [error, setError] = useState<string | null>(null)
 
   // Fetch events for the selected date
-  const fetchEvents = async (date: Date) => {
+  const fetchEvents = useCallback(async (date: Date) => {
     try {
       setLoading(true)
       setError(null)
@@ -74,12 +74,12 @@ export default function CalendarPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   // Load events when component mounts or date changes
   useEffect(() => {
     fetchEvents(selectedDate)
-  }, [selectedDate])
+  }, [fetchEvents, selectedDate]) // selectedDate is stable from useState
 
   // Get events for the selected date
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
@@ -114,9 +114,17 @@ export default function CalendarPage() {
             <CalendarIcon className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="default">
+          <Button 
+            variant="default"
+            onClick={() => {
+              // Trigger AI suggestions creation
+              fetch('/api/ai/suggestions', { method: 'POST' })
+                .then(() => fetchEvents(selectedDate))
+                .catch(console.error)
+            }}
+          >
             <Plus className="h-4 w-4 mr-2" />
-            Schedule
+            Create AI Tasks
           </Button>
           <Button variant="outline">
             <CalendarIcon className="h-4 w-4 mr-2" />
@@ -259,7 +267,14 @@ export default function CalendarPage() {
                   <p className="text-muted-foreground mb-4">
                     You don't have any tasks or events for {format(selectedDate, 'MMMM d, yyyy')}
                   </p>
-                  <Button>
+                  <Button
+                    onClick={() => {
+                      // Trigger AI suggestions creation
+                      fetch('/api/ai/suggestions', { method: 'POST' })
+                        .then(() => fetchEvents(selectedDate))
+                        .catch(console.error)
+                    }}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Create AI Suggestions
                   </Button>
@@ -269,7 +284,7 @@ export default function CalendarPage() {
           )}
 
           {/* Task Schedule Component */}
-          <TaskScheduleView onRefresh={() => fetchEvents(selectedDate)} />
+          <TaskScheduleView selectedDate={selectedDate} onDateChange={setSelectedDate} />
 
           {/* Calendar Scheduler Component */}
           <ModernCalendarScheduler 

@@ -4,6 +4,11 @@ import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '@
 import { getCurrentUser } from '@/lib/database/utils'
 import { startOfDay, endOfDay } from 'date-fns'
 
+// Cache control headers for better performance
+const CACHE_HEADERS = {
+  'Cache-Control': 'public, max-age=60, stale-while-revalidate=120'
+}
+
 /**
  * GET /api/calendar/events - Get calendar events and tasks for a date range
  */
@@ -40,7 +45,8 @@ export async function GET(request: NextRequest) {
       taskQuery = taskQuery.neq('status', 'completed')
     }
 
-    // Apply date filtering - get tasks with dates in our range
+    // Apply date filtering - get tasks with any date field in the range
+    // Check if scheduled_start, scheduled_end, or due_date falls within our date range
     taskQuery = taskQuery.or(`and(scheduled_start.gte.${startDate},scheduled_start.lte.${endDate}),and(scheduled_end.gte.${startDate},scheduled_end.lte.${endDate}),and(due_date.gte.${startDate},due_date.lte.${endDate})`)
     
     taskQuery = taskQuery.order('created_at', { ascending: false })
@@ -51,7 +57,8 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching tasks:', tasksError)
       return NextResponse.json({ 
         error: 'Failed to fetch tasks',
-        details: tasksError.message 
+        details: tasksError.message,
+        success: false
       }, { status: 500 })
     }
 
@@ -121,7 +128,7 @@ export async function GET(request: NextRequest) {
       return acc
     }, {} as Record<string, any[]>)
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       events: allEvents,
       eventsByDate,
@@ -132,6 +139,13 @@ export async function GET(request: NextRequest) {
         dateRange: { start: startDate, end: endDate }
       }
     })
+
+    // Add cache headers for better performance
+    Object.entries(CACHE_HEADERS).forEach(([key, value]) => {
+      response.headers.set(key, value)
+    })
+
+    return response
 
   } catch (error) {
     console.error('Error in GET /api/calendar/events:', error)
