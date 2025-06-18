@@ -126,6 +126,7 @@ export async function GET(request: NextRequest) {
 
     try {
       // Try using the optimized database function first
+      console.log('Attempting to use database function get_emails_with_counts...')
       const { data: emails, error } = await supabase.rpc('get_emails_with_counts', {
         p_user_id: user.id,
         p_limit: (filters.limit || 50) + 1,
@@ -134,8 +135,12 @@ export async function GET(request: NextRequest) {
         p_scheduling_only: filters.scheduling_only || false
       })
 
-      if (error) throw error
+      if (error) {
+        console.log('Database function error:', error)
+        throw error
+      }
 
+      console.log('Database function succeeded. Sample email ID:', emails?.[0]?.email_id)
       const hasMore = emails.length > (filters.limit || 50)
       const emailsToReturn = hasMore ? emails.slice(0, -1) : emails
 
@@ -155,6 +160,7 @@ export async function GET(request: NextRequest) {
       
       // Fallback to basic query
       const result = await getEmailsFallback(supabase, user.id, filters)
+      console.log('Fallback query succeeded. Sample email ID:', result.emails?.[0]?.email_id)
       
       return NextResponse.json({
         success: true,
