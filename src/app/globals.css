@@ -142,10 +142,10 @@
 
 @layer base {
   * {
-    @apply outline-ring/50;
+    @apply outline-offset-2;
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans antialiased;
   }
   html {
     scroll-behavior: smooth;
@@ -159,21 +159,21 @@
   }
   
   .glass-card {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-lg;
+    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-800/50 shadow-lg;
   }
   
   /* Modern gradient backgrounds */
   .gradient-bg {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.8) 100%);
+    @apply bg-gradient-to-br from-green-600 to-green-500;
   }
   
   .gradient-text {
-    @apply bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-green-600 to-green-400 bg-clip-text text-transparent;
   }
   
   /* Enhanced focus states */
   .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background;
+    @apply focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900;
   }
   
   /* Modern animations */
@@ -195,7 +195,7 @@
   }
   
   .hover-glow {
-    @apply transition-all duration-300 hover:shadow-lg hover:shadow-primary/25;
+    @apply transition-all duration-300 hover:shadow-lg hover:shadow-green-500/25;
   }
 }
 
@@ -255,14 +255,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
+  background: rgb(243 244 246);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground)/0.3);
+  background: rgb(156 163 175 / 0.3);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground)/0.5);
+  background: rgb(156 163 175 / 0.5);
 }

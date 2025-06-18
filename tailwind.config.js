@@ -5,11 +5,37 @@ module.exports = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  safelist: [
+    // Dynamic sidebar classes
+    'w-(--sidebar-width)',
+    'w-(--sidebar-width-icon)',
+    'max-w-(--skeleton-width)',
+    // Data attribute selectors
+    'group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
+    'group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]',
+    'group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]',
+    // Animation classes
+    'animate-slideUp',
+    'animate-fadeIn', 
+    'animate-scaleIn',
+    // Primary color variations
+    {
+      pattern: /bg-primary\/(10|20|30|40|50|60|70|80|90)/,
+    },
+    {
+      pattern: /text-primary\/(10|20|30|40|50|60|70|80|90)/,
+    },
+    {
+      pattern: /border-primary\/(10|20|30|40|50|60|70|80|90)/,
+    },
+  ],
   theme: {
     extend: {
       colors: {
-        // Primary Brand Colors
+        // Primary Brand Colors (CSS Variable + fallback)
         primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
           50: '#f0f9f3',
           100: '#dcf2e3',
           200: '#bce5cb',
@@ -21,6 +47,12 @@ module.exports = {
           800: '#283f30',
           900: '#233429',
           950: '#101c14',
+        },
+        
+        // Secondary colors
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
         },
         
         // Semantic Colors
@@ -123,6 +155,44 @@ module.exports = {
         // Background and surface colors
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        
+        // shadcn/ui CSS variable mappings
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        
+        // Sidebar CSS variables
+        sidebar: {
+          DEFAULT: 'hsl(var(--sidebar))',
+          foreground: 'hsl(var(--sidebar-foreground))',
+          primary: 'hsl(var(--sidebar-primary))',
+          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
+          accent: 'hsl(var(--sidebar-accent))',
+          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
+          border: 'hsl(var(--sidebar-border))',
+          ring: 'hsl(var(--sidebar-ring))',
+        },
+        
         surface: {
           50: '#ffffff',
           100: '#f8fafc',
@@ -203,6 +273,7 @@ module.exports = {
         'slide-in-right': 'slideInRight 0.3s ease-out',
         'slide-in-left': 'slideInLeft 0.3s ease-out',
         'slide-up': 'slideUp 0.3s ease-out',
+        'scale-in': 'scaleIn 0.2s ease-out',
         'bounce-gentle': 'bounceGentle 0.6s ease-in-out',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
@@ -231,6 +302,10 @@ module.exports = {
         bounceGentle: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-10px)' },
+        },
+        scaleIn: {
+          '0%': { transform: 'scale(0.95)', opacity: '0' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
         },
       },
       
