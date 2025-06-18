@@ -11,19 +11,19 @@ interface SuggestionCardProps {
 
 export function SuggestionCard({ suggestion, onApprove, onReject }: SuggestionCardProps) {
   const getConfidenceBadge = (score: number) => {
-    if (score >= 0.8) return { variant: 'success' as const, label: 'High Confidence' }
-    if (score >= 0.6) return { variant: 'warning' as const, label: 'Medium Confidence' }
-    return { variant: 'error' as const, label: 'Low Confidence' }
+    if (score >= 0.8) return { variant: 'secondary' as const, label: 'High Confidence' }
+    if (score >= 0.6) return { variant: 'secondary' as const, label: 'Medium Confidence' }
+    return { variant: 'destructive' as const, label: 'Low Confidence' }
   }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
-        return { variant: 'success' as const, label: 'Approved' }
+        return { variant: 'secondary' as const, label: 'Approved' }
       case 'rejected':
-        return { variant: 'error' as const, label: 'Rejected' }
+        return { variant: 'destructive' as const, label: 'Rejected' }
       case 'processed':
-        return { variant: 'primary' as const, label: 'Processed' }
+        return { variant: 'default' as const, label: 'Processed' }
       default:
         return { variant: 'default' as const, label: 'Pending' }
     }
@@ -41,13 +41,13 @@ export function SuggestionCard({ suggestion, onApprove, onReject }: SuggestionCa
               {suggestion.title}
             </h3>
             <div className="flex items-center space-x-2">
-              <Badge variant={confidenceBadge.variant} size="sm">
+              <Badge variant={confidenceBadge.variant} >
                 {confidenceBadge.label}
               </Badge>
-              <Badge variant={statusBadge.variant} size="sm">
+              <Badge variant={statusBadge.variant} >
                 {statusBadge.label}
               </Badge>
-              <Badge variant="default" size="sm">
+              <Badge variant="default" >
                 {suggestion.suggestion_type}
               </Badge>
             </div>
@@ -77,7 +77,7 @@ export function SuggestionCard({ suggestion, onApprove, onReject }: SuggestionCa
           <div className="flex space-x-3">
             {onApprove && (
               <Button
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={() => onApprove(suggestion.id)}
               >

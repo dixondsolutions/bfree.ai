@@ -86,7 +86,7 @@ export function AIProcessor({ hasEmailsToProcess }: AIProcessorProps) {
             onClick={handleProcessWithAI} 
             disabled={isProcessing || !hasEmailsToProcess}
             size="sm"
-            variant="primary"
+            variant="default"
           >
             {isProcessing ? 'Processing...' : 'Analyze with AI'}
           </Button>

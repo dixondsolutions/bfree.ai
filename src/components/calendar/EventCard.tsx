@@ -26,13 +26,13 @@ export function EventCard({ event }: EventCardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return 'success'
+        return 'secondary'
       case 'cancelled':
-        return 'error'
+        return 'destructive'
       case 'rejected':
-        return 'error'
+        return 'destructive'
       default:
-        return 'warning'
+        return 'secondary'
     }
   }
 
@@ -58,16 +58,16 @@ export function EventCard({ event }: EventCardProps) {
               </p>
             )}
             <div className="flex items-center space-x-2">
-              <Badge variant={getStatusColor(event.status)} size="sm">
+              <Badge variant={getStatusColor(event.status)} >
                 {event.status}
               </Badge>
               {event.ai_generated && (
-                <Badge variant="primary" size="sm">
+                <Badge variant="default" >
                   AI Generated
                 </Badge>
               )}
               {event.calendars && (
-                <Badge variant="default" size="sm">
+                <Badge variant="default" >
                   {event.calendars.name}
                 </Badge>
               )}

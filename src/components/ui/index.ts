@@ -4,7 +4,8 @@
 export { Button } from './Button'
 export { Card, CardContent, CardHeader } from './Card'
 export { Badge } from './Badge'
-export { Input, Textarea } from './Input'
+export { Input } from './Input'
+export { Textarea } from './textarea'
 export { 
   Modal, 
   ModalHeader, 
@@ -32,10 +33,15 @@ export {
   AIAnalysisLoader,
   CalendarSyncLoader
 } from './Loading'
-export { 
+export {
   Select,
-  type SelectOption,
-  type SelectProps
+  SelectContent,
+  SelectItem,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue
 } from './Select'
 export {
   MonthlyCalendar,

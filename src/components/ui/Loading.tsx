@@ -1,5 +1,6 @@
 import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import { Skeleton as ShadcnSkeleton } from '@/components/ui/skeleton'
 
 export interface LoadingSpinnerProps {
   /** Size of the spinner */
@@ -150,14 +151,6 @@ export function Skeleton({
   lines = 1,
   className,
 }: SkeletonProps) {
-  const baseClasses = cn(
-    'animate-pulse bg-neutral-200 rounded',
-    {
-      'rounded-full': circle,
-    },
-    className
-  )
-
   const style = {
     width: typeof width === 'number' ? `${width}px` : width,
     height: typeof height === 'number' ? `${height}px` : height,
@@ -167,11 +160,13 @@ export function Skeleton({
     return (
       <div className="space-y-2">
         {Array.from({ length: lines }).map((_, index) => (
-          <div
+          <ShadcnSkeleton
             key={index}
-            className={cn(baseClasses, {
-              'w-3/4': index === lines - 1, // Last line is shorter
-            })}
+            className={cn(
+              circle && 'rounded-full',
+              index === lines - 1 && 'w-3/4',
+              className
+            )}
             style={index === lines - 1 ? { ...style, width: '75%' } : style}
           />
         ))}
@@ -179,7 +174,12 @@ export function Skeleton({
     )
   }
 
-  return <div className={baseClasses} style={style} />
+  return (
+    <ShadcnSkeleton 
+      className={cn(circle && 'rounded-full', className)} 
+      style={style} 
+    />
+  )
 }
 
 export interface SkeletonCardProps {

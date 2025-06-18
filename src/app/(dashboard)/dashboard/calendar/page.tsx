@@ -6,7 +6,13 @@ import { SchedulingAssistant } from '@/components/calendar/SchedulingAssistant'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { MonthlyCalendar, WeeklyCalendar, CalendarEvent } from '@/components/ui/Calendar'
 import { Button } from '@/components/ui/Button'
-import { Select, SelectOption } from '@/components/ui/Select'
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { getUserEmailAccounts, getUserCalendars } from '@/lib/database/utils'
@@ -52,11 +58,11 @@ export default async function CalendarPage() {
               </p>
             </div>
             <div className="flex items-center space-x-3">
-              <Button variant="outline" size="md">
+              <Button variant="outline" size="default">
                 <span className="mr-2">🔄</span>
                 Sync Now
               </Button>
-              <Button variant="primary" size="md">
+              <Button variant="default" size="default">
                 <span className="mr-2">➕</span>
                 New Event
               </Button>
@@ -77,7 +83,7 @@ export default async function CalendarPage() {
                   Please connect your Gmail account first to enable calendar sync and scheduling features.
                 </p>
               </div>
-              <Button variant="primary" size="sm" className="ml-auto">
+              <Button variant="default" size="sm" className="ml-auto">
                 Connect Gmail
               </Button>
             </div>
@@ -95,16 +101,16 @@ export default async function CalendarPage() {
                   <p className="text-sm text-neutral-600 mt-1">View and manage your events</p>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <Select
-                    options={[
-                      { value: 'month', label: 'Month View', icon: '📅' },
-                      { value: 'week', label: 'Week View', icon: '🗓️' },
-                      { value: 'day', label: 'Day View', icon: '📊' }
-                    ]}
-                    value="month"
-                    onChange={() => {}}
-                    className="w-40"
-                  />
+                  <Select defaultValue="month">
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Select view" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="month">📅 Month View</SelectItem>
+                      <SelectItem value="week">🗓️ Week View</SelectItem>
+                      <SelectItem value="day">📊 Day View</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button variant="outline" size="sm">
                     <span className="mr-1">⏪</span>
                     Prev
@@ -163,7 +169,7 @@ export default async function CalendarPage() {
                     <p className="text-sm text-neutral-500 mb-4">
                       Sync with Google Calendar to get started with scheduling.
                     </p>
-                    <Button variant="primary" size="sm">
+                    <Button variant="default" size="sm">
                       <span className="mr-2">🔗</span>
                       Connect Calendar
                     </Button>

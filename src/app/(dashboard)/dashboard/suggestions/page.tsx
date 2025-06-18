@@ -6,7 +6,13 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { AIAnalysisLoader, LoadingSpinner } from '@/components/ui/Loading'
-import { Select } from '@/components/ui/Select'
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/Select'
 import { getUserAISuggestions } from '@/lib/openai/processor'
 
 export default async function SuggestionsPage() {
@@ -33,22 +39,22 @@ export default async function SuggestionsPage() {
               </p>
             </div>
             <div className="flex items-center space-x-3">
-              <Select
-                options={[
-                  { value: 'all', label: 'All Suggestions', icon: '📊' },
-                  { value: 'pending', label: 'Pending Review', icon: '⏳' },
-                  { value: 'approved', label: 'Approved', icon: '✅' },
-                  { value: 'rejected', label: 'Rejected', icon: '❌' }
-                ]}
-                value="all"
-                onChange={() => {}}
-                className="w-48"
-              />
-              <Button variant="outline" size="md">
+              <Select defaultValue="all">
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter suggestions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">📊 All Suggestions</SelectItem>
+                  <SelectItem value="pending">⏳ Pending Review</SelectItem>
+                  <SelectItem value="approved">✅ Approved</SelectItem>
+                  <SelectItem value="rejected">❌ Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="default">
                 <span className="mr-2">🔄</span>
                 Refresh
               </Button>
-              <Button variant="primary" size="md">
+              <Button variant="default" size="default">
                 <span className="mr-2">🤖</span>
                 Generate More
               </Button>
@@ -84,11 +90,11 @@ export default async function SuggestionsPage() {
                   Our AI will analyze your emails and suggest optimal meeting times.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button variant="primary" size="md">
+                  <Button variant="default" size="default">
                     <span className="mr-2">🚀</span>
                     Start AI Analysis
                   </Button>
-                  <Button variant="outline" size="md">
+                  <Button variant="outline" size="default">
                     <span className="mr-2">📎</span>
                     View Setup Guide
                   </Button>

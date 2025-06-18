@@ -94,7 +94,7 @@ export function CalendarSync() {
             onClick={() => handleSync('full')} 
             disabled={isSyncing}
             size="sm"
-            variant="primary"
+            variant="default"
           >
             {isSyncing ? 'Syncing...' : 'Sync Now'}
           </Button>
@@ -166,7 +166,7 @@ export function CalendarSync() {
         {/* Status Badge */}
         <div className="flex items-center justify-between pt-2">
           <span className="text-sm text-gray-600">Sync Status:</span>
-          <Badge variant={syncStatus.status === 'ready' ? 'success' : 'default'}>
+          <Badge variant={syncStatus.status === 'ready' ? 'secondary' : 'default'}>
             {syncStatus.status}
           </Badge>
         </div>

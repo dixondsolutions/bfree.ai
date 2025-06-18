@@ -127,8 +127,8 @@ export function SchedulingAssistant() {
   }
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'success'
-    if (confidence >= 0.6) return 'warning'
+    if (confidence >= 0.8) return 'secondary'
+    if (confidence >= 0.6) return 'secondary'
     return 'default'
   }
 
@@ -218,7 +218,7 @@ export function SchedulingAssistant() {
           <Button 
             onClick={handleAutoSchedule} 
             disabled={isLoading || !request.title.trim()}
-            variant="primary"
+            variant="default"
             className="flex-1"
           >
             {isLoading ? 'Scheduling...' : 'Auto Schedule'}
