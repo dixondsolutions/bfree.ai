@@ -241,9 +241,7 @@ function AppMainContent({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <div className="p-6">
-          {children}
-        </div>
+        {children}
       </main>
     </SidebarInset>
   )

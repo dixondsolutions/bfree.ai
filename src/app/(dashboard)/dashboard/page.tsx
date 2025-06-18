@@ -22,6 +22,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 
 // Modern Metric Card Component
 interface MetricCardProps {
@@ -185,7 +187,43 @@ function QuickAction({ title, description, icon, href, gradient }: QuickActionPr
   )
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const supabase = await createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
+
+  if (error || !user) {
+    redirect('/login')
+  }
+
+  // Fetch real dashboard metrics from Supabase
+  const [
+    emailAccountsResult,
+    eventsResult, 
+    aiSuggestionsResult,
+    processingQueueResult
+  ] = await Promise.all([
+    supabase.from('email_accounts').select('*').eq('user_id', user.id),
+    supabase.from('events').select('*').eq('user_id', user.id).gte('start_time', new Date().toISOString()),
+    supabase.from('ai_suggestions').select('*').eq('user_id', user.id),
+    supabase.from('processing_queue').select('*').eq('user_id', user.id).eq('status', 'pending')
+  ])
+
+  // Extract data with fallbacks
+  const emailAccounts = emailAccountsResult.data || []
+  const upcomingEvents = eventsResult.data || []
+  const aiSuggestions = aiSuggestionsResult.data || []
+  const pendingProcessing = processingQueueResult.data || []
+
+  // Calculate derived metrics
+  const hasGmailConnection = emailAccounts.length > 0
+  const eventsThisMonth = upcomingEvents.filter(event => {
+    const eventDate = new Date(event.start_time)
+    const now = new Date()
+    return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear()
+  }).length
+  const aiGeneratedEvents = upcomingEvents.filter(event => event.ai_generated).length
+  const pendingSuggestions = aiSuggestions.filter(s => s.status === 'pending').length
+
   return (
     <PageLayout>
       <PageHeader
@@ -199,34 +237,34 @@ export default function DashboardPage() {
           <PageGrid columns={4}>
         <MetricCard
           title="Gmail Integration"
-          value="Connected"
-          description="Last sync 2 minutes ago"
-          icon={<CheckCircle className="h-4 w-4" />}
-          status="success"
-          trend={{ value: "+100%", positive: true }}
+          value={hasGmailConnection ? "Connected" : "Not Connected"}
+          description={hasGmailConnection ? `${emailAccounts.length} account(s) connected` : "Connect your Gmail account"}
+          icon={hasGmailConnection ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+          status={hasGmailConnection ? "success" : "warning"}
+          trend={hasGmailConnection ? { value: "100%", positive: true } : undefined}
         />
         <MetricCard
-          title="Emails Processed"
-          value="247"
-          description="This month"
-          icon={<Mail className="h-4 w-4" />}
-          status="info"
-          trend={{ value: "+23%", positive: true }}
-        />
-        <MetricCard
-          title="Meetings Scheduled"
-          value="18"
-          description="AI-assisted scheduling"
+          title="Events This Month"
+          value={eventsThisMonth}
+          description="Scheduled meetings and events"
           icon={<Calendar className="h-4 w-4" />}
-          status="success"
-          trend={{ value: "+12%", positive: true }}
+          status="info"
+          trend={eventsThisMonth > 0 ? { value: `${aiGeneratedEvents} AI-assisted`, positive: true } : undefined}
         />
         <MetricCard
-          title="AI Analysis"
-          value="Active"
-          description="Processing new emails"
+          title="AI Suggestions"
+          value={aiSuggestions.length}
+          description={`${pendingSuggestions} pending review`}
           icon={<Brain className="h-4 w-4" />}
-          status="loading"
+          status={aiSuggestions.length > 0 ? "success" : "info"}
+          trend={aiSuggestions.length > 0 ? { value: `${Math.round((aiSuggestions.filter(s => s.status === 'approved').length / aiSuggestions.length) * 100)}% accuracy`, positive: true } : undefined}
+        />
+        <MetricCard
+          title="Processing Queue"
+          value={pendingProcessing.length > 0 ? "Active" : "Idle"}
+          description={pendingProcessing.length > 0 ? `${pendingProcessing.length} items processing` : "No pending items"}
+          icon={pendingProcessing.length > 0 ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+          status={pendingProcessing.length > 0 ? "loading" : "success"}
         />
           </PageGrid>
         </PageSection>
@@ -281,28 +319,56 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-1">
-              <ActivityItem
-                type="email"
-                title="Q4 Planning Meeting"
-                description="Alice Johnson sent you an email about quarterly planning"
-                time="2 min ago"
-                urgent={true}
-                user="Alice Johnson"
-              />
-              <ActivityItem
-                type="meeting"
-                title="Project Update Required"
-                description="Scheduled with Bob Smith for next week"
-                time="15 min ago"
-                user="Bob Smith"
-              />
-              <ActivityItem
-                type="task"
-                title="Budget Review"
-                description="AI suggests scheduling with Carol Williams"
-                time="1 hour ago"
-                user="Carol Williams"
-              />
+              {aiSuggestions.length === 0 && upcomingEvents.length === 0 && emailAccounts.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-muted rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <Activity className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    No recent activity yet. Connect your Gmail account to get started.
+                  </p>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/dashboard/settings">Connect Gmail</Link>
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* Recent AI Suggestions */}
+                  {aiSuggestions.slice(0, 2).map((suggestion) => (
+                    <ActivityItem
+                      key={`suggestion-${suggestion.id}`}
+                      type="task"
+                      title={suggestion.suggestion_type === 'meeting' ? 'Meeting Suggestion' : 'Schedule Suggestion'}
+                      description={suggestion.title || 'AI found a scheduling opportunity'}
+                      time={new Date(suggestion.created_at).toLocaleDateString()}
+                      urgent={suggestion.confidence_score > 0.8}
+                      user="AI Assistant"
+                    />
+                  ))}
+                  
+                  {/* Recent Events */}
+                  {upcomingEvents.slice(0, 2).map((event) => (
+                    <ActivityItem
+                      key={`event-${event.id}`}
+                      type="meeting"
+                      title={event.title}
+                      description={event.description || 'Scheduled meeting'}
+                      time={new Date(event.start_time).toLocaleDateString()}
+                      urgent={false}
+                      user={event.ai_generated ? "AI Scheduled" : "Manual"}
+                    />
+                  ))}
+                  
+                  {/* Fallback if data exists but no items to show */}
+                  {aiSuggestions.length === 0 && upcomingEvents.length === 0 && emailAccounts.length > 0 && (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground">
+                        No recent activity. New items will appear here as they're created.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -328,36 +394,81 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-4">
-              {[
-                { title: "Team Standup", time: "10:00 AM", duration: "30 min", attendees: 5 },
-                { title: "Client Presentation", time: "2:00 PM", duration: "1 hour", attendees: 3 },
-                { title: "Project Review", time: "4:30 PM", duration: "45 min", attendees: 2 }
-              ].map((meeting, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                    <Calendar className="h-5 w-5 text-primary" />
+              {upcomingEvents.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-muted rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <Calendar className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium">{meeting.title}</p>
-                      <Badge variant="secondary" className="text-xs">
-                        {meeting.duration}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>{meeting.time}</span>
-                      <span>•</span>
-                      <div className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        <span>{meeting.attendees} people</span>
-                      </div>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <ArrowRight className="h-3 w-3" />
+                  <p className="text-sm text-muted-foreground mb-4">
+                    No upcoming events scheduled. Start by connecting your calendar.
+                  </p>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/dashboard/calendar">Manage Calendar</Link>
                   </Button>
                 </div>
-              ))}
+              ) : (
+                upcomingEvents.slice(0, 3).map((event) => {
+                  const startTime = new Date(event.start_time)
+                  const endTime = event.end_time ? new Date(event.end_time) : null
+                  const duration = endTime 
+                    ? Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60)) 
+                    : 60 // Default to 1 hour if no end time
+                  
+                  const formatTime = (date: Date) => {
+                    return date.toLocaleTimeString('en-US', { 
+                      hour: 'numeric', 
+                      minute: '2-digit',
+                      hour12: true 
+                    })
+                  }
+
+                  const formatDuration = (minutes: number) => {
+                    if (minutes >= 60) {
+                      const hours = Math.floor(minutes / 60)
+                      const remainingMinutes = minutes % 60
+                      return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`
+                    }
+                    return `${minutes}m`
+                  }
+
+                  return (
+                    <div key={event.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                        <Calendar className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium">{event.title}</p>
+                          <Badge variant="secondary" className="text-xs">
+                            {formatDuration(duration)}
+                          </Badge>
+                          {event.ai_generated && (
+                            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-600 border-purple-200">
+                              AI
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>{formatTime(startTime)}</span>
+                          <span>•</span>
+                          <span>{startTime.toLocaleDateString()}</span>
+                          {event.description && (
+                            <>
+                              <span>•</span>
+                              <span className="truncate max-w-[150px]">{event.description}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" asChild>
+                        <Link href="/dashboard/calendar">
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </CardContent>
         </Card>
