@@ -252,7 +252,14 @@ export class EmailService {
     const supabase = await this.getSupabase()
 
     console.log('EmailService.getEmailById called with:', emailId)
-    console.log('ID format check - is UUID:', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(emailId))
+    
+    // Check if the provided ID is a UUID format
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(emailId)
+    console.log('ID format check - is UUID:', isUUID)
+
+    // Build query based on ID format
+    const queryField = isUUID ? 'id' : 'gmail_id'
+    console.log('Querying by field:', queryField)
 
     const { data: email, error } = await supabase
       .from('emails')
@@ -266,7 +273,7 @@ export class EmailService {
           id, title, description, confidence_score, status, created_at
         )
       `)
-      .eq('id', emailId)
+      .eq(queryField, emailId)
       .eq('user_id', userId)
       .single()
 
