@@ -52,10 +52,15 @@ export function EmailProcessor({ emailAccountConnected }: EmailProcessorProps) {
   useEffect(() => {
     if (emailAccountConnected) {
       fetchStatus()
-      const interval = setInterval(fetchStatus, 30000) // Update every 30 seconds
+      // Reduce polling frequency to 2 minutes and only when not processing
+      const interval = setInterval(() => {
+        if (!document.hidden && !isProcessing) {
+          fetchStatus()
+        }
+      }, 120000) // Update every 2 minutes
       return () => clearInterval(interval)
     }
-  }, [emailAccountConnected])
+  }, [emailAccountConnected, isProcessing])
 
   const handleProcessEmails = async () => {
     try {

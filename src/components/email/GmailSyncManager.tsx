@@ -65,6 +65,7 @@ export function GmailSyncManager({
 }: GmailSyncManagerProps) {
   const [isConnecting, setIsConnecting] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false)
   const [accounts, setAccounts] = useState<GmailAccount[]>([])
   const [syncStats, setSyncStats] = useState<SyncStats | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -72,9 +73,21 @@ export function GmailSyncManager({
   
   useEffect(() => {
     fetchGmailAccounts()
+    
+    // Set up interval to check accounts every 2 minutes and only when tab is active
+    const interval = setInterval(() => {
+      if (!document.hidden && !isSyncing && !isConnecting && !isLoadingAccounts) {
+        fetchGmailAccounts()
+      }
+    }, 120000) // Update every 2 minutes
+    
+    return () => clearInterval(interval)
   }, [])
 
   const fetchGmailAccounts = async () => {
+    if (isLoadingAccounts) return // Prevent multiple concurrent calls
+    
+    setIsLoadingAccounts(true)
     try {
       const response = await fetch('/api/user/email-accounts')
       if (response.ok) {
@@ -83,9 +96,18 @@ export function GmailSyncManager({
         if (data.accounts?.length > 0) {
           setLastSyncTime(data.accounts[0].last_sync)
         }
+        // Clear any previous errors on successful fetch
+        setError(null)
+      } else if (response.status === 500) {
+        // Only set error for server errors, not auth issues
+        const errorData = await response.json().catch(() => ({}))
+        setError(errorData.error || 'Failed to fetch email accounts')
       }
     } catch (err) {
       console.error('Error fetching Gmail accounts:', err)
+      setError('Unable to connect to email service')
+    } finally {
+      setIsLoadingAccounts(false)
     }
   }
 

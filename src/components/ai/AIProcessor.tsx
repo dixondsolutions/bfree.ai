@@ -42,9 +42,14 @@ export function AIProcessor({ hasEmailsToProcess }: AIProcessorProps) {
 
   useEffect(() => {
     fetchStats()
-    const interval = setInterval(fetchStats, 45000) // Update every 45 seconds
+    // Reduce polling frequency to 2 minutes and only when component is in focus
+    const interval = setInterval(() => {
+      if (!document.hidden && !isProcessing) {
+        fetchStats()
+      }
+    }, 120000) // Update every 2 minutes
     return () => clearInterval(interval)
-  }, [])
+  }, [isProcessing])
 
   const handleProcessWithAI = async () => {
     try {
