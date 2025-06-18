@@ -37,14 +37,14 @@ async function getEmailsFallback(supabase: any, userId: string, filters: any) {
   let query = supabase
     .from('emails')
     .select(`
-      id,
-      gmail_id,
+      id as email_id,
       subject,
       from_address,
       from_name,
       received_at,
       snippet,
       is_unread,
+      importance_level,
       has_scheduling_content,
       ai_analyzed,
       attachment_count
@@ -76,7 +76,6 @@ async function getEmailsFallback(supabase: any, userId: string, filters: any) {
     ...email,
     task_count: 0,
     suggestion_count: 0,
-    importance_level: 'normal',
     attachment_count: email.attachment_count || 0
   }))
 
