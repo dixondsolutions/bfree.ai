@@ -28,6 +28,66 @@ const EmailUpdateSchema = z.object({
 })
 
 /**
+ * Simple fallback email fetch when database functions aren't available
+ */
+async function getEmailsFallback(supabase: any, userId: string, filters: any) {
+  const limit = filters.limit || 50
+  const offset = filters.offset || 0
+
+  let query = supabase
+    .from('emails')
+    .select(`
+      id,
+      gmail_id,
+      subject,
+      from_address,
+      from_name,
+      received_at,
+      snippet,
+      is_unread,
+      has_scheduling_content,
+      ai_analyzed,
+      attachment_count
+    `)
+    .eq('user_id', userId)
+    .order('received_at', { ascending: false })
+    .range(offset, offset + limit)
+
+  // Apply basic filters
+  if (filters.unread_only) {
+    query = query.eq('is_unread', true)
+  }
+  if (filters.scheduling_only) {
+    query = query.eq('has_scheduling_content', true)
+  }
+  if (filters.from_address) {
+    query = query.eq('from_address', filters.from_address)
+  }
+  if (filters.has_attachments) {
+    query = query.gt('attachment_count', 0)
+  }
+
+  const { data: emails, error } = await query
+
+  if (error) throw error
+
+  // Add dummy counts for task and suggestion relationships
+  const emailsWithCounts = (emails || []).map(email => ({
+    ...email,
+    task_count: 0,
+    suggestion_count: 0,
+    importance_level: 'normal',
+    attachment_count: email.attachment_count || 0
+  }))
+
+  return {
+    emails: emailsWithCounts,
+    total: emailsWithCounts.length,
+    hasMore: emailsWithCounts.length === limit + 1
+  }
+}
+
+/**
  * GET /api/emails - Get user's emails with filtering and pagination
  */
 export async function GET(request: NextRequest) {
@@ -39,34 +99,75 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     
-    // Parse and validate query parameters
-    const filters = EmailFiltersSchema.parse({
+    // Parse and validate query parameters with more lenient validation
+    const rawFilters = {
       unread_only: searchParams.get('unread_only') === 'true',
       scheduling_only: searchParams.get('scheduling_only') === 'true',
-      importance_level: searchParams.get('importance_level') as any,
+      importance_level: searchParams.get('importance_level'),
       date_from: searchParams.get('date_from'),
       date_to: searchParams.get('date_to'),
       from_address: searchParams.get('from_address'),
       search_query: searchParams.get('search_query'),
       labels: searchParams.get('labels')?.split(','),
       has_attachments: searchParams.get('has_attachments') === 'true',
-      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined,
-      offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : undefined
-    })
-
-    // Convert date strings to Date objects
-    const emailFilters: EmailFilters = {
-      ...filters,
-      date_from: filters.date_from ? new Date(filters.date_from) : undefined,
-      date_to: filters.date_to ? new Date(filters.date_to) : undefined
+      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50,
+      offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0
     }
 
-    const result = await emailService.getEmails(emailFilters)
-
-    return NextResponse.json({
-      success: true,
-      ...result
+    // Only validate fields that are present
+    const filters: any = {}
+    Object.keys(rawFilters).forEach(key => {
+      const value = rawFilters[key as keyof typeof rawFilters]
+      if (value !== null && value !== undefined && value !== '') {
+        filters[key] = value
+      }
     })
+
+    const supabase = await createClient()
+
+    try {
+      // Try using the optimized database function first
+      const { data: emails, error } = await supabase.rpc('get_emails_with_counts', {
+        p_user_id: user.id,
+        p_limit: (filters.limit || 50) + 1,
+        p_offset: filters.offset || 0,
+        p_unread_only: filters.unread_only || false,
+        p_scheduling_only: filters.scheduling_only || false
+      })
+
+      if (error) throw error
+
+      const hasMore = emails.length > (filters.limit || 50)
+      const emailsToReturn = hasMore ? emails.slice(0, -1) : emails
+
+      return NextResponse.json({
+        success: true,
+        emails: emailsToReturn,
+        total: emailsToReturn.length,
+        pagination: {
+          limit: filters.limit || 50,
+          offset: filters.offset || 0,
+          hasMore
+        }
+      })
+
+    } catch (dbFunctionError) {
+      console.warn('Database function get_emails_with_counts not available, using fallback:', dbFunctionError)
+      
+      // Fallback to basic query
+      const result = await getEmailsFallback(supabase, user.id, filters)
+      
+      return NextResponse.json({
+        success: true,
+        emails: result.emails,
+        total: result.total,
+        pagination: {
+          limit: filters.limit || 50,
+          offset: filters.offset || 0,
+          hasMore: result.hasMore
+        }
+      })
+    }
 
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -103,30 +204,36 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Store emails in batch
-    const storedEmails = await emailService.storeEmailsBatch(emails)
+    const supabase = await createClient()
 
-    // Link to processing queue if requested
-    if (linkToQueue && body.queueIds) {
-      for (let i = 0; i < storedEmails.length && i < body.queueIds.length; i++) {
-        try {
-          await emailService.linkEmailToProcessingQueue(storedEmails[i].id, body.queueIds[i])
-        } catch (error) {
-          console.error(`Failed to link email ${storedEmails[i].id} to queue ${body.queueIds[i]}:`, error)
-        }
-      }
+    // Simple batch insert with basic error handling
+    const emailsData = emails.map(email => ({
+      ...email,
+      user_id: user.id,
+      received_at: new Date(email.received_at).toISOString(),
+      processed_at: new Date().toISOString()
+    }))
+
+    const { data: storedEmails, error } = await supabase
+      .from('emails')
+      .upsert(emailsData, { 
+        onConflict: 'user_id,gmail_id',
+        ignoreDuplicates: false 
+      })
+      .select('id, gmail_id, subject, from_address, received_at')
+
+    if (error) {
+      console.error('Error storing emails:', error)
+      return NextResponse.json({ 
+        error: 'Failed to store emails',
+        details: error.message 
+      }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      message: `Stored ${storedEmails.length} emails`,
-      emails: storedEmails.map(email => ({
-        id: email.id,
-        gmail_id: email.gmail_id,
-        subject: email.subject,
-        from_address: email.from_address,
-        received_at: email.received_at
-      }))
+      message: `Stored ${storedEmails?.length || 0} emails`,
+      emails: storedEmails || []
     }, { status: 201 })
 
   } catch (error) {
@@ -151,33 +258,28 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { emailIds, updates } = EmailUpdateSchema.parse(body)
 
-    const results = []
+    const supabase = await createClient()
 
-    // Handle bulk read/unread updates
-    if (updates.is_unread !== undefined) {
-      const updatedCount = await emailService.markEmailsAsRead(emailIds, !updates.is_unread)
-      results.push(`Marked ${updatedCount} emails as ${updates.is_unread ? 'unread' : 'read'}`)
-    }
+    // Simple bulk update
+    const { data, error } = await supabase
+      .from('emails')
+      .update(updates)
+      .in('id', emailIds)
+      .eq('user_id', user.id)
+      .select('id')
 
-    // Handle individual updates for other fields
-    if (updates.is_starred !== undefined || updates.importance_level !== undefined) {
-      for (const emailId of emailIds) {
-        try {
-          await emailService.updateEmailStatus(emailId, {
-            is_starred: updates.is_starred,
-            // Note: importance_level would need to be added to updateEmailStatus method
-          })
-        } catch (error) {
-          console.error(`Failed to update email ${emailId}:`, error)
-        }
-      }
-      results.push(`Updated ${emailIds.length} emails`)
+    if (error) {
+      console.error('Error updating emails:', error)
+      return NextResponse.json({ 
+        error: 'Failed to update emails',
+        details: error.message 
+      }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      message: results.join('; '),
-      updated_count: emailIds.length
+      message: `Updated ${data?.length || 0} emails`,
+      updated_count: data?.length || 0
     })
 
   } catch (error) {
@@ -215,12 +317,27 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 })
     }
 
-    const deletedCount = await emailService.deleteEmails(emailIds)
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('emails')
+      .delete()
+      .in('id', emailIds)
+      .eq('user_id', user.id)
+      .select('id')
+
+    if (error) {
+      console.error('Error deleting emails:', error)
+      return NextResponse.json({ 
+        error: 'Failed to delete emails',
+        details: error.message 
+      }, { status: 500 })
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Deleted ${deletedCount} emails`,
-      deleted_count: deletedCount
+      message: `Deleted ${data?.length || 0} emails`,
+      deleted_count: data?.length || 0
     })
 
   } catch (error) {

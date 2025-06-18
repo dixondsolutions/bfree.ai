@@ -41,39 +41,58 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     
     // Query parameters for filtering
-    const status = searchParams.get('status')
+    const statusParam = searchParams.get('status')
     const category = searchParams.get('category')
     const priority = searchParams.get('priority')
+    const startDate = searchParams.get('start_date')
+    const endDate = searchParams.get('end_date')
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
     const include_subtasks = searchParams.get('include_subtasks') === 'true'
     const parent_only = searchParams.get('parent_only') === 'true'
 
+    // Parse multiple status values
+    const statusValues = statusParam ? statusParam.split(',').map(s => s.trim()) : null
+
+    // Use the main tasks table instead of task_overview
     let query = supabase
-      .from('task_overview')
+      .from('tasks')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
     // Apply filters
-    if (status) query = query.eq('status', status)
+    if (statusValues && statusValues.length > 0) {
+      query = query.in('status', statusValues)
+    }
     if (category) query = query.eq('category', category)
     if (priority) query = query.eq('priority', priority)
     if (parent_only) query = query.is('parent_task_id', null)
+
+    // Apply date range filters
+    if (startDate) {
+      query = query.or(`scheduled_start.gte.${startDate},scheduled_end.gte.${startDate},due_date.gte.${startDate}`)
+    }
+    if (endDate) {
+      query = query.or(`scheduled_start.lte.${endDate},scheduled_end.lte.${endDate},due_date.lte.${endDate}`)
+    }
 
     const { data: tasks, error } = await query
 
     if (error) {
       console.error('Error fetching tasks:', error)
-      return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
+      return NextResponse.json({ 
+        error: 'Failed to fetch tasks',
+        details: error.message 
+      }, { status: 500 })
     }
 
     // Fetch subtasks if requested
-    if (include_subtasks && tasks) {
+    if (include_subtasks && tasks && tasks.length > 0) {
       const taskIds = tasks.map(task => task.id)
       const { data: subtasks } = await supabase
-        .from('task_overview')
+        .from('tasks')
         .select('*')
         .in('parent_task_id', taskIds)
         .order('created_at', { ascending: false })
@@ -92,7 +111,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ 
-      tasks,
+      tasks: tasks || [],
       pagination: {
         offset,
         limit,
@@ -102,7 +121,10 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in GET /api/tasks:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 
@@ -138,16 +160,24 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error creating task:', error)
-      return NextResponse.json({ error: 'Failed to create task' }, { status: 500 })
+      return NextResponse.json({ 
+        error: 'Failed to create task',
+        details: error.message 
+      }, { status: 500 })
     }
 
-    // Log task creation
-    await supabase.from('task_comments').insert({
-      task_id: task.id,
-      user_id: user.id,
-      comment: 'Task created',
-      is_system_comment: true
-    })
+    // Log task creation if task_comments table exists
+    try {
+      await supabase.from('task_comments').insert({
+        task_id: task.id,
+        user_id: user.id,
+        comment: 'Task created',
+        is_system_comment: true
+      })
+    } catch (commentError) {
+      // Don't fail task creation if comment logging fails
+      console.warn('Failed to log task creation comment:', commentError)
+    }
 
     return NextResponse.json({ task }, { status: 201 })
 
@@ -160,6 +190,9 @@ export async function POST(request: NextRequest) {
     }
 
     console.error('Error in POST /api/tasks:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
