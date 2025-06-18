@@ -55,7 +55,7 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.10",
+
     "eslint": "^9.29.0",
     "eslint-config-next": "^15.3.3",
     "tw-animate-css": "^1.3.4"
