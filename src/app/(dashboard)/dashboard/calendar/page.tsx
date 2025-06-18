@@ -8,6 +8,7 @@ import { SchedulingAssistant } from '@/components/calendar/SchedulingAssistant'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { MonthlyCalendar, WeeklyCalendar, CalendarEvent } from '@/components/ui/Calendar'
 import { Button } from '@/components/ui/Button'
+import { PageLayout, PageHeader, PageContent, PageSection } from '@/components/layout/PageLayout'
 import { 
   Select,
   SelectContent,
@@ -87,30 +88,22 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="px-4 py-6 sm:px-0">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
-              Calendar Management
-            </h1>
-            <p className="mt-3 text-lg text-neutral-600">
-              Sync your calendars and use AI-powered scheduling to optimize your time.
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Button variant="outline" size="default">
-              <span className="mr-2">🔄</span>
-              Sync Now
-            </Button>
-            <Button variant="default" size="default">
-              <span className="mr-2">➕</span>
-              New Event
-            </Button>
-          </div>
-        </div>
-      </div>
+    <PageLayout>
+      <PageHeader
+        title="Calendar Management"
+        description="Sync your calendars and use AI-powered scheduling to optimize your time."
+      >
+        <Button variant="outline" size="default">
+          <span className="mr-2">🔄</span>
+          Sync Now
+        </Button>
+        <Button variant="default" size="default">
+          <span className="mr-2">➕</span>
+          New Event
+        </Button>
+      </PageHeader>
+
+      <PageContent>
 
       {/* Gmail Connection Check */}
       {emailAccounts.length === 0 && (
@@ -387,7 +380,7 @@ export default function CalendarPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
-    </div>
+      </PageContent>
+    </PageLayout>
   )
 }

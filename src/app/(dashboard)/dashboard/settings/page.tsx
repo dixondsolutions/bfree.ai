@@ -5,17 +5,16 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/Badge'
 import { Switch } from '@/components/ui/switch'
+import { PageLayout, PageHeader, PageContent } from '@/components/layout/PageLayout'
 import { User, Mail, Calendar, Bell, Shield, Palette } from 'lucide-react'
 
 export default function SettingsPage() {
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
-        <p className="text-muted-foreground">
-          Manage your account settings and preferences.
-        </p>
-      </div>
+    <PageLayout>
+      <PageHeader
+        title="Settings"
+        description="Manage your account settings and preferences."
+      />
 
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
@@ -179,6 +178,6 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageLayout>
   )
 }

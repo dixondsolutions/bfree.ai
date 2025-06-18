@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/avatar'
+import { PageLayout, PageHeader, PageContent, PageGrid, PageSection } from '@/components/layout/PageLayout'
 import { 
   CheckCircle, 
   AlertCircle, 
@@ -186,17 +187,16 @@ function QuickAction({ title, description, icon, href, gradient }: QuickActionPr
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-8">
-      {/* Welcome Section */}
-      <div className="space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Good morning! 👋</h2>
-        <p className="text-muted-foreground">
-          Your AI assistant is ready to help you manage emails and schedule meetings efficiently.
-        </p>
-      </div>
+    <PageLayout>
+      <PageHeader
+        title="Good morning! 👋"
+        description="Your AI assistant is ready to help you manage emails and schedule meetings efficiently."
+      />
 
-      {/* Metrics Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <PageContent>
+        {/* Metrics Grid */}
+        <PageSection title="Overview">
+          <PageGrid columns={4}>
         <MetricCard
           title="Gmail Integration"
           value="Connected"
@@ -228,14 +228,12 @@ export default function DashboardPage() {
           icon={<Brain className="h-4 w-4" />}
           status="loading"
         />
-      </div>
+          </PageGrid>
+        </PageSection>
 
-      {/* Quick Actions */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Quick Actions</h3>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* Quick Actions */}
+        <PageSection title="Quick Actions">
+          <PageGrid columns={3} gap="md">
           <QuickAction
             title="Process Emails"
             description="Review and manage your latest emails with AI assistance"
@@ -257,11 +255,11 @@ export default function DashboardPage() {
             href="/dashboard/analytics"
             gradient="bg-purple-500/10 text-purple-600"
           />
-        </div>
-      </div>
+          </PageGrid>
+        </PageSection>
 
-      {/* Recent Activity & Upcoming */}
-      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Recent Activity & Upcoming */}
+        <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent Activity */}
         <Card className="glass-card">
           <CardHeader className="pb-4">
@@ -414,7 +412,8 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </PageContent>
+    </PageLayout>
   )
 }
 
