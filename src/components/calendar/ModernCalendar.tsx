@@ -137,28 +137,47 @@ export function ModernCalendar({
       }
 
       // Fetch calendar events
+      console.log('Fetching calendar events for range:', { startDate, endDate })
       const eventsResponse = await fetch(
         `/api/calendar/events?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`
       )
       
+      console.log('Events response status:', eventsResponse.status)
       if (eventsResponse.ok) {
         const eventsData = await eventsResponse.json()
+        console.log('Events data received:', eventsData)
         setEvents(eventsData.events || [])
+      } else {
+        const errorText = await eventsResponse.text()
+        console.error('Events fetch failed:', eventsResponse.status, errorText)
+        throw new Error(`Events API failed: ${eventsResponse.status} ${errorText}`)
       }
 
       // Fetch tasks
+      console.log('Fetching tasks for range:', { startDate, endDate })
       const tasksResponse = await fetch(
         `/api/tasks?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}&status=pending,in_progress,completed&limit=100`
       )
       
+      console.log('Tasks response status:', tasksResponse.status)
       if (tasksResponse.ok) {
         const tasksData = await tasksResponse.json()
+        console.log('Tasks data received:', tasksData)
         setTasks(tasksData.tasks || [])
+      } else {
+        const errorText = await tasksResponse.text()
+        console.error('Tasks fetch failed:', tasksResponse.status, errorText)
+        throw new Error(`Tasks API failed: ${tasksResponse.status} ${errorText}`)
       }
 
     } catch (err) {
       setError('Failed to load calendar data')
       console.error('Calendar data fetch error:', err)
+      console.error('Error details:', {
+        error: err,
+        message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : 'No stack trace'
+      })
     } finally {
       setLoading(false)
     }
@@ -563,10 +582,15 @@ export function ModernCalendar({
         )}
         
         {error && (
-          <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg">
-            <AlertCircle className="h-4 w-4" />
-            <span className="text-sm">{error}</span>
-            <Button variant="outline" size="sm" onClick={() => fetchCalendarData(currentDate)}>
+          <div className="flex flex-col gap-2 text-red-600 bg-red-50 p-3 rounded-lg">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <span className="text-sm font-medium">{error}</span>
+            </div>
+            <div className="text-xs text-red-500 font-mono">
+              Check the browser console for detailed error information
+            </div>
+            <Button variant="outline" size="sm" onClick={() => fetchCalendarData(currentDate)} className="self-start">
               Retry
             </Button>
           </div>
