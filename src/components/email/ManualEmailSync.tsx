@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { createClient } from '@/lib/supabase/client'
 import { 
   Mail, 
   RefreshCw, 
@@ -14,6 +15,13 @@ import {
   Zap,
   BarChart3
 } from 'lucide-react'
+
+// Helper function to get auth token
+async function getSupabaseToken() {
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token
+}
 
 interface SyncStats {
   totalMessages: number
@@ -89,21 +97,10 @@ export function ManualEmailSync() {
 
       console.log('Starting AI processing...')
 
-      // Get auth token
-      const token = localStorage.getItem('sb-auth-token') || 
-                   document.cookie.split('; ')
-                     .find(row => row.startsWith('sb-auth-token='))
-                     ?.split('=')[1]
-
-      if (!token) {
-        throw new Error('Authentication required')
-      }
-
       const response = await fetch('/api/ai/process', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           maxEmails: 20
@@ -136,12 +133,19 @@ export function ManualEmailSync() {
       setProcessing(true)
       setError(null)
 
+      // Get auth token from Supabase
+      const supabaseToken = await getSupabaseToken()
+      
+      if (!supabaseToken) {
+        throw new Error('Authentication required')
+      }
+
       // Call the Supabase Edge Function
       const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-email-processor`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${supabaseToken}`
         },
         body: JSON.stringify({
           maxEmails: 20

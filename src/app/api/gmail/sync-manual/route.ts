@@ -15,11 +15,11 @@ export async function POST(request: NextRequest) {
 
     // Get user's Gmail access token
     const { data: tokens, error: tokenError } = await supabase
-      .from('user_tokens')
+      .from('email_accounts')
       .select('*')
       .eq('user_id', user.id)
       .eq('provider', 'gmail')
-      .eq('status', 'active')
+      .eq('is_active', true)
       .single()
 
     if (tokenError || !tokens) {
@@ -29,11 +29,19 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Initialize Gmail client
-    const oauth2Client = new google.auth.OAuth2()
+    // Initialize Gmail client with decrypted tokens
+    const { decrypt } = await import('@/lib/utils/encryption')
+    
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    )
+    
     oauth2Client.setCredentials({
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token
+      access_token: decrypt(tokens.access_token),
+      refresh_token: tokens.refresh_token ? decrypt(tokens.refresh_token) : null,
+      expiry_date: tokens.expires_at ? new Date(tokens.expires_at).getTime() : undefined
     })
 
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
@@ -159,13 +167,14 @@ export async function POST(request: NextRequest) {
           message_id: messageId,
           subject: subject.substring(0, 500), // Limit length
           from_address: fromAddress,
+          from_name: from.split('<')[0].trim(),
           to_address: toAddress,
           content_text: contentText.substring(0, 10000), // Limit content length
           content_html: contentHtml.substring(0, 10000),
+          snippet: messageData.snippet?.substring(0, 200) || '',
           received_at: new Date(date).toISOString(),
-          is_sent: isSent,
-          ai_analyzed: false,
-          created_at: new Date().toISOString()
+          sent_at: isSent ? new Date(date).toISOString() : null,
+          ai_analyzed: false
         }
 
         newEmails.push(emailRecord)
@@ -203,18 +212,9 @@ export async function POST(request: NextRequest) {
 
     // Update last sync time
     await supabase
-      .from('user_tokens')
+      .from('email_accounts')
       .update({ 
-        last_sync: new Date().toISOString(),
-        metadata: { 
-          ...tokens.metadata,
-          last_manual_sync: new Date().toISOString(),
-          last_sync_stats: {
-            processed: processedCount,
-            skipped: skippedCount,
-            total: messages.length
-          }
-        }
+        updated_at: new Date().toISOString()
       })
       .eq('user_id', user.id)
       .eq('provider', 'gmail')
