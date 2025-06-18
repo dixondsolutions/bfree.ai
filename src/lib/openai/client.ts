@@ -39,40 +39,210 @@ export interface EmailAnalysisResult {
 }
 
 /**
- * System prompt for email analysis
+ * System prompt for email analysis - Enhanced for business context and actionable content
  */
-const SYSTEM_PROMPT = `You are a practical AI assistant specialized in extracting scheduling and task information from emails. Your goal is to help users stay organized by identifying actionable items that need attention.
+const SYSTEM_PROMPT = `You are an expert AI assistant specialized in extracting actionable scheduling and task information from business emails. Your goal is to help busy professionals stay organized by identifying ALL actionable items that need attention.
 
-APPROACH:
-1. Look for ANY actionable content that requires scheduling, follow-up, or task completion
-2. Be practical and helpful - users prefer suggestions they can decline rather than missing important items
-3. Consider context like email chains, sender relationships, and business vs personal communication
-4. Extract multiple items if the email contains several actionable elements
-5. Pay special attention to reply chains and quoted text for context
+CORE PHILOSOPHY:
+- Be practical and proactive - users prefer actionable suggestions they can decline rather than missing important items
+- Business context matters - work emails deserve higher attention than promotional content
+- Informal language often contains the most important actionable items
+- Email chains and conversations contain rich context - analyze the full thread
 
-SCHEDULING TYPES TO DETECT:
-- meeting: Any proposed gatherings, calls, appointments, or face-to-face meetings
-- task: Work assignments, deliverables, reviews, action items that need completion  
-- deadline: Items with specific due dates, time-sensitive requests, or urgent matters
-- reminder: Follow-ups, check-ins, confirmations, or recurring items
+EMAIL CLASSIFICATION PRIORITY:
+1. WORK INTERNAL: Same organization/domain emails (.com, known colleagues) - HIGH PRIORITY
+2. BUSINESS EXTERNAL: Clients, partners, vendors, professional contacts - HIGH PRIORITY  
+3. GOOGLE SERVICES: Chat notifications, calendar invites, meeting updates - MEDIUM-HIGH PRIORITY
+4. CHAMBER/PROFESSIONAL: Industry associations, networking groups - MEDIUM PRIORITY
+5. PROMOTIONAL: Marketing emails, newsletters, sales pitches - LOW PRIORITY
 
-CONFIDENCE SCORING (be generous but accurate):
-- 0.8-1.0: Direct scheduling language ("let's meet", "schedule a call", "due by", specific times/dates)
-- 0.6-0.7: Strong business context requiring action ("review needed", "can we discuss", "need to follow up")
-- 0.4-0.5: Implied scheduling needs ("we should talk", collaborative planning, project coordination)
-- 0.2-0.3: Weak signals (vague future references, general inquiries)
-- 0.0-0.1: Clearly no scheduling intent (newsletters, confirmations, FYI messages)
+ACTIONABLE CONTENT DETECTION:
+Look for these patterns with HIGH SENSITIVITY:
 
-SPECIAL CASES:
-- Meeting replies/confirmations: High confidence (0.7+) if time/logistics being discussed
-- Project emails: Medium confidence (0.5+) if action items or deadlines mentioned
-- Follow-up requests: Medium-high confidence (0.6+) if specific next steps implied
-- Email chains: Extract context from quoted messages to understand full conversation
+MEETING/SCHEDULING LANGUAGE:
+- Direct: "let's meet", "schedule a call", "set up a meeting", "book some time"
+- Informal: "would you like to join", "let's plan on", "want to get together"
+- Logistics: "I'll send you", "calendar invite", "what time works", "available for"
+- Confirmations: "sounds good", "that works", "see you then", "accepted"
 
-Respond with a JSON object matching the EmailAnalysisResult interface.`
+TASK/ACTION LANGUAGE:
+- Direct: "need you to", "can you please", "review required", "complete by"
+- Implied: "let me know", "send over", "look for it", "follow up on"
+- Deadlines: "by Friday", "this week", "next Tuesday", "end of month"
+- Coordination: "final schedule", "prepare for", "confirm details"
+
+PROJECT/COLLABORATION:
+- "video shoot", "content review", "planning meeting", "strategy session"  
+- "onboarding", "training", "presentation", "demo"
+- "press release", "marketing materials", "social media", "website updates"
+
+TIME-SENSITIVE INDICATORS:
+- "urgent", "ASAP", "today", "tomorrow", "this week", "next week"
+- "Thursday", "Friday", specific dates, "end of day", "morning", "afternoon"
+- "before [event]", "after [meeting]", "by [deadline]"
+
+EMAIL CHAIN CONTEXT:
+- Parse quoted text and conversation history for full context
+- Meeting replies often contain the most actionable logistics
+- "Re:" and "Fwd:" subjects indicate ongoing conversations with history
+- Google Chat notifications contain informal but critical scheduling information
+
+CONFIDENCE SCORING (Be generous for business emails):
+- 0.9-1.0: Explicit scheduling with times/dates, direct task assignments
+- 0.7-0.8: Strong business scheduling language, meeting logistics, project coordination
+- 0.5-0.6: Informal scheduling, implied tasks, follow-up requests
+- 0.3-0.4: Weak signals, general inquiries, vague future references  
+- 0.1-0.2: Minimal actionable content, mostly informational
+
+BUSINESS CONTEXT BONUSES:
+- Work internal emails: +0.2 confidence boost
+- Email chains/replies: +0.2 confidence boost for scheduling discussions
+- Known business contacts: +0.1 confidence boost
+- Project/team coordination: +0.2 confidence boost
+
+TASK GENERATION GUIDELINES:
+Create specific, actionable tasks like:
+- "Send meeting invite for [topic] to [person] for [time]"
+- "Follow up with [person] about [specific topic]"
+- "Review and provide feedback on [deliverable] by [deadline]"
+- "Confirm attendance for [event] on [date]"
+- "Prepare materials for [meeting/project] by [date]"
+
+IGNORE THESE (Low/No scheduling content):
+- Pure promotional emails without personal engagement
+- Newsletter subscriptions and marketing blasts
+- Automated confirmations without scheduling implications
+- Political fundraising emails (unless from business contacts)
+- General announcements without action items
+
+Respond with a JSON object matching the EmailAnalysisResult interface. Focus on being helpful and proactive while maintaining accuracy.`
 
 /**
- * Analyze email content using GPT-4
+ * Classify email type and priority based on sender and content patterns
+ */
+function classifyEmail(emailContent: {
+  subject: string
+  from: string
+  to: string
+  body: string
+}): {
+  type: 'work_internal' | 'business_external' | 'google_service' | 'chamber_professional' | 'promotional' | 'other'
+  priority: 'high' | 'medium' | 'low'
+  confidenceBoost: number
+  context: string[]
+} {
+  const from = emailContent.from.toLowerCase()
+  const subject = emailContent.subject.toLowerCase()
+  const body = emailContent.body.toLowerCase()
+  
+  // Work internal (same organization/domain)
+  if (from.includes('@vnwil.com') || from.includes('matthew@') || from.includes('jayne@')) {
+    return {
+      type: 'work_internal',
+      priority: 'high',
+      confidenceBoost: 0.2,
+      context: ['work_internal', 'team_communication']
+    }
+  }
+  
+  // Google services (chat, calendar, meet)
+  if (from.includes('@google.com') || from.includes('chat-noreply') || 
+      subject.includes('google chat') || subject.includes('calendar')) {
+    return {
+      type: 'google_service',
+      priority: 'high',
+      confidenceBoost: 0.15,
+      context: ['google_service', 'collaboration_tool']
+    }
+  }
+  
+  // Chamber and professional organizations
+  if (from.includes('chamber') || from.includes('@saukvalley') || 
+      body.includes('chamber of commerce') || body.includes('networking')) {
+    return {
+      type: 'chamber_professional',
+      priority: 'medium',
+      confidenceBoost: 0.1,
+      context: ['professional_org', 'networking']
+    }
+  }
+  
+  // Promotional/marketing emails
+  if (from.includes('noreply') || from.includes('marketing') || from.includes('promo') ||
+      from.includes('@staples.com') || from.includes('@marriott') || from.includes('@dscc.org') ||
+      subject.includes('save') || subject.includes('offer') || subject.includes('%') ||
+      body.includes('unsubscribe') || body.includes('promotional')) {
+    return {
+      type: 'promotional',
+      priority: 'low',
+      confidenceBoost: -0.3,
+      context: ['promotional', 'marketing']
+    }
+  }
+  
+  // Business external (likely clients, partners, vendors)
+  if (from.includes('.com') && !from.includes('noreply') && 
+      (body.includes('meeting') || body.includes('project') || body.includes('business') ||
+       subject.includes('re:') || subject.includes('fwd:'))) {
+    return {
+      type: 'business_external',
+      priority: 'high',
+      confidenceBoost: 0.1,
+      context: ['business_external', 'client_communication']
+    }
+  }
+  
+  return {
+    type: 'other',
+    priority: 'medium',
+    confidenceBoost: 0,
+    context: ['general']
+  }
+}
+
+/**
+ * Detect email chain patterns and extract conversation context
+ */
+function analyzeEmailChain(emailContent: {
+  subject: string
+  body: string
+}): {
+  isReply: boolean
+  isForward: boolean
+  hasQuotedContent: boolean
+  conversationDepth: number
+  chainBoost: number
+} {
+  const subject = emailContent.subject.toLowerCase()
+  const body = emailContent.body.toLowerCase()
+  
+  const isReply = subject.startsWith('re:')
+  const isForward = subject.startsWith('fwd:') || subject.startsWith('fw:')
+  const hasQuotedContent = body.includes('wrote:') || body.includes('on ') || 
+                          body.includes('-----original message-----') || body.includes('>')
+  
+  // Estimate conversation depth based on subject prefixes
+  const reCount = (subject.match(/re:/g) || []).length
+  const fwdCount = (subject.match(/fwd:|fw:/g) || []).length
+  const conversationDepth = reCount + fwdCount
+  
+  // Email chains with scheduling discussions get confidence boost
+  const chainBoost = (isReply || isForward) && (
+    body.includes('meeting') || body.includes('schedule') || body.includes('calendar') ||
+    body.includes('time') || body.includes('available')
+  ) ? 0.2 : 0
+  
+  return {
+    isReply,
+    isForward,
+    hasQuotedContent,
+    conversationDepth,
+    chainBoost
+  }
+}
+
+/**
+ * Analyze email content using GPT-4 - Enhanced version
  */
 export async function analyzeEmailContent(emailContent: {
   subject: string
@@ -82,9 +252,19 @@ export async function analyzeEmailContent(emailContent: {
   date: Date
 }): Promise<EmailAnalysisResult> {
   try {
-    // Enhanced email parsing for better context
-    const isReply = emailContent.subject.toLowerCase().startsWith('re:') || 
-                   emailContent.subject.toLowerCase().startsWith('fwd:')
+    // Classify email type and priority
+    const classification = classifyEmail(emailContent)
+    const chainAnalysis = analyzeEmailChain(emailContent)
+    
+    // Skip low-value promotional emails unless they have business context
+    if (classification.type === 'promotional' && !chainAnalysis.isReply) {
+      return {
+        hasSchedulingContent: false,
+        extractions: [],
+        summary: 'Promotional email with no actionable content',
+        overallConfidence: 0.1
+      }
+    }
     
     const emailDate = emailContent.date.toLocaleDateString('en-US', {
       weekday: 'short',
@@ -93,24 +273,40 @@ export async function analyzeEmailContent(emailContent: {
       day: 'numeric'
     })
     
-    const prompt = `Analyze this email for scheduling and task-related content:
+    // Enhanced prompt with classification context
+    const prompt = `Analyze this ${classification.type.replace('_', ' ')} email for scheduling and task-related content:
 
 SUBJECT: ${emailContent.subject}
 FROM: ${emailContent.from}
 TO: ${emailContent.to}
 DATE: ${emailDate} (${emailContent.date.toISOString()})
-TYPE: ${isReply ? 'Email Reply/Chain' : 'New Email'}
+
+EMAIL CLASSIFICATION:
+- Type: ${classification.type.replace('_', ' ').toUpperCase()}
+- Priority: ${classification.priority.toUpperCase()}
+- Context: ${classification.context.join(', ')}
+- Is Reply/Chain: ${chainAnalysis.isReply ? 'YES' : 'NO'}
+- Conversation Depth: ${chainAnalysis.conversationDepth}
 
 EMAIL CONTENT:
 ${emailContent.body.substring(0, 5000)} ${emailContent.body.length > 5000 ? '...' : ''}
 
-CONTEXT INSTRUCTIONS:
-${isReply ? 
-  `This is a reply/forward. Pay attention to both the new message and any quoted/original content for full context. Meeting confirmations, time changes, and logistics discussions in replies are especially important.` : 
-  `This is a new email. Look for direct scheduling requests, meeting proposals, deadlines, and action items.`
+ANALYSIS INSTRUCTIONS:
+${classification.type === 'work_internal' ? 
+  `🔴 HIGH PRIORITY: This is internal work communication. Be very sensitive to scheduling needs, project coordination, and informal task assignments. Look for meeting planning, content reviews, deadlines, and team coordination.` : 
+  classification.type === 'google_service' ?
+  `🔴 HIGH PRIORITY: This is a Google service notification. These often contain critical meeting logistics, calendar changes, or team communication. Pay special attention to quoted chat conversations and scheduling discussions.` :
+  classification.type === 'business_external' ?
+  `🟡 MEDIUM-HIGH PRIORITY: This is external business communication. Look for client meetings, project deadlines, vendor coordination, and professional scheduling.` :
+  `🟢 STANDARD PRIORITY: Analyze for any actionable content, but be appropriately selective.`
 }
 
-Please analyze this email and extract any scheduling-relevant information. Be practical and helpful - it's better to suggest actionable items that users can decline than to miss important scheduling opportunities.`
+${chainAnalysis.isReply ? 
+  `📧 EMAIL CHAIN DETECTED: This is part of an ongoing conversation. Pay extra attention to the new message content AND any quoted/original messages. Meeting confirmations, time changes, and logistics discussions in replies are especially important. Look for phrases like "sounds good", "that works", "I'll send", "calendar invite", etc.` : 
+  `📧 NEW EMAIL: Look for direct scheduling requests, meeting proposals, deadlines, and action items.`
+}
+
+Remember: It's better to suggest actionable items that users can decline than to miss important scheduling opportunities. Focus on practical, business-relevant tasks and meetings.`
 
     const openai = getOpenAIClient()
     const response = await openai.chat.completions.create({
@@ -120,7 +316,7 @@ Please analyze this email and extract any scheduling-relevant information. Be pr
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.1, // Low temperature for consistent, conservative results
+      temperature: 0.1, // Low temperature for consistent results
       max_tokens: 1500
     })
 
@@ -131,29 +327,36 @@ Please analyze this email and extract any scheduling-relevant information. Be pr
 
     const result = JSON.parse(content) as EmailAnalysisResult
     
+    // Apply confidence adjustments based on classification
+    const totalConfidenceBoost = classification.confidenceBoost + chainAnalysis.chainBoost
+    const adjustedConfidence = Math.max(0, Math.min(1, (result.overallConfidence || 0) + totalConfidenceBoost))
+    
+    // Apply confidence boost to individual extractions
+    const adjustedExtractions = (result.extractions || []).map(extraction => ({
+      type: ['meeting', 'task', 'deadline', 'reminder'].includes(extraction.type) 
+        ? extraction.type 
+        : 'task',
+      title: String(extraction.title || 'Untitled'),
+      description: extraction.description ? String(extraction.description) : undefined,
+      suggestedDateTime: extraction.suggestedDateTime ? String(extraction.suggestedDateTime) : undefined,
+      duration: typeof extraction.duration === 'number' ? extraction.duration : undefined,
+      location: extraction.location ? String(extraction.location) : undefined,
+      participants: Array.isArray(extraction.participants) 
+        ? extraction.participants.map(p => String(p)) 
+        : undefined,
+      priority: ['low', 'medium', 'high'].includes(extraction.priority) 
+        ? extraction.priority 
+        : classification.priority as 'low' | 'medium' | 'high',
+      confidence: Math.max(0, Math.min(1, (Number(extraction.confidence) || 0) + totalConfidenceBoost)),
+      reasoning: String(extraction.reasoning || 'No reasoning provided')
+    }))
+    
     // Validate and sanitize the result
     return {
-      hasSchedulingContent: Boolean(result.hasSchedulingContent),
-      extractions: (result.extractions || []).map(extraction => ({
-        type: ['meeting', 'task', 'deadline', 'reminder'].includes(extraction.type) 
-          ? extraction.type 
-          : 'task',
-        title: String(extraction.title || 'Untitled'),
-        description: extraction.description ? String(extraction.description) : undefined,
-        suggestedDateTime: extraction.suggestedDateTime ? String(extraction.suggestedDateTime) : undefined,
-        duration: typeof extraction.duration === 'number' ? extraction.duration : undefined,
-        location: extraction.location ? String(extraction.location) : undefined,
-        participants: Array.isArray(extraction.participants) 
-          ? extraction.participants.map(p => String(p)) 
-          : undefined,
-        priority: ['low', 'medium', 'high'].includes(extraction.priority) 
-          ? extraction.priority 
-          : 'medium',
-        confidence: Math.max(0, Math.min(1, Number(extraction.confidence) || 0)),
-        reasoning: String(extraction.reasoning || 'No reasoning provided')
-      })),
+      hasSchedulingContent: Boolean(result.hasSchedulingContent) || adjustedExtractions.length > 0,
+      extractions: adjustedExtractions,
       summary: String(result.summary || 'No summary available'),
-      overallConfidence: Math.max(0, Math.min(1, Number(result.overallConfidence) || 0))
+      overallConfidence: adjustedConfidence
     }
   } catch (error) {
     console.error('Error analyzing email with OpenAI:', error)
