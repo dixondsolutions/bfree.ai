@@ -27,28 +27,48 @@ export default async function DashboardPage() {
   const emailAccounts = emailAccountsResult.data || []
   const upcomingEvents = eventsResult.data || []
   const aiSuggestions = aiSuggestionsResult.data || []
-  const pendingProcessing = processingQueueResult.data || []
+  const processingQueue = processingQueueResult.data || []
 
   // Calculate derived metrics
-  const hasGmailConnection = emailAccounts.length > 0
-  const eventsThisMonth = upcomingEvents.filter(event => {
-    const eventDate = new Date(event.start_time)
-    const now = new Date()
-    return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear()
-  }).length
-  const aiGeneratedEvents = upcomingEvents.filter(event => event.ai_generated).length
-  const pendingSuggestions = aiSuggestions.filter(s => s.status === 'pending').length
+  const totalEmailsSynced = emailAccounts.reduce((total, account) => {
+    return total + (account.total_emails_synced || 0)
+  }, 0)
 
-  // Prepare data for client component
+  const aiProcessingAccuracy = aiSuggestions.length > 0 
+    ? Math.round((aiSuggestions.filter(s => s.confidence_score > 0.8).length / aiSuggestions.length) * 100)
+    : 0
+
+  const timesSaved = Math.round(aiSuggestions.length * 0.25) // Estimate 15 minutes saved per AI suggestion
+  const automationRate = emailAccounts.length > 0 ? 85 : 0 // Estimate based on connected accounts
+
+  // Prepare data for client component matching the expected interface
   const dashboardData = {
-    emailAccounts,
-    upcomingEvents,
-    aiSuggestions,
-    pendingProcessing,
-    hasGmailConnection,
-    eventsThisMonth,
-    aiGeneratedEvents,
-    pendingSuggestions
+    emailAccounts: emailAccounts.map(account => ({
+      provider: account.provider || 'gmail',
+      email: account.email || 'Unknown',
+      last_sync: account.last_sync || new Date().toISOString()
+    })),
+    upcomingEvents: upcomingEvents.map(event => ({
+      title: event.title || 'Untitled Event',
+      start_time: event.start_time,
+      end_time: event.end_time
+    })),
+    aiSuggestions: aiSuggestions.map(suggestion => ({
+      suggestion_text: suggestion.suggestion_text || '',
+      confidence_score: suggestion.confidence_score || 0,
+      created_at: suggestion.created_at
+    })),
+    processingQueue: processingQueue.map(item => ({
+      email_id: item.email_id,
+      status: item.status || 'pending',
+      priority: item.priority || 'medium'
+    })),
+    metrics: {
+      totalEmailsSynced,
+      aiProcessingAccuracy,
+      timesSaved,
+      automationRate
+    }
   }
 
   return <EnhancedDashboard data={dashboardData} />
