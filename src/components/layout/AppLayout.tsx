@@ -137,7 +137,7 @@ function AppSidebarContent() {
   return (
     <Sidebar 
       collapsible="icon" 
-      className="border-r border-gray-200 bg-white"
+      className="border-r border-gray-200 bg-white z-40 fixed left-0 top-0 h-full"
     >
       <SidebarHeader className="border-b border-gray-200 py-4 px-4 bg-white">
         <div className={cn(
@@ -256,9 +256,15 @@ function AppMainContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const notificationCounts = useNotificationCounts()
   const totalNotifications = notificationCounts.emails + notificationCounts.tasks + notificationCounts.suggestions
+  const { state } = useSidebar()
   
   return (
-    <SidebarInset className="flex-1 flex flex-col min-h-screen">
+    <div 
+      className={cn(
+        "flex-1 flex flex-col min-h-screen transition-all duration-200",
+        state === "expanded" ? "ml-[280px]" : "ml-[64px]"
+      )}
+    >
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
         <div className="flex h-16 items-center gap-4 px-6">
@@ -294,7 +300,7 @@ function AppMainContent({ children }: { children: React.ReactNode }) {
           {children}
         </ErrorBoundary>
       </main>
-    </SidebarInset>
+    </div>
   )
 }
 
@@ -307,7 +313,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         "--sidebar-width-icon": "64px"
       } as React.CSSProperties}
     >
-      <div className="flex min-h-screen w-full bg-gray-50/30">
+      <div className="flex min-h-screen w-full bg-gray-50/30 relative">
         <AppSidebarContent />
         <AppMainContent>{children}</AppMainContent>
       </div>

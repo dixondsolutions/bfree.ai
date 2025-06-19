@@ -440,7 +440,7 @@ export const ModernEmailInterface: React.FC = () => {
   }, [searchQuery]);
 
   return (
-    <div className="flex flex-col h-full bg-white overflow-hidden">
+    <div className="flex flex-col h-full bg-white">
       {/* Email List Header */}
       <EmailListHeader 
         searchQuery={searchQuery}
@@ -453,7 +453,7 @@ export const ModernEmailInterface: React.FC = () => {
       />
       
       {/* Email List Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 min-h-0 overflow-auto">
         {loading && emails.length === 0 ? (
           // Loading state
           <div className="flex items-center justify-center h-64">

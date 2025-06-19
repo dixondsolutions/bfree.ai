@@ -11,7 +11,7 @@ export default function EmailsPage() {
   const [activeTab, setActiveTab] = useState('emails')
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden">
+    <div className="flex flex-col h-full w-full">
       {/* Header */}
       <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
         <div className="flex items-center justify-between">
@@ -25,7 +25,7 @@ export default function EmailsPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0">
         {/* Tabs for different email functions */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
           <div className="flex-shrink-0 px-6 pt-4">
@@ -45,7 +45,7 @@ export default function EmailsPage() {
             </TabsList>
           </div>
 
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 min-h-0">
             <TabsContent value="emails" className="h-full m-0 p-0">
               <ModernEmailInterface />
             </TabsContent>
