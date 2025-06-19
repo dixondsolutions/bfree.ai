@@ -6,10 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ModernCalendar } from '@/components/calendar/ModernCalendar'
-import { CalendarSync } from '@/components/calendar/CalendarSync'
-import { SchedulingAssistant } from '@/components/calendar/SchedulingAssistant'
-import { EnhancedCalendarView } from '@/components/calendar/EnhancedCalendarView'
-import { ModernCalendarScheduler } from '@/components/calendar/ModernCalendarScheduler'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Calendar as CalendarIcon,
@@ -51,6 +47,10 @@ export default function CalendarPage() {
   const [summary, setSummary] = useState<CalendarSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
+  
+  // Calendar component state
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month')
 
   useEffect(() => {
     const fetchCalendarData = async () => {
@@ -95,6 +95,14 @@ export default function CalendarPage() {
 
     fetchCalendarData()
   }, [])
+
+  const handleEventClick = (event: any) => {
+    console.log('Event clicked:', event)
+  }
+
+  const handleTaskClick = (task: any) => {
+    console.log('Task clicked:', task)
+  }
 
   return (
     <div className="w-full max-w-7xl mx-auto p-6 space-y-8 bg-gray-50/30 min-h-screen">
@@ -179,14 +187,10 @@ export default function CalendarPage() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 bg-white border border-gray-200">
+        <TabsList className="grid w-full grid-cols-3 bg-white border border-gray-200">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <CalendarIcon className="h-4 w-4" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="schedule" className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Schedule
+            Calendar View
           </TabsTrigger>
           <TabsTrigger value="assistant" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
@@ -209,7 +213,14 @@ export default function CalendarPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ModernCalendar events={events} />
+                  <ModernCalendar 
+                    selectedDate={selectedDate}
+                    onDateChange={setSelectedDate}
+                    onEventClick={handleEventClick}
+                    onTaskClick={handleTaskClick}
+                    view={calendarView}
+                    onViewChange={setCalendarView}
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -265,22 +276,28 @@ export default function CalendarPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="schedule" className="space-y-4">
+        <TabsContent value="assistant" className="space-y-4">
           <Card className="border border-gray-200 bg-white shadow-sm">
             <CardHeader>
-              <CardTitle className="text-gray-900">Enhanced Calendar</CardTitle>
+              <CardTitle className="text-gray-900">AI Scheduling Assistant</CardTitle>
               <CardDescription className="text-gray-600">
-                Advanced calendar with AI-powered scheduling
+                Let AI help you optimize your schedule
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <EnhancedCalendarView />
+              <div className="text-center py-8">
+                <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">AI Assistant</h3>
+                <p className="text-gray-600 mb-4">
+                  The AI scheduling assistant will help you optimize your calendar and suggest better meeting times.
+                </p>
+                <Button className="bg-green-600 hover:bg-green-700 text-white">
+                  <Brain className="h-4 w-4 mr-2" />
+                  Get AI Suggestions
+                </Button>
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="assistant" className="space-y-4">
-          <SchedulingAssistant />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
@@ -292,7 +309,26 @@ export default function CalendarPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <CalendarSync />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <h4 className="font-medium text-gray-900">Google Calendar</h4>
+                    <p className="text-sm text-gray-600">Sync with your Google Calendar</p>
+                  </div>
+                  <Button variant="outline" className="border-gray-200">
+                    Connect
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <h4 className="font-medium text-gray-900">Outlook Calendar</h4>
+                    <p className="text-sm text-gray-600">Sync with your Outlook Calendar</p>
+                  </div>
+                  <Button variant="outline" className="border-gray-200">
+                    Connect
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
