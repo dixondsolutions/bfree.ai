@@ -87,74 +87,7 @@ module.exports = {
           900: '#713f12',
           950: '#422006',
         },
-        // Natural accent colors
-        accent: {
-          50: '#f7fee7',
-          100: '#ecfccb',
-          200: '#d9f99d',
-          300: '#bef264',
-          400: '#a3e635',
-          500: '#84cc16', // Fresh lime
-          600: '#65a30d',
-          700: '#4d7c0f',
-          800: '#3f6212',
-          900: '#365314',
-          950: '#1a2e05',
-        },
-        // Earth browns
-        earth: {
-          50: '#faf7f0',
-          100: '#f4ede1',
-          200: '#e9dcc6',
-          300: '#dbc7a4',
-          400: '#cbae81',
-          500: '#b8956a', // Warm earth brown
-          600: '#a67e5b',
-          700: '#8a654c',
-          800: '#715442',
-          900: '#5c4639',
-          950: '#31241c',
-        },
-        // Natural grays (stone-like)
-        natural: {
-          50: '#fafaf9',
-          100: '#f5f5f4',
-          200: '#e7e5e4',
-          300: '#d6d3d1',
-          400: '#a8a29e',
-          500: '#78716c', // Natural stone
-          600: '#57534e',
-          700: '#44403c',
-          800: '#292524',
-          900: '#1c1917',
-          950: '#0c0a09',
-        },
-        // Status colors with nature theme
-        success: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          500: '#22c55e', // Fresh green
-          600: '#16a34a',
-        },
-        warning: {
-          50: '#fffbeb',
-          100: '#fef3c7',
-          500: '#f59e0b', // Autumn orange
-          600: '#d97706',
-        },
-        error: {
-          50: '#fef2f2',
-          100: '#fee2e2',
-          500: '#ef4444', // Natural red
-          600: '#dc2626',
-        },
-        info: {
-          50: '#ecfdf5',
-          100: '#d1fae5',
-          500: '#10b981', // Teal green
-          600: '#059669',
-        },
-        // Rich Neutral Colors with Subtle Undertones
+        // Rich Neutral Colors
         neutral: {
           50: '#fafafa',
           100: '#f5f5f5',
@@ -168,47 +101,9 @@ module.exports = {
           900: '#171717',
           950: '#0a0a0a',
         },
-        // Enhanced Background and Surface Colors
+        // Background and Surface Colors
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
-        
-        surface: {
-          50: '#ffffff',
-          100: '#f8fafc',
-          200: '#f1f5f9',
-          300: '#e2e8f0',
-          400: '#cbd5e1',
-          500: '#94a3b8',
-          600: '#64748b',
-          700: '#475569',
-          800: '#334155',
-          900: '#1e293b',
-          950: '#0f172a',
-        },
-        
-        // Calendar and Feature-Specific Colors
-        calendar: {
-          event: '#3b82f6',
-          task: '#10b981',
-          reminder: '#f59e0b',
-          meeting: '#8b5cf6',
-          personal: '#ec4899',
-          work: '#6366f1',
-          ai: '#0ea5e9',
-        },
-        
-        // Status and State Colors
-        status: {
-          pending: '#f59e0b',
-          'in-progress': '#3b82f6',
-          review: '#8b5cf6',
-          done: '#10b981',
-          blocked: '#ef4444',
-          deferred: '#6b7280',
-          cancelled: '#9ca3af',
-        },
-        
-        // shadcn/ui CSS variable mappings
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
@@ -228,25 +123,12 @@ module.exports = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
-        
-        // Sidebar CSS variables
-        sidebar: {
-          DEFAULT: 'hsl(var(--sidebar))',
-          foreground: 'hsl(var(--sidebar-foreground))',
-          primary: 'hsl(var(--sidebar-primary))',
-          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-          accent: 'hsl(var(--sidebar-accent))',
-          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-          border: 'hsl(var(--sidebar-border))',
-          ring: 'hsl(var(--sidebar-ring))',
-        },
       },
       
-      // Enhanced Typography Scale with Better Hierarchy
+      // Enhanced Typography
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-        display: ['Inter', 'system-ui', 'sans-serif'],
       },
       
       fontSize: {
@@ -294,7 +176,7 @@ module.exports = {
         'sm': '0.25rem',    // 4px
         'DEFAULT': '0.375rem', // 6px
         'md': '0.5rem',     // 8px
-        'lg': '0.75rem',    // 12px
+        'lg': 'var(--radius)',
         'xl': '1rem',       // 16px
         '2xl': '1.25rem',   // 20px
         '3xl': '1.5rem',    // 24px

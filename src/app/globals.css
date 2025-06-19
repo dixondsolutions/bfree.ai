@@ -2,14 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Nature-inspired design system with sophisticated layout spacing */
+/* Simple, clean design system */
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
   --radius: 0.75rem;
 
-  /* Modern light mode colors with nature theme */
+  /* Simple light mode colors with nature theme */
   --background: 0 0% 100%;
   --foreground: 28 84% 5%;
 
@@ -19,7 +19,7 @@
   --popover: 0 0% 100%;
   --popover-foreground: 28 84% 5%;
 
-  /* Enhanced nature-themed primary colors - Fresh Green */
+  /* Nature-themed primary colors - Fresh Green */
   --primary: 142 69% 58%; /* Fresh green #22c55e */
   --primary-foreground: 0 0% 98%;
 
@@ -39,26 +39,7 @@
   --input: 20 5.9% 90%;
   --ring: 142 69% 58%;
 
-  /* Nature-themed status colors */
-  --success: 142 69% 58%; /* Fresh green */
-  --warning: 45 93% 47%; /* Earth yellow */
-  --info: 158 64% 52%; /* Teal green */
-  --error: 0 84% 60%; /* Natural red */
-
-  /* Enhanced surface colors for natural depth */
-  --surface-50: 60 9% 98%;
-  --surface-100: 60 5% 96%;
-  --surface-200: 60 5% 93%;
-  --surface-300: 60 4% 88%;
-  --surface-400: 60 4% 82%;
-  --surface-500: 60 4% 74%;
-
-  /* Natural earth tones */
-  --earth-primary: 35 26% 53%; /* Warm earth brown */
-  --earth-secondary: 25 83% 53%; /* Earth yellow */
-  --natural-stone: 20 6% 50%; /* Natural stone */
-
-  /* Proper sidebar spacing variables */
+  /* Simple layout spacing variables */
   --sidebar-width: 16rem; /* 256px */
   --sidebar-width-icon: 4rem; /* 64px */
   --header-height: 4rem; /* 64px */
@@ -101,14 +82,6 @@
   --border: 12 6.5% 15.1%;
   --input: 12 6.5% 15.1%;
   --ring: 142 69% 58%;
-
-  /* Dark mode nature colors */
-  --surface-50: 20 14% 8%;
-  --surface-100: 20 14% 10%;
-  --surface-200: 20 14% 12%;
-  --surface-300: 20 14% 16%;
-  --surface-400: 20 14% 20%;
-  --surface-500: 20 14% 24%;
 }
 
 @layer base {
@@ -132,48 +105,31 @@
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-surface-100;
+    @apply bg-gray-100;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-surface-400 rounded-full;
+    @apply bg-gray-400 rounded-full;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-surface-500;
+    @apply bg-gray-500;
   }
 
   .dark ::-webkit-scrollbar-track {
-    background: hsl(var(--surface-100));
+    @apply bg-gray-800;
   }
 
   .dark ::-webkit-scrollbar-thumb {
-    background: hsl(var(--surface-400));
+    @apply bg-gray-600;
   }
 
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--surface-500));
+    @apply bg-gray-500;
   }
 }
 
 @layer components {
-  /* Enhanced glassmorphism effects with nature theme */
-  .glass {
-    @apply backdrop-blur-md bg-white/70 border border-white/20;
-  }
-  
-  .glass-card {
-    @apply backdrop-blur-lg bg-white/80 border border-green-200/30 shadow-elevation-2;
-  }
-
-  .glass-navbar {
-    @apply backdrop-blur-xl bg-white/90 border-b border-green-200/20;
-  }
-
-  .glass-modal {
-    @apply backdrop-blur-2xl bg-white/95 border border-green-200/40 shadow-elevation-5;
-  }
-
   /* Nature-inspired gradient utilities */
   .gradient-nature-primary {
     background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
@@ -253,14 +209,6 @@
   }
 
   /* Improved micro-interaction utilities */
-  .hover-lift {
-    @apply transition-all duration-300 ease-out;
-  }
-
-  .hover-lift:hover {
-    @apply -translate-y-1 shadow-elevation-3;
-  }
-
   .hover-scale {
     @apply transition-transform duration-200 ease-out;
   }
@@ -278,10 +226,6 @@
   }
 
   /* Enhanced focus states with nature theme */
-  .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-white;
-  }
-
   .focus-ring-earth {
     @apply focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-white;
   }
@@ -303,7 +247,7 @@
 
   /* Layout spacing fixes for sidebar and content */
   .app-layout {
-    @apply min-h-screen bg-gradient-to-br from-green-50 via-white to-lime-50;
+    @apply min-h-screen bg-gradient-to-br from-green-50 to-white;
   }
 
   .main-content {
@@ -321,9 +265,9 @@
     margin-left: 0;
   }
 
-  /* Enhanced sidebar styling */
+  /* Simple sidebar styling */
   .sidebar {
-    @apply fixed left-0 top-0 z-40 bg-white/95 backdrop-blur-xl border-r border-green-200/30;
+    @apply fixed left-0 top-0 z-40 bg-white border-r border-green-200;
     width: var(--sidebar-width);
     height: 100vh;
     transition: all 0.3s ease-in-out;
@@ -337,9 +281,9 @@
     transform: translateX(-100%);
   }
 
-  /* Enhanced header styling */
+  /* Simple header styling */
   .app-header {
-    @apply fixed top-0 right-0 z-30 bg-white/95 backdrop-blur-xl border-b border-green-200/30;
+    @apply fixed top-0 right-0 z-30 bg-white border-b border-green-200;
     height: var(--header-height);
     left: var(--sidebar-width);
     transition: all 0.3s ease-in-out;
@@ -353,49 +297,18 @@
     left: 0;
   }
 
-  /* Gentle nature-inspired animations */
-  @keyframes gentleFloat {
-    0%, 100% { 
-      transform: translateY(0px) rotate(0deg); 
-    }
-    33% { 
-      transform: translateY(-3px) rotate(0.5deg); 
-    }
-    66% { 
-      transform: translateY(3px) rotate(-0.5deg); 
-    }
+  /* Simple focus states */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-white;
   }
 
-  @keyframes gentleSway {
-    0%, 100% { 
-      transform: translateX(0px) rotate(0deg); 
-    }
-    50% { 
-      transform: translateX(2px) rotate(1deg); 
-    }
+  /* Simple hover effects */
+  .hover-lift {
+    @apply transition-all duration-200 ease-out;
   }
 
-  @keyframes gentlePulse {
-    0%, 100% { 
-      opacity: 1; 
-      transform: scale(1); 
-    }
-    50% { 
-      opacity: 0.8; 
-      transform: scale(1.02); 
-    }
-  }
-
-  .animate-gentle-float {
-    animation: gentleFloat 4s ease-in-out infinite;
-  }
-
-  .animate-gentle-sway {
-    animation: gentleSway 3s ease-in-out infinite;
-  }
-
-  .animate-gentle-pulse {
-    animation: gentlePulse 2s ease-in-out infinite;
+  .hover-lift:hover {
+    @apply -translate-y-1 shadow-md;
   }
 
   /* Enhanced scroll behavior */
