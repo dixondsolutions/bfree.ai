@@ -20,7 +20,7 @@ export default function PrivacyPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                 <Brain className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold">B Free.AI</span>
+              <span className="text-xl font-bold">bFree.ai</span>
             </div>
             <Link href="/signup">
               <Button variant="ghost" size="sm">
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
 
       {/* Content */}
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card className="glass-card">
+        <Card className="border border-gray-200 bg-white shadow-sm">
           <CardHeader className="text-center">
             <div className="flex items-center justify-center gap-2 mb-4">
               <Shield className="h-6 w-6 text-primary" />

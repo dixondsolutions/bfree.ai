@@ -67,13 +67,13 @@ export default async function SignupPage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
                 <Brain className="h-7 w-7 text-white" />
               </div>
-              <span className="text-3xl font-bold">B Free.AI</span>
+              <span className="text-3xl font-bold">bFree.ai</span>
             </div>
             <h2 className="text-4xl font-bold mb-4 text-balance">
-              Start Your Productivity Journey
+              Start Organizing Your Email
             </h2>
             <p className="text-xl text-white/80 text-pretty">
-              Join thousands of professionals who've transformed their workflow with AI-powered email and scheduling management.
+              Join professionals who've organized their workflow with intelligent email and scheduling management.
             </p>
           </div>
 
@@ -129,22 +129,18 @@ export default async function SignupPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                 <Brain className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold gradient-text">B Free.AI</span>
+              <span className="text-xl font-bold text-green-700">bFree.ai</span>
             </div>
             <h1 className="text-2xl font-bold">Create your account</h1>
-            <p className="text-muted-foreground">Start your productivity journey today</p>
+            <p className="text-muted-foreground">Start organizing your email workflow</p>
           </div>
 
-          <Card className="glass-card border-0 shadow-xl">
+          <Card className="border border-gray-200 bg-white shadow-sm">
             <CardHeader className="text-center pb-6">
               <div className="hidden lg:block">
-                <Badge variant="secondary" className="mb-4">
-                  <Zap className="w-3 h-3 mr-1" />
-                  AI-Powered
-                </Badge>
                 <CardTitle className="text-2xl font-bold">Create your account</CardTitle>
                 <CardDescription className="text-base">
-                  Start your productivity journey with AI-powered assistance
+                  Start organizing your email with intelligent assistance
                 </CardDescription>
               </div>
             </CardHeader>

@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'B Free.AI - AI-Powered Email Scheduling Assistant',
-  description: 'Automatically extract tasks and events from emails with intelligent calendar optimization',
+  title: 'bFree.ai - Email Scheduling Assistant',
+  description: 'Automatically extract tasks and events from emails with intelligent calendar management',
 }
 
 export default function RootLayout({

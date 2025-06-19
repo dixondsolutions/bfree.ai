@@ -33,13 +33,13 @@ export default async function ForgotPasswordPage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
                 <Brain className="h-7 w-7 text-white" />
               </div>
-              <span className="text-3xl font-bold">B Free.AI</span>
+              <span className="text-3xl font-bold">bFree.ai</span>
             </div>
             <h2 className="text-4xl font-bold mb-4 text-balance">
-              Secure Account Recovery
+              Account Recovery
             </h2>
             <p className="text-xl text-white/80 text-pretty">
-              We'll help you regain access to your AI-powered productivity assistant quickly and securely.
+              We'll help you regain access to your email assistant quickly and securely.
             </p>
           </div>
 
@@ -74,7 +74,7 @@ export default async function ForgotPasswordPage() {
           </div>
 
           <div className="mt-12 text-sm text-white/60">
-            Your productivity tools and AI assistant are waiting for your return.
+            Your email assistant is waiting for your return.
           </div>
         </div>
       </div>
@@ -88,7 +88,7 @@ export default async function ForgotPasswordPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                 <Brain className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold gradient-text">B Free.AI</span>
+              <span className="text-xl font-bold text-green-700">bFree.ai</span>
             </div>
             <h1 className="text-2xl font-bold">Reset your password</h1>
             <p className="text-muted-foreground">Enter your email to receive reset instructions</p>

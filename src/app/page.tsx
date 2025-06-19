@@ -35,13 +35,13 @@ export default async function Home() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Brain className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold gradient-text">B Free.AI</span>
+            <span className="text-xl font-bold text-green-700">bFree.ai</span>
           </div>
           <div className="flex items-center space-x-4">
             <Button variant="ghost" asChild>
               <Link href="/login">Sign In</Link>
             </Button>
-            <Button asChild className="hover-glow">
+            <Button asChild className="bg-green-600 hover:bg-green-700 text-white">
               <Link href="/login">Get Started</Link>
             </Button>
           </div>
@@ -53,20 +53,16 @@ export default async function Home() {
         <div className="absolute inset-0 gradient-bg opacity-5"></div>
         <div className="container mx-auto px-4 relative">
           <div className="text-center max-w-4xl mx-auto">
-            <Badge variant="secondary" className="mb-4 animate-fade-in">
-              <Zap className="w-3 h-3 mr-1" />
-              AI-Powered Scheduling
-            </Badge>
-            <h1 className="text-4xl md:text-6xl font-bold text-balance mb-6 animate-slide-up">
-              Your AI-Powered
-              <span className="gradient-text block">Email & Calendar Assistant</span>
+            <h1 className="text-4xl md:text-6xl font-bold text-balance mb-6">
+              Your Email
+              <span className="text-green-700 block">Assistant</span>
             </h1>
-            <p className="text-xl text-muted-foreground text-pretty mb-8 animate-slide-up [animation-delay:0.2s]">
-              Automatically extract tasks and events from your emails with intelligent calendar optimization. 
-              Give yourself more freedom by letting AI handle your scheduling.
+            <p className="text-xl text-muted-foreground text-pretty mb-8">
+              Automatically extract tasks and events from your emails with intelligent calendar management. 
+              Organize your schedule with smart assistance.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up [animation-delay:0.4s]">
-              <Button size="lg" asChild className="hover-glow min-w-[200px]">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Button size="lg" asChild className="bg-green-600 hover:bg-green-700 text-white min-w-[200px]">
                 <Link href="/login">
                   Start Free Trial
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -203,13 +199,13 @@ export default async function Home() {
                 </div>
               </div>
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Ready to reclaim your time?
+                Ready to organize your email?
               </h2>
               <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-                Join thousands of professionals who have transformed their productivity with B Free.AI
+                Join professionals who have organized their workflow with bFree.ai
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button size="lg" asChild className="hover-glow min-w-[200px]">
+                <Button size="lg" asChild className="bg-green-600 hover:bg-green-700 text-white min-w-[200px]">
                   <Link href="/login">
                     Start Your Free Trial
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -232,16 +228,16 @@ export default async function Home() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                 <Brain className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold">B Free.AI</span>
+              <span className="text-xl font-bold">bFree.ai</span>
             </div>
             <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-              <Link href="#" className="hover:text-foreground transition-colors">Privacy</Link>
-              <Link href="#" className="hover:text-foreground transition-colors">Terms</Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
               <Link href="#" className="hover:text-foreground transition-colors">Support</Link>
             </div>
           </div>
           <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-            © 2024 B Free.AI. All rights reserved.
+            © 2024 bFree.ai. All rights reserved.
           </div>
         </div>
       </footer>

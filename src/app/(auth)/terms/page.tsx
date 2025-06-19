@@ -19,7 +19,7 @@ export default function TermsPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                 <Brain className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold">B Free.AI</span>
+              <span className="text-xl font-bold">bFree.ai</span>
             </div>
             <Link href="/signup">
               <Button variant="ghost" size="sm">
@@ -33,7 +33,7 @@ export default function TermsPage() {
 
       {/* Content */}
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card className="glass-card">
+        <Card className="border border-gray-200 bg-white shadow-sm">
           <CardHeader className="text-center">
             <div className="flex items-center justify-center gap-2 mb-4">
               <FileText className="h-6 w-6 text-primary" />
@@ -48,14 +48,14 @@ export default function TermsPage() {
             <section className="mb-8">
               <h2 className="text-xl font-semibold mb-4">1. Acceptance of Terms</h2>
               <p className="text-muted-foreground">
-                By accessing and using B Free.AI ("the Service"), you accept and agree to be bound by the terms and provision of this agreement.
+                By accessing and using bFree.ai ("the Service"), you accept and agree to be bound by the terms and provision of this agreement.
               </p>
             </section>
 
             <section className="mb-8">
               <h2 className="text-xl font-semibold mb-4">2. Description of Service</h2>
               <p className="text-muted-foreground">
-                B Free.AI is an AI-powered productivity assistant that helps you manage emails, schedule meetings, and organize tasks automatically.
+                bFree.ai is an email productivity assistant that helps you manage emails, schedule meetings, and organize tasks automatically.
               </p>
             </section>
 
@@ -104,7 +104,7 @@ export default function TermsPage() {
                 <span className="font-medium">Your Rights</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                These terms are designed to protect both you and B Free.AI while ensuring you can use our service safely and effectively.
+                These terms are designed to protect both you and bFree.ai while ensuring you can use our service safely and effectively.
               </p>
             </div>
           </CardContent>

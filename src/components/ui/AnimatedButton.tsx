@@ -1,22 +1,18 @@
 /**
- * Enhanced Animated Button Component
- * Features sophisticated animations, multiple variants, and loading states
+ * Simple Button Component for bFree.ai
+ * Clean design with subtle hover effects
  */
 
 'use client'
 
 import React, { forwardRef } from 'react'
-import { motion, HTMLMotionProps } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { animations } from '@/lib/animations'
-import { Loader2, Sparkles } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
-export interface AnimatedButtonProps extends Omit<HTMLMotionProps<'button'>, 'variants'> {
-  variant?: 'default' | 'primary' | 'secondary' | 'ghost' | 'destructive' | 'ai'
+interface AnimatedButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'default' | 'primary' | 'secondary' | 'ghost' | 'destructive'
   size?: 'sm' | 'default' | 'lg' | 'xl'
   loading?: boolean
-  aiGlow?: boolean
-  sparkle?: boolean
   disabled?: boolean
   children: React.ReactNode
 }
@@ -27,8 +23,6 @@ export const AnimatedButton = forwardRef<HTMLButtonElement, AnimatedButtonProps>
     variant = 'default', 
     size = 'default',
     loading = false,
-    aiGlow = false,
-    sparkle = false,
     disabled = false,
     children, 
     ...props 
@@ -36,9 +30,8 @@ export const AnimatedButton = forwardRef<HTMLButtonElement, AnimatedButtonProps>
     const isDisabled = disabled || loading
 
     const baseClasses = cn(
-      // Base button styling
-      'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors',
-      'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+      'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2',
       'disabled:pointer-events-none disabled:opacity-50',
       
       // Size variants
@@ -51,189 +44,61 @@ export const AnimatedButton = forwardRef<HTMLButtonElement, AnimatedButtonProps>
       
       // Color variants
       {
-        // Default
-        'bg-background text-foreground hover:bg-accent hover:text-accent-foreground border border-border': 
+        'bg-white text-gray-900 hover:bg-gray-50 border border-gray-200 hover:border-gray-300': 
           variant === 'default',
-        
-        // Primary
-        'bg-primary text-primary-foreground hover:bg-primary/90 shadow-elevation-2': 
+        'bg-green-600 text-white hover:bg-green-700 shadow-sm': 
           variant === 'primary',
-        
-        // Secondary
-        'bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-elevation-1': 
+        'bg-gray-100 text-gray-900 hover:bg-gray-200': 
           variant === 'secondary',
-        
-        // Ghost
-        'hover:bg-accent hover:text-accent-foreground': 
+        'hover:bg-gray-100 hover:text-gray-900': 
           variant === 'ghost',
-        
-        // Destructive
-        'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-elevation-2': 
+        'bg-red-600 text-white hover:bg-red-700 shadow-sm': 
           variant === 'destructive',
-        
-        // AI-themed
-        'bg-gradient-to-r from-primary via-ai-neural to-ai-electric text-white shadow-glow-primary': 
-          variant === 'ai',
-      },
-      
-      // Special effects
-      {
-        'hover-glow-ai': aiGlow,
-        'relative overflow-hidden': sparkle,
       },
       
       className
     )
 
-    // Animation variants
-    const buttonAnimation = {
-      initial: 'rest',
-      whileHover: isDisabled ? 'rest' : 'hover',
-      whileTap: isDisabled ? 'rest' : 'tap',
-      variants: {
-        rest: {
-          scale: 1,
-          boxShadow: variant === 'primary' || variant === 'destructive' || variant === 'ai'
-            ? '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
-            : '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px 0 rgb(0 0 0 / 0.06)',
-        },
-        hover: {
-          scale: 1.02,
-          boxShadow: variant === 'primary' || variant === 'destructive' || variant === 'ai'
-            ? '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05)'
-            : '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-          y: -1,
-          transition: animations.transitions.fast,
-        },
-        tap: {
-          scale: 0.98,
-          y: 0,
-          transition: { duration: 0.1 },
-        },
-      },
-    }
-
-    // Loading animation
-    const loadingAnimation = loading ? {
-      animate: 'loading',
-      variants: {
-        loading: {
-          opacity: 0.7,
-          transition: animations.transitions.fast,
-        },
-      },
-    } : {}
-
     return (
-      <motion.button
+      <button
         ref={ref}
         className={baseClasses}
         disabled={isDisabled}
-        {...buttonAnimation}
-        {...loadingAnimation}
         {...props}
       >
-        {/* Sparkle Effect */}
-        {sparkle && !isDisabled && (
-          <motion.div
-            className="absolute inset-0 pointer-events-none"
-            initial={{ opacity: 0 }}
-            whileHover={{ opacity: 1 }}
-            transition={animations.transitions.fast}
-          >
-            <Sparkles className="absolute top-1 right-1 w-3 h-3 text-white/60" />
-            <motion.div
-              className="absolute top-1/2 left-1/2 w-2 h-2 bg-white/30 rounded-full"
-              animate={{
-                scale: [0, 1, 0],
-                opacity: [0, 1, 0],
-              }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                repeatDelay: 0.5,
-              }}
-            />
-          </motion.div>
-        )}
-
-        {/* Loading Spinner */}
         {loading && (
-          <motion.div
-            initial={{ opacity: 0, rotate: 0 }}
-            animate={{ opacity: 1, rotate: 360 }}
-            transition={{
-              opacity: animations.transitions.fast,
-              rotate: {
-                duration: 1,
-                repeat: Infinity,
-                ease: 'linear',
-              },
-            }}
-          >
-            <Loader2 className="w-4 h-4" />
-          </motion.div>
+          <Loader2 className="w-4 h-4 animate-spin" />
         )}
-
-        {/* Button Content */}
-        <motion.span
-          className={cn('flex items-center gap-2', {
-            'opacity-0': loading,
-          })}
-          animate={loading ? { opacity: 0 } : { opacity: 1 }}
-          transition={animations.transitions.fast}
-        >
-          {children}
-        </motion.span>
-      </motion.button>
+        
+        {!loading && children}
+      </button>
     )
   }
 )
 
 AnimatedButton.displayName = 'AnimatedButton'
 
-// Specialized AI Button Component
-interface AIButtonProps extends Omit<AnimatedButtonProps, 'variant' | 'aiGlow'> {
+// Simplified AI Button (just green styling)
+interface AIButtonProps extends Omit<AnimatedButtonProps, 'variant'> {
   thinking?: boolean
   processing?: boolean
 }
 
 export const AIButton = forwardRef<HTMLButtonElement, AIButtonProps>(
   ({ className, thinking = false, processing = false, children, ...props }, ref) => {
-    const status = thinking ? 'thinking' : processing ? 'processing' : 'idle'
+    const loading = thinking || processing
     
-    const aiAnimation = status !== 'idle' ? {
-      animate: status,
-      variants: animations.ai,
-    } : {}
-
     return (
       <AnimatedButton
         ref={ref}
-        variant="ai"
-        aiGlow
-        sparkle
+        variant="primary"
+        loading={loading}
         className={cn(
-          'relative',
-          {
-            'ai-thinking': thinking,
-          },
+          'bg-green-600 hover:bg-green-700',
           className
         )}
-        {...aiAnimation}
         {...props}
       >
-        {/* Neural network effect */}
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-          initial={{ x: '-100%' }}
-          animate={status === 'processing' ? { x: '100%' } : { x: '-100%' }}
-          transition={{
-            duration: 1.5,
-            repeat: status === 'processing' ? Infinity : 0,
-            ease: 'linear',
-          }}
-        />
         {children}
       </AnimatedButton>
     )
