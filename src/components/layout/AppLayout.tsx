@@ -152,7 +152,7 @@ function AppSidebarContent() {
           {state === "expanded" && (
             <div className="flex flex-col min-w-0">
               <span className="text-lg font-bold bg-gradient-to-r from-primary via-primary to-primary/80 bg-clip-text text-transparent truncate">
-                B Free.AI
+                bFree.ai
               </span>
               <span className="text-xs text-muted-foreground truncate">AI Assistant</span>
             </div>
