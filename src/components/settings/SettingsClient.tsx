@@ -86,11 +86,43 @@ export function SettingsClient({ user, emailAccounts, calendars, preferences }: 
   }
 
   const connectGmail = async () => {
-    window.location.href = '/api/gmail/connect'
+    try {
+      const response = await fetch('/api/gmail/connect', {
+        method: 'POST'
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to connect Gmail')
+      }
+      
+      // Redirect to Google OAuth
+      window.location.href = data.authUrl
+    } catch (error) {
+      console.error('Error connecting Gmail:', error)
+      // Could add user-facing error handling here
+    }
   }
 
   const connectCalendar = async () => {
-    window.location.href = '/api/calendar/connect'
+    try {
+      const response = await fetch('/api/calendar/connect', {
+        method: 'POST'
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to connect calendar')
+      }
+      
+      // Redirect to Google OAuth
+      window.location.href = data.authUrl
+    } catch (error) {
+      console.error('Error connecting calendar:', error)
+      // Could add user-facing error handling here
+    }
   }
 
   return (

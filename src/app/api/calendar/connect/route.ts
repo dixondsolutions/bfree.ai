@@ -6,8 +6,8 @@ import { google } from 'googleapis'
 export async function GET() {
   return NextResponse.json({
     error: 'Method Not Allowed',
-    message: 'This endpoint only accepts POST requests. Please use the Gmail Connect button in the application interface.',
-    instructions: 'Go to /dashboard/settings → Integrations tab → Click "Connect Gmail" button'
+    message: 'This endpoint only accepts POST requests. Please use the Calendar Connect button in the application interface.',
+    instructions: 'Go to /dashboard/settings → Integrations tab → Click "Connect Google Calendar" button'
   }, { status: 405 })
 }
 
@@ -27,8 +27,8 @@ export async function POST() {
     )
 
     const scopes = [
-      'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/calendar.events',
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile'
     ]
@@ -37,15 +37,15 @@ export async function POST() {
       access_type: 'offline',
       scope: scopes,
       prompt: 'consent', // Force consent screen to get refresh token
-      state: user.id // Pass user ID in state for security
+      state: `${user.id}_calendar` // Pass user ID with calendar identifier
     })
 
     return NextResponse.json({ authUrl })
   } catch (error) {
-    console.error('Error generating Gmail auth URL:', error)
+    console.error('Error generating Calendar auth URL:', error)
     return NextResponse.json(
       { error: 'Failed to generate authentication URL' },
       { status: 500 }
     )
   }
-}
+} 
