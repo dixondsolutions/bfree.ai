@@ -24,6 +24,8 @@ import {
   LayoutGrid
 } from 'lucide-react'
 import { TaskKanbanBoard } from './TaskKanbanBoard'
+import { EmailViewer } from '@/components/email/EmailViewer'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { format, startOfDay, endOfDay, addDays, isSameDay } from 'date-fns'
 
@@ -85,6 +87,7 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
   const [error, setError] = useState<string | null>(null)
   const [updatingTask, setUpdatingTask] = useState<string | null>(null)
   const [view, setView] = useState<'list' | 'kanban'>('list')
+  const [viewingEmailTaskId, setViewingEmailTaskId] = useState<string | null>(null)
 
   // Define loadDailySchedule BEFORE useEffect that uses it
   const loadDailySchedule = useCallback(async (date: Date) => {
@@ -447,10 +450,21 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
                           </Badge>
                         )}
                         {task.source_email_record_id && (
-                          <div className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            From email
-                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setViewingEmailTaskId(task.id)
+                            }}
+                            title="View source email"
+                          >
+                            <div className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              <span className="text-xs">From email</span>
+                            </div>
+                          </Button>
                         )}
                       </div>
 
@@ -532,6 +546,36 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Email Viewer Modal */}
+      {viewingEmailTaskId && (
+        <Dialog open={!!viewingEmailTaskId} onOpenChange={() => setViewingEmailTaskId(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Source Email</DialogTitle>
+            </DialogHeader>
+            <div className="overflow-auto max-h-[80vh]">
+              {(() => {
+                const task = schedule?.tasks.find(t => t.id === viewingEmailTaskId)
+                if (task?.source_email_record_id) {
+                  return (
+                    <EmailViewer 
+                      emailId={task.source_email_record_id}
+                      onClose={() => setViewingEmailTaskId(null)}
+                    />
+                  )
+                }
+                return (
+                  <div className="text-center py-8">
+                    <Mail className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">Email not found or not available</p>
+                  </div>
+                )
+              })()}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

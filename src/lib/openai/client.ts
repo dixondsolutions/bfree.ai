@@ -101,12 +101,27 @@ BUSINESS CONTEXT BONUSES:
 - Project/team coordination: +0.2 confidence boost
 
 TASK GENERATION GUIDELINES:
-Create specific, actionable tasks like:
-- "Send meeting invite for [topic] to [person] for [time]"
-- "Follow up with [person] about [specific topic]"
-- "Review and provide feedback on [deliverable] by [deadline]"
-- "Confirm attendance for [event] on [date]"
-- "Prepare materials for [meeting/project] by [date]"
+Create specific, actionable tasks with concrete details. AVOID generic "follow up" tasks.
+
+GOOD EXAMPLES:
+- "Set up ads manager on Carroll County's META account" (from email about ad setup)
+- "Review updated video shoot schedule by Friday" (from email with schedule updates)
+- "Confirm Mollys and Millers locations for Fulton video shoot" (from confirmation emails)
+- "Update domain settings and resubmit site map next week" (from domain discussion)
+- "Send meeting invite for quarterly planning to team for next Tuesday 2PM"
+- "Prepare Q3 budget presentation materials by Thursday"
+
+BAD EXAMPLES (avoid these):
+- "Follow up on: [email subject]" ❌ Too generic
+- "Email contains scheduling-related content" ❌ Not actionable
+- "Review email" ❌ Vague
+
+EXTRACTION PRINCIPLES:
+1. **Read the FULL email thread** - critical details are often in quoted/reply sections
+2. **Extract specific deliverables** - what exactly needs to be done?
+3. **Identify concrete deadlines** - when is action needed?
+4. **Note specific people/systems** - who/what is involved?
+5. **Focus on business outcomes** - what's the end goal?
 
 IGNORE THESE (Low/No scheduling content):
 - Pure promotional emails without personal engagement
@@ -306,7 +321,14 @@ ${chainAnalysis.isReply ?
   `📧 NEW EMAIL: Look for direct scheduling requests, meeting proposals, deadlines, and action items.`
 }
 
-Remember: It's better to suggest actionable items that users can decline than to miss important scheduling opportunities. Focus on practical, business-relevant tasks and meetings.`
+CRITICAL INSTRUCTIONS:
+1. **Read the ENTIRE email body including quoted sections** - often the most actionable content is in the email thread history
+2. **Extract SPECIFIC actions, not generic follow-ups** - "Set up X" not "Follow up on X"
+3. **Include concrete details** - who, what, when, where from the email content
+4. **For work internal emails**: Be extra sensitive to project coordination, deadlines, confirmations
+5. **For email chains (Re:/Fwd:)**: Pay special attention to quoted conversations for scheduling details
+
+Remember: Users prefer specific, actionable tasks they can execute immediately. Avoid generic "follow up" suggestions unless truly necessary.`
 
     const openai = getOpenAIClient()
     const response = await openai.chat.completions.create({
@@ -378,17 +400,37 @@ Remember: It's better to suggest actionable items that users can decline than to
     
     // If heuristics detected scheduling but AI didn't create extractions, create a basic extraction
     if (hasSchedulingHeuristics && adjustedExtractions.length === 0 && adjustedConfidence > 0.2) {
+      // Extract more specific content for better task titles
+      const emailText = emailContent.body.toLowerCase()
+      let taskTitle = `Follow up on: ${emailContent.subject.replace(/^(re:|fwd?:)\s*/i, '').trim()}`
+      let taskDescription = `Email contains scheduling-related content that may need attention`
+      
+      // Try to extract more specific action from email content
+      if (emailText.includes('schedule') && emailText.includes('updated')) {
+        taskTitle = `Review updated schedule for ${emailContent.subject.replace(/^(re:|fwd?:)\s*/i, '').trim()}`
+        taskDescription = `Email contains updated schedule information that needs review`
+      } else if (emailText.includes('confirmed') || emailText.includes('confirm')) {
+        taskTitle = `Confirm details for ${emailContent.subject.replace(/^(re:|fwd?:)\s*/i, '').trim()}`
+        taskDescription = `Follow up on confirmations mentioned in email thread`
+      } else if (emailText.includes('set up') || emailText.includes('setup')) {
+        taskTitle = `Set up requested items for ${emailContent.subject.replace(/^(re:|fwd?:)\s*/i, '').trim()}`
+        taskDescription = `Email requests setup/configuration that needs action`
+      } else if (emailText.includes('next week') || emailText.includes('this week')) {
+        taskTitle = `Follow up this/next week: ${emailContent.subject.replace(/^(re:|fwd?:)\s*/i, '').trim()}`
+        taskDescription = `Time-sensitive follow-up needed based on email timeline`
+      }
+      
       const heuristicExtraction = {
         type: 'task' as const,
-        title: `Follow up on: ${emailContent.subject.replace(/^(re:|fwd?:)\s*/i, '').trim()}`,
-        description: `Email contains scheduling-related content that may need attention`,
+        title: taskTitle,
+        description: taskDescription,
         suggestedDateTime: undefined,
         duration: undefined,
         location: undefined,
         participants: undefined,
-        priority: 'medium' as const,
+        priority: classification.type === 'work_internal' ? 'high' as const : 'medium' as const,
         confidence: Math.max(0.4, adjustedConfidence + 0.2), // Boost confidence for heuristic matches
-        reasoning: `Heuristic detection: Email contains scheduling keywords and patterns`
+        reasoning: `Heuristic detection: Email contains scheduling keywords and patterns with business context`
       }
       
       adjustedExtractions.push(heuristicExtraction)

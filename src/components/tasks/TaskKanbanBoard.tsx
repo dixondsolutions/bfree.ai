@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { EmailViewer } from '@/components/email/EmailViewer'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select'
@@ -96,6 +97,7 @@ export function TaskKanbanBoard({
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
+  const [viewingEmailTaskId, setViewingEmailTaskId] = useState<string | null>(null)
 
   // Load tasks
   const loadTasks = useCallback(async () => {
@@ -271,6 +273,21 @@ export function TaskKanbanBoard({
                 <Badge variant="secondary" className="text-xs">
                   {task.category}
                 </Badge>
+              )}
+              
+              {task.source_email_record_id && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0 text-blue-600 hover:text-blue-800"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setViewingEmailTaskId(task.id)
+                  }}
+                  title="View source email"
+                >
+                  <Mail className="h-3 w-3" />
+                </Button>
               )}
             </div>
 
@@ -484,6 +501,20 @@ export function TaskKanbanBoard({
                       `(${Math.round(selectedTask.confidence_score * 100)}% confidence)`
                     }
                   </span>
+                  {selectedTask.source_email_record_id && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-auto"
+                      onClick={() => {
+                        setViewingEmailTaskId(selectedTask.id)
+                        setSelectedTask(null)
+                      }}
+                    >
+                      <Mail className="h-3 w-3 mr-1" />
+                      View Email
+                    </Button>
+                  )}
                 </div>
               )}
 
@@ -509,6 +540,36 @@ export function TaskKanbanBoard({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Email Viewer Modal */}
+      {viewingEmailTaskId && (
+        <Dialog open={!!viewingEmailTaskId} onOpenChange={() => setViewingEmailTaskId(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Source Email</DialogTitle>
+            </DialogHeader>
+            <div className="overflow-auto max-h-[80vh]">
+              {(() => {
+                const task = tasks.find(t => t.id === viewingEmailTaskId)
+                if (task?.source_email_record_id) {
+                  return (
+                    <EmailViewer 
+                      emailId={task.source_email_record_id}
+                      onClose={() => setViewingEmailTaskId(null)}
+                    />
+                  )
+                }
+                return (
+                  <div className="text-center py-8">
+                    <Mail className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">Email not found or not available</p>
+                  </div>
+                )
+              })()}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
