@@ -26,7 +26,7 @@ export interface UpdateTaskInput {
   title?: string
   description?: string
   category?: 'work' | 'personal' | 'health' | 'finance' | 'education' | 'social' | 'household' | 'travel' | 'project' | 'other'
-  status?: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'blocked' | 'deferred'
+  status?: 'pending' | 'pending_schedule' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'blocked' | 'deferred'
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   estimated_duration?: number
   due_date?: Date | null

@@ -35,23 +35,62 @@ export async function GET(request: NextRequest) {
       ? endOfDay(new Date(endDateParam)).toISOString()
       : endOfDay(new Date(startDateParam)).toISOString()
 
-    // Fetch tasks for the date range
-    let taskQuery = supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', user.id)
+    // Fetch tasks for the date range using multiple queries to avoid complex OR conditions
+    // This approach is more reliable than complex OR conditions which can fail with RLS
+    const taskQueries = [
+      // Tasks with scheduled_start in range
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('scheduled_start', startDate)
+        .lte('scheduled_start', endDate),
+      
+      // Tasks with scheduled_end in range
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('scheduled_end', startDate)
+        .lte('scheduled_end', endDate),
+      
+      // Tasks with due_date in range
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('due_date', startDate)
+        .lte('due_date', endDate)
+    ]
 
+    // Apply status filter to all queries if needed
     if (!includeCompleted) {
-      taskQuery = taskQuery.neq('status', 'completed')
+      taskQueries.forEach(query => query.neq('status', 'completed'))
     }
 
-    // Apply date filtering - get tasks with any date field in the range
-    // Check if scheduled_start, scheduled_end, or due_date falls within our date range
-    taskQuery = taskQuery.or(`and(scheduled_start.gte.${startDate},scheduled_start.lte.${endDate}),and(scheduled_end.gte.${startDate},scheduled_end.lte.${endDate}),and(due_date.gte.${startDate},due_date.lte.${endDate})`)
-    
-    taskQuery = taskQuery.order('created_at', { ascending: false })
+    const [scheduledStartTasks, scheduledEndTasks, dueDateTasks] = await Promise.all(taskQueries)
 
-    const { data: tasks, error: tasksError } = await taskQuery
+    // Check for errors and combine results
+    const tasksError = scheduledStartTasks.error || scheduledEndTasks.error || dueDateTasks.error
+    
+    // Combine and deduplicate tasks
+    const allTaskResults = [
+      ...(scheduledStartTasks.data || []),
+      ...(scheduledEndTasks.data || []),
+      ...(dueDateTasks.data || [])
+    ]
+    
+    // Remove duplicates by ID
+    const taskMap = new Map()
+    allTaskResults.forEach(task => {
+      if (task && task.id) {
+        taskMap.set(task.id, task)
+      }
+    })
+    
+    const tasks = Array.from(taskMap.values()).sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
 
     if (tasksError) {
       console.error('Error fetching tasks:', tasksError)

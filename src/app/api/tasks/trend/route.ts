@@ -27,9 +27,9 @@ export async function GET(request: NextRequest) {
     // Get all days in the range
     const days = eachDayOfInterval({ start: startDate, end: endDate })
     
-    // Get tasks for the entire period
+    // Get tasks for the entire period directly from tasks table
     const { data: tasks } = await supabase
-      .from('task_overview')
+      .from('tasks')
       .select('*')
       .eq('user_id', user.id)
       .gte('created_at', startDate.toISOString())
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
         const dayEnd = endOfDay(day)
         
         const { data: scheduledTasks } = await supabase
-          .from('task_overview')
+          .from('tasks')
           .select('*')
           .eq('user_id', user.id)
           .gte('scheduled_start', dayStart.toISOString())

@@ -61,6 +61,8 @@ export interface Database {
           provider_calendar_id: string
           is_primary: boolean
           sync_enabled: boolean
+          status?: string
+          last_sync?: string | null
           created_at: string
           updated_at: string
         }
@@ -72,6 +74,8 @@ export interface Database {
           provider_calendar_id: string
           is_primary?: boolean
           sync_enabled?: boolean
+          status?: string
+          last_sync?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -83,6 +87,8 @@ export interface Database {
           provider_calendar_id?: string
           is_primary?: boolean
           sync_enabled?: boolean
+          status?: string
+          last_sync?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -105,9 +111,9 @@ export interface Database {
           start_time: string
           end_time: string
           location: string | null
+          attendees: Json | null
           ai_generated: boolean
           confidence_score: number | null
-          source_email_id: string | null
           status: string
           created_at: string
           updated_at: string
@@ -121,9 +127,9 @@ export interface Database {
           start_time: string
           end_time: string
           location?: string | null
+          attendees?: Json | null
           ai_generated?: boolean
           confidence_score?: number | null
-          source_email_id?: string | null
           status?: string
           created_at?: string
           updated_at?: string
@@ -137,9 +143,9 @@ export interface Database {
           start_time?: string
           end_time?: string
           location?: string | null
+          attendees?: Json | null
           ai_generated?: boolean
           confidence_score?: number | null
-          source_email_id?: string | null
           status?: string
           created_at?: string
           updated_at?: string
@@ -149,12 +155,6 @@ export interface Database {
             foreignKeyName: "events_user_id_fkey"
             columns: ["user_id"]
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "events_calendar_id_fkey"
-            columns: ["calendar_id"]
-            referencedRelation: "calendars"
             referencedColumns: ["id"]
           }
         ]
@@ -169,6 +169,8 @@ export interface Database {
           refresh_token: string | null
           expires_at: string | null
           is_active: boolean
+          status?: string
+          last_sync?: string | null
           created_at: string
           updated_at: string
         }
@@ -181,6 +183,8 @@ export interface Database {
           refresh_token?: string | null
           expires_at?: string | null
           is_active?: boolean
+          status?: string
+          last_sync?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -193,6 +197,8 @@ export interface Database {
           refresh_token?: string | null
           expires_at?: string | null
           is_active?: boolean
+          status?: string
+          last_sync?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -205,61 +211,119 @@ export interface Database {
           }
         ]
       }
-      ai_suggestions: {
+      emails: {
         Row: {
           id: string
           user_id: string
-          source_email_id: string
-          suggestion_type: string
-          title: string
-          description: string | null
-          suggested_time: string | null
-          confidence_score: number
-          status: string
-          feedback: Json | null
-          task_category: string | null
-          estimated_duration: number | null
-          suggested_due_date: string | null
-          energy_level: number | null
-          suggested_tags: string[] | null
+          email_id: string
+          thread_id: string | null
+          subject: string
+          from_address: string
+          to_address: string
+          body_text: string | null
+          body_html: string | null
+          received_at: string
+          ai_analyzed: boolean
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          source_email_id: string
-          suggestion_type: string
-          title: string
-          description?: string | null
-          suggested_time?: string | null
-          confidence_score: number
-          status?: string
-          feedback?: Json | null
-          task_category?: string | null
-          estimated_duration?: number | null
-          suggested_due_date?: string | null
-          energy_level?: number | null
-          suggested_tags?: string[] | null
+          email_id: string
+          thread_id?: string | null
+          subject: string
+          from_address: string
+          to_address: string
+          body_text?: string | null
+          body_html?: string | null
+          received_at: string
+          ai_analyzed?: boolean
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          source_email_id?: string
-          suggestion_type?: string
-          title?: string
-          description?: string | null
-          suggested_time?: string | null
-          confidence_score?: number
-          status?: string
-          feedback?: Json | null
+          email_id?: string
+          thread_id?: string | null
+          subject?: string
+          from_address?: string
+          to_address?: string
+          body_text?: string | null
+          body_html?: string | null
+          received_at?: string
+          ai_analyzed?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emails_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      ai_suggestions: {
+        Row: {
+          id: string
+          user_id: string
+          email_id: string | null
+          suggestion_type: string
+          content: Json
+          confidence_score: number
+          status: string
+          task_category: string | null
+          estimated_duration: number | null
+          suggested_due_date: string | null
+          energy_level: number | null
+          suggested_tags: string[] | null
+          converted_to_task_id: string | null
+          converted_at: string | null
+          priority: string | null
+          location: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email_id?: string | null
+          suggestion_type: string
+          content: Json
+          confidence_score: number
+          status: string
           task_category?: string | null
           estimated_duration?: number | null
           suggested_due_date?: string | null
           energy_level?: number | null
           suggested_tags?: string[] | null
+          converted_to_task_id?: string | null
+          converted_at?: string | null
+          priority?: string | null
+          location?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email_id?: string | null
+          suggestion_type?: string
+          content?: Json
+          confidence_score?: number
+          status?: string
+          task_category?: string | null
+          estimated_duration?: number | null
+          suggested_due_date?: string | null
+          energy_level?: number | null
+          suggested_tags?: string[] | null
+          converted_to_task_id?: string | null
+          converted_at?: string | null
+          priority?: string | null
+          location?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -268,6 +332,12 @@ export interface Database {
             foreignKeyName: "ai_suggestions_user_id_fkey"
             columns: ["user_id"]
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_suggestions_converted_to_task_id_fkey"
+            columns: ["converted_to_task_id"]
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           }
         ]
@@ -311,10 +381,14 @@ export interface Database {
           id: string
           user_id: string
           email_id: string
+          email_record_id?: string
           status: string
           error_message: string | null
           retry_count: number
           processed_at: string | null
+          content: Json | null
+          metadata: Json | null
+          data_type: string
           created_at: string
           updated_at: string
         }
@@ -322,10 +396,14 @@ export interface Database {
           id?: string
           user_id: string
           email_id: string
-          status?: string
+          email_record_id?: string
+          status: string
           error_message?: string | null
           retry_count?: number
           processed_at?: string | null
+          content?: Json | null
+          metadata?: Json | null
+          data_type?: string
           created_at?: string
           updated_at?: string
         }
@@ -333,10 +411,14 @@ export interface Database {
           id?: string
           user_id?: string
           email_id?: string
+          email_record_id?: string
           status?: string
           error_message?: string | null
           retry_count?: number
           processed_at?: string | null
+          content?: Json | null
+          metadata?: Json | null
+          data_type?: string
           created_at?: string
           updated_at?: string
         }
@@ -354,10 +436,9 @@ export interface Database {
           id: string
           user_id: string | null
           action: string
-          table_name: string
-          record_id: string | null
-          old_values: Json | null
-          new_values: Json | null
+          resource_type: string
+          resource_id: string | null
+          details: Json | null
           ip_address: string | null
           user_agent: string | null
           created_at: string
@@ -366,10 +447,9 @@ export interface Database {
           id?: string
           user_id?: string | null
           action: string
-          table_name: string
-          record_id?: string | null
-          old_values?: Json | null
-          new_values?: Json | null
+          resource_type: string
+          resource_id?: string | null
+          details?: Json | null
           ip_address?: string | null
           user_agent?: string | null
           created_at?: string
@@ -378,10 +458,9 @@ export interface Database {
           id?: string
           user_id?: string | null
           action?: string
-          table_name?: string
-          record_id?: string | null
-          old_values?: Json | null
-          new_values?: Json | null
+          resource_type?: string
+          resource_id?: string | null
+          details?: Json | null
           ip_address?: string | null
           user_agent?: string | null
           created_at?: string
@@ -398,7 +477,7 @@ export interface Database {
       rate_limits: {
         Row: {
           id: string
-          user_id: string | null
+          user_id: string
           endpoint: string
           requests_count: number
           window_start: string
@@ -407,16 +486,16 @@ export interface Database {
         }
         Insert: {
           id?: string
-          user_id?: string | null
+          user_id: string
           endpoint: string
           requests_count?: number
-          window_start?: string
+          window_start: string
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          user_id?: string | null
+          user_id?: string
           endpoint?: string
           requests_count?: number
           window_start?: string
@@ -719,22 +798,139 @@ export interface Database {
           }
         ]
       }
+      automation_logs: {
+        Row: {
+          id: string
+          user_id: string | null
+          automation_type: string
+          trigger_source: string | null
+          emails_processed: number
+          tasks_created: number
+          suggestions_generated: number
+          errors_count: number
+          status: string
+          start_time: string
+          end_time: string | null
+          duration_seconds: number | null
+          results: Json | null
+          error_details: Json | null
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          automation_type: string
+          trigger_source?: string | null
+          emails_processed?: number
+          tasks_created?: number
+          suggestions_generated?: number
+          errors_count?: number
+          status?: string
+          start_time?: string
+          end_time?: string | null
+          duration_seconds?: number | null
+          results?: Json | null
+          error_details?: Json | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          automation_type?: string
+          trigger_source?: string | null
+          emails_processed?: number
+          tasks_created?: number
+          suggestions_generated?: number
+          errors_count?: number
+          status?: string
+          start_time?: string
+          end_time?: string | null
+          duration_seconds?: number | null
+          results?: Json | null
+          error_details?: Json | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_logs_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      task_overview: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          description: string | null
+          category: string
+          status: string
+          priority: string
+          estimated_duration: number | null
+          actual_duration: number | null
+          due_date: string | null
+          scheduled_start: string | null
+          scheduled_end: string | null
+          completed_at: string | null
+          ai_generated: boolean
+          source_email_id: string | null
+          source_suggestion_id: string | null
+          confidence_score: number | null
+          parent_task_id: string | null
+          project_id: string | null
+          location: string | null
+          tags: string[] | null
+          notes: string | null
+          energy_level: number | null
+          is_recurring: boolean
+          recurrence_pattern: Json | null
+          external_id: string | null
+          external_source: string | null
+          created_at: string
+          updated_at: string
+          is_overdue: boolean
+          is_due_soon: boolean
+          subtask_count: number
+          completed_subtask_count: number
+          comment_count: number
+          attachment_count: number
+          dependency_count: number
+          calculated_actual_duration: number
+          progress_percentage: number
+          creation_source: string
+          task_origin: string
+        }
+      }
+      automation_statistics: {
+        Row: {
+          user_id: string
+          automation_type: string
+          total_runs: number
+          total_emails_processed: number
+          total_tasks_created: number
+          total_suggestions_generated: number
+          total_errors: number
+          avg_duration_seconds: number
+          last_run_time: string
+          success_rate: number
+          runs_last_7_days: number
+          tasks_created_last_7_days: number
+        }
+      }
     }
     Functions: {
-      get_active_email_account_tokens: {
+      calculate_task_actual_duration: {
         Args: {
-          p_user_id: string
+          p_task_id: string
         }
-        Returns: {
-          id: string
-          email: string
-          access_token: string
-          refresh_token: string | null
-          expires_at: string | null
-        }[]
+        Returns: number
       }
       get_task_completion_stats: {
         Args: {
@@ -750,18 +946,79 @@ export interface Database {
           tasks_by_category: Json
         }[]
       }
+      get_task_stats_for_period: {
+        Args: {
+          p_user_id: string
+          p_start_date: string
+          p_end_date: string
+        }
+        Returns: {
+          total_tasks: number
+          completed_tasks: number
+          pending_tasks: number
+          in_progress_tasks: number
+          overdue_tasks: number
+          ai_generated_tasks: number
+          average_completion_time_hours: number
+          productivity_score: number
+        }[]
+      }
+      get_automation_health: {
+        Args: {
+          p_user_id?: string | null
+        }
+        Returns: {
+          user_id: string
+          overall_health: string
+          issues: Json
+          recommendations: Json
+          last_successful_run: string
+          failure_rate: number
+        }[]
+      }
+      clean_old_automation_logs: {
+        Args: {}
+        Returns: number
+      }
     }
     Enums: {
-      event_status: "pending" | "confirmed" | "cancelled" | "rejected"
-      suggestion_type: "meeting" | "task" | "deadline" | "reminder"
-      suggestion_status: "pending" | "approved" | "rejected" | "processed"
-      processing_status: "pending" | "processing" | "completed" | "failed" | "retrying"
-      task_status: "pending" | "in_progress" | "completed" | "cancelled" | "blocked" | "deferred"
-      task_priority: "low" | "medium" | "high" | "urgent"
-      task_category: "work" | "personal" | "health" | "finance" | "education" | "social" | "household" | "travel" | "project" | "other"
+      task_status: 'pending' | 'pending_schedule' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'blocked' | 'deferred'
+      task_priority: 'low' | 'medium' | 'high' | 'urgent'
+      task_category: 'work' | 'personal' | 'health' | 'finance' | 'education' | 'social' | 'household' | 'travel' | 'project' | 'other'
+      suggestion_status: 'pending' | 'approved' | 'rejected' | 'auto_converted' | 'converted'
     }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    CompositeTypes: {}
   }
 }
+
+// Helper types
+export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
+export type TablesInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
+export type TablesUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
+export type Enums<T extends keyof Database['public']['Enums']> = Database['public']['Enums'][T]
+
+// Common type aliases
+export type User = Tables<'users'>
+export type Calendar = Tables<'calendars'>
+export type Event = Tables<'events'>
+export type EmailAccount = Tables<'email_accounts'>
+export type Email = Tables<'emails'>
+export type AiSuggestion = Tables<'ai_suggestions'>
+export type UserPreferences = Tables<'user_preferences'>
+export type ProcessingQueue = Tables<'processing_queue'>
+export type AuditLog = Tables<'audit_logs'>
+export type RateLimit = Tables<'rate_limits'>
+export type Task = Tables<'tasks'>
+export type TaskDependency = Tables<'task_dependencies'>
+export type TaskAttachment = Tables<'task_attachments'>
+export type TaskComment = Tables<'task_comments'>
+export type TaskTimeEntry = Tables<'task_time_entries'>
+export type AutomationLog = Tables<'automation_logs'>
+
+// Type aliases for easier usage
+export type CalendarData = Calendar
+export type TaskOverview = Database['public']['Views']['task_overview']['Row']
+export type TaskStatus = Enums<'task_status'>
+export type TaskPriority = Enums<'task_priority'>
+export type TaskCategory = Enums<'task_category'>
+export type SuggestionStatus = Enums<'suggestion_status'>

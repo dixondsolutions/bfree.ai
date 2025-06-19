@@ -33,15 +33,16 @@ export async function POST(request: NextRequest) {
         endDate = endOfDay(targetDate)
     }
 
-    // Get task statistics
-    const { data: tasks } = await supabase
-      .from('task_overview')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString())
+    // Get task statistics using the new function that doesn't rely on task_overview
+    const { data: statsResult, error: statsError } = await supabase
+      .rpc('get_task_stats_for_period', {
+        p_user_id: user.id,
+        p_start_date: startDate.toISOString(),
+        p_end_date: endDate.toISOString()
+      })
 
-    if (!tasks) {
+    if (statsError) {
+      console.error('Error fetching task stats:', statsError)
       return NextResponse.json({
         success: true,
         stats: {
@@ -64,32 +65,33 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const totalTasks = tasks.length
-    const completedTasks = tasks.filter(task => task.status === 'completed').length
-    const pendingTasks = tasks.filter(task => task.status === 'pending').length
-    const inProgressTasks = tasks.filter(task => task.status === 'in_progress').length
-    const overdueTasks = tasks.filter(task => task.is_overdue).length
-    const aiGeneratedTasks = tasks.filter(task => task.ai_generated).length
+    const stats = statsResult?.[0] || {
+      total_tasks: 0,
+      completed_tasks: 0,
+      pending_tasks: 0,
+      in_progress_tasks: 0,
+      overdue_tasks: 0,
+      ai_generated_tasks: 0,
+      average_completion_time_hours: 0,
+      productivity_score: 0
+    }
 
-    // Calculate average completion time for completed tasks
-    const completedTasksWithTimes = tasks.filter(task => 
-      task.status === 'completed' && 
-      task.completed_at && 
-      task.created_at
-    )
-    
-    const averageCompletionTime = completedTasksWithTimes.length > 0
-      ? completedTasksWithTimes.reduce((sum, task) => {
-          const createdAt = new Date(task.created_at)
-          const completedAt = new Date(task.completed_at)
-          return sum + (completedAt.getTime() - createdAt.getTime())
-        }, 0) / completedTasksWithTimes.length / (1000 * 60 * 60) // Convert to hours
-      : 0
+    const totalTasks = stats.total_tasks
+    const completedTasks = stats.completed_tasks
+    const pendingTasks = stats.pending_tasks
+    const inProgressTasks = stats.in_progress_tasks
+    const overdueTasks = stats.overdue_tasks
+    const aiGeneratedTasks = stats.ai_generated_tasks
+    const averageCompletionTime = stats.average_completion_time_hours
+    const productivityScore = stats.productivity_score
 
-    // Calculate productivity score
-    const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
-    const onTimeRate = overdueTasks === 0 ? 100 : Math.max(0, 100 - (overdueTasks / totalTasks) * 100)
-    const productivityScore = Math.round((completionRate * 0.7) + (onTimeRate * 0.3))
+    // Get tasks for energy analysis
+    const { data: tasks } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', user.id)
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString())
 
     // Energy statistics
     const morningTasks = tasks.filter(task => {
