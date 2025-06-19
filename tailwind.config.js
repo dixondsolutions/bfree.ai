@@ -19,26 +19,6 @@ module.exports = {
     'animate-fadeIn', 
     'animate-scaleIn',
     'animate-float',
-    'animate-glow',
-    'animate-shimmer',
-    // Primary color variations
-    {
-      pattern: /bg-primary\/(10|20|30|40|50|60|70|80|90)/,
-    },
-    {
-      pattern: /text-primary\/(10|20|30|40|50|60|70|80|90)/,
-    },
-    {
-      pattern: /border-primary\/(10|20|30|40|50|60|70|80|90)/,
-    },
-    // Gradient variations
-    {
-      pattern: /bg-gradient-to-(r|l|t|b|tr|tl|br|bl)/,
-    },
-    // Hover and focus state variations
-    {
-      pattern: /hover:(scale|translate|rotate|skew|transform)/,
-    },
   ],
   theme: {
     // Enhanced design tokens
@@ -52,118 +32,128 @@ module.exports = {
       '3xl': '1920px',
     },
     extend: {
+      // Enhanced spacing with 8px mathematical grid
+      spacing: {
+        '18': '4.5rem',   // 72px
+        '22': '5.5rem',   // 88px
+        '26': '6.5rem',   // 104px
+        '30': '7.5rem',   // 120px
+        '34': '8.5rem',   // 136px
+        '38': '9.5rem',   // 152px
+        '42': '10.5rem',  // 168px
+        '46': '11.5rem',  // 184px
+        '50': '12.5rem',  // 200px
+        '54': '13.5rem',  // 216px
+        '58': '14.5rem',  // 232px
+        '62': '15.5rem',  // 248px
+        '66': '16.5rem',  // 264px
+        '70': '17.5rem',  // 280px
+        '74': '18.5rem',  // 296px
+        '78': '19.5rem',  // 312px
+        '82': '20.5rem',  // 328px
+        '86': '21.5rem',  // 344px
+        '90': '22.5rem',  // 360px
+        '94': '23.5rem',  // 376px
+        '98': '24.5rem',  // 392px
+        '102': '25.5rem', // 408px
+      },
+      // Nature-inspired color palette
       colors: {
-        // Enhanced Primary Brand Colors with AI/Tech Gradients
+        // Primary nature greens
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9', // Enhanced AI blue
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-          950: '#082f49',
+          50: '#f0fdf4',
+          100: '#dcfce7',
+          200: '#bbf7d0',
+          300: '#86efac',
+          400: '#4ade80',
+          500: '#22c55e',
+          600: '#16a34a', // Main brand color - fresh green
+          700: '#15803d',
+          800: '#166534',
+          900: '#14532d',
+          950: '#052e16',
         },
-        
-        // Secondary warm accent colors for human touch
+        // Secondary earth tones
         secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
-          50: '#fef7ee',
-          100: '#fdedd3',
-          200: '#fad7a6',
-          300: '#f6bc6e',
-          400: '#f19834',
-          500: '#ed7e11',
-          600: '#de6507',
-          700: '#b84f08',
-          800: '#93400e',
-          900: '#78360f',
-          950: '#411a05',
+          50: '#fefce8',
+          100: '#fef9c3',
+          200: '#fef08a',
+          300: '#fde047',
+          400: '#facc15',
+          500: '#eab308', // Warm earth yellow
+          600: '#ca8a04',
+          700: '#a16207',
+          800: '#854d0e',
+          900: '#713f12',
+          950: '#422006',
         },
-        
-        // Enhanced AI Technology Colors
-        ai: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-          950: '#082f49',
-          // Gradient stops for AI effects
-          'gradient-start': '#667eea',
-          'gradient-end': '#764ba2',
-          'electric': '#00d4ff',
-          'neural': '#4f46e5',
+        // Natural accent colors
+        accent: {
+          50: '#f7fee7',
+          100: '#ecfccb',
+          200: '#d9f99d',
+          300: '#bef264',
+          400: '#a3e635',
+          500: '#84cc16', // Fresh lime
+          600: '#65a30d',
+          700: '#4d7c0f',
+          800: '#3f6212',
+          900: '#365314',
+          950: '#1a2e05',
         },
-        
-        // Enhanced Semantic Colors
+        // Earth browns
+        earth: {
+          50: '#faf7f0',
+          100: '#f4ede1',
+          200: '#e9dcc6',
+          300: '#dbc7a4',
+          400: '#cbae81',
+          500: '#b8956a', // Warm earth brown
+          600: '#a67e5b',
+          700: '#8a654c',
+          800: '#715442',
+          900: '#5c4639',
+          950: '#31241c',
+        },
+        // Natural grays (stone-like)
+        natural: {
+          50: '#fafaf9',
+          100: '#f5f5f4',
+          200: '#e7e5e4',
+          300: '#d6d3d1',
+          400: '#a8a29e',
+          500: '#78716c', // Natural stone
+          600: '#57534e',
+          700: '#44403c',
+          800: '#292524',
+          900: '#1c1917',
+          950: '#0c0a09',
+        },
+        // Status colors with nature theme
         success: {
-          50: '#ecfdf5',
-          100: '#d1fae5',
-          200: '#a7f3d0',
-          300: '#6ee7b7',
-          400: '#34d399',
-          500: '#10b981',
-          600: '#059669',
-          700: '#047857',
-          800: '#065f46',
-          900: '#064e3b',
-          950: '#022c22',
+          50: '#f0fdf4',
+          100: '#dcfce7',
+          500: '#22c55e', // Fresh green
+          600: '#16a34a',
         },
-        
         warning: {
           50: '#fffbeb',
           100: '#fef3c7',
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#f59e0b',
+          500: '#f59e0b', // Autumn orange
           600: '#d97706',
-          700: '#b45309',
-          800: '#92400e',
-          900: '#78350f',
-          950: '#451a03',
         },
-        
         error: {
           50: '#fef2f2',
           100: '#fee2e2',
-          200: '#fecaca',
-          300: '#fca5a5',
-          400: '#f87171',
-          500: '#ef4444',
+          500: '#ef4444', // Natural red
           600: '#dc2626',
-          700: '#b91c1c',
-          800: '#991b1b',
-          900: '#7f1d1d',
-          950: '#450a0a',
         },
-        
         info: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-          950: '#172554',
+          50: '#ecfdf5',
+          100: '#d1fae5',
+          500: '#10b981', // Teal green
+          600: '#059669',
         },
-        
         // Rich Neutral Colors with Subtle Undertones
         neutral: {
           50: '#fafafa',
@@ -178,7 +168,6 @@ module.exports = {
           900: '#171717',
           950: '#0a0a0a',
         },
-        
         // Enhanced Background and Surface Colors
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
@@ -232,10 +221,6 @@ module.exports = {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))',
         },
-        accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
-        },
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
@@ -259,25 +244,26 @@ module.exports = {
       
       // Enhanced Typography Scale with Better Hierarchy
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'monospace'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
         display: ['Inter', 'system-ui', 'sans-serif'],
       },
       
       fontSize: {
-        'xs': ['0.75rem', { lineHeight: '1rem', letterSpacing: '0.025em' }],
-        'sm': ['0.875rem', { lineHeight: '1.25rem', letterSpacing: '0.025em' }],
-        'base': ['1rem', { lineHeight: '1.5rem', letterSpacing: '0' }],
-        'lg': ['1.125rem', { lineHeight: '1.75rem', letterSpacing: '-0.025em' }],
-        'xl': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.025em' }],
-        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.025em' }],
-        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.025em' }],
-        '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.025em' }],
-        '5xl': ['3rem', { lineHeight: '1.1', letterSpacing: '-0.025em' }],
-        '6xl': ['3.75rem', { lineHeight: '1.1', letterSpacing: '-0.025em' }],
-        '7xl': ['4.5rem', { lineHeight: '1.05', letterSpacing: '-0.025em' }],
-        '8xl': ['6rem', { lineHeight: '1', letterSpacing: '-0.025em' }],
-        '9xl': ['8rem', { lineHeight: '1', letterSpacing: '-0.025em' }],
+        '2xs': ['0.6875rem', { lineHeight: '1rem' }],      // 11px
+        'xs': ['0.75rem', { lineHeight: '1.125rem' }],     // 12px
+        'sm': ['0.875rem', { lineHeight: '1.375rem' }],    // 14px
+        'base': ['1rem', { lineHeight: '1.625rem' }],      // 16px
+        'lg': ['1.125rem', { lineHeight: '1.875rem' }],    // 18px
+        'xl': ['1.25rem', { lineHeight: '2rem' }],         // 20px
+        '2xl': ['1.5rem', { lineHeight: '2.25rem' }],      // 24px
+        '3xl': ['1.875rem', { lineHeight: '2.625rem' }],   // 30px
+        '4xl': ['2.25rem', { lineHeight: '3rem' }],        // 36px
+        '5xl': ['3rem', { lineHeight: '3.75rem' }],        // 48px
+        '6xl': ['3.75rem', { lineHeight: '4.5rem' }],      // 60px
+        '7xl': ['4.5rem', { lineHeight: '5.25rem' }],      // 72px
+        '8xl': ['6rem', { lineHeight: '6.75rem' }],        // 96px
+        '9xl': ['8rem', { lineHeight: '8.75rem' }],        // 128px
       },
       
       fontWeight: {
@@ -292,60 +278,28 @@ module.exports = {
         black: '900',
       },
       
-      // Enhanced Spacing Scale (8px Grid System)
-      spacing: {
-        '0.5': '0.125rem', // 2px
-        '1.5': '0.375rem', // 6px
-        '2.5': '0.625rem', // 10px
-        '3.5': '0.875rem', // 14px
-        '4.5': '1.125rem', // 18px
-        '5.5': '1.375rem', // 22px
-        '6.5': '1.625rem', // 26px
-        '7.5': '1.875rem', // 30px
-        '8.5': '2.125rem', // 34px
-        '9.5': '2.375rem', // 38px
-        '10.5': '2.625rem', // 42px
-        '11.5': '2.875rem', // 46px
-        '12.5': '3.125rem', // 50px
-        '13': '3.25rem',   // 52px
-        '15': '3.75rem',   // 60px
-        '17': '4.25rem',   // 68px
-        '18': '4.5rem',    // 72px
-        '19': '4.75rem',   // 76px
-        '20': '5rem',      // 80px
-        '22': '5.5rem',    // 88px
-        '26': '6.5rem',    // 104px
-        '30': '7.5rem',    // 120px
-        '34': '8.5rem',    // 136px
-        '38': '9.5rem',    // 152px
-        '42': '10.5rem',   // 168px
-        '46': '11.5rem',   // 184px
-        '50': '12.5rem',   // 200px
-        '54': '13.5rem',   // 216px
-        '58': '14.5rem',   // 232px
-        '62': '15.5rem',   // 248px
-        '66': '16.5rem',   // 264px
-        '70': '17.5rem',   // 280px
-        '74': '18.5rem',   // 296px
-        '78': '19.5rem',   // 312px
-        '82': '20.5rem',   // 328px
-        '86': '21.5rem',   // 344px
-        '90': '22.5rem',   // 360px
-        '94': '23.5rem',   // 376px
-        '98': '24.5rem',   // 392px
+      letterSpacing: {
+        'tightest': '-0.075em',
+        'tighter': '-0.05em', 
+        'tight': '-0.025em',
+        'normal': '0em',
+        'wide': '0.025em',
+        'wider': '0.05em',
+        'widest': '0.1em',
       },
       
       // Enhanced Border Radius Scale
       borderRadius: {
-        'xs': '0.125rem',  // 2px
-        'sm': '0.25rem',   // 4px
-        DEFAULT: '0.375rem', // 6px
-        'md': '0.5rem',    // 8px
-        'lg': '0.75rem',   // 12px
-        'xl': '1rem',      // 16px
-        '2xl': '1.5rem',   // 24px
-        '3xl': '2rem',     // 32px
-        '4xl': '2.5rem',   // 40px
+        'xs': '0.125rem',   // 2px
+        'sm': '0.25rem',    // 4px
+        'DEFAULT': '0.375rem', // 6px
+        'md': '0.5rem',     // 8px
+        'lg': '0.75rem',    // 12px
+        'xl': '1rem',       // 16px
+        '2xl': '1.25rem',   // 20px
+        '3xl': '1.5rem',    // 24px
+        '4xl': '2rem',      // 32px
+        '5xl': '2.5rem',    // 40px
         'full': '9999px',
       },
       
