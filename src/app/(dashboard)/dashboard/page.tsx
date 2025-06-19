@@ -262,27 +262,9 @@ export default async function DashboardPage() {
           trend={aiSuggestions.length > 0 ? { value: `${Math.round((aiSuggestions.filter(s => s.status === 'approved').length / aiSuggestions.length) * 100)}% accuracy`, positive: true } : undefined}
         />
         <MetricCard
-          title="Processing Queue"
-          value={pendingProcessing.length > 0 ? "Active" : "Idle"}
-          description={pendingProcessing.length > 0 ? `${pendingProcessing.length} items processing` : "No pending items"}
-          icon={pendingProcessing.length > 0 ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-          status={pendingProcessing.length > 0 ? "loading" : "success"}
-        />
-
-        {/* Additional desktop metrics for better density */}
-        <MetricCard
-          title="Total Productivity"
-          value="94%"
-          description="Overall efficiency score this week"
-          icon={<TrendingUp className="h-4 w-4" />}
-          status="success"
-          trend={{ value: "+5%", positive: true }}
-        />
-        
-        <MetricCard
           title="Time Saved"
           value="12.5h"
-          description="AI scheduling has saved you time"
+          description="AI automation has saved you time this week"
           icon={<Clock className="h-4 w-4" />}
           status="success"
           trend={{ value: "+3h", positive: true }}
@@ -315,10 +297,10 @@ export default async function DashboardPage() {
             gradient="bg-purple-500/10 text-purple-600"
           />
           <QuickAction
-            title="AI Suggestions"
-            description="Review AI-generated recommendations"
+            title="View Tasks"
+            description="Manage your task list and scheduling"
             icon={<Brain className="h-5 w-5" />}
-            href="/dashboard/suggestions"
+            href="/dashboard/calendar"
             gradient="bg-orange-500/10 text-orange-600"
           />
           <QuickAction
@@ -338,17 +320,7 @@ export default async function DashboardPage() {
           </PageGrid>
         </DashboardSection>
 
-        {/* Gmail Sync Management */}
-        <DashboardSection title="Gmail Sync">
-          <GmailSyncManager />
-        </DashboardSection>
-
-        {/* Pipeline Status Widget */}
-        <DashboardSection title="Pipeline Status">
-          <PipelineStatusWidget />
-        </DashboardSection>
-
-        {/* Task Scheduling Approval */}
+        {/* Simplified Task Scheduling - Only show if there are unscheduled AI tasks */}
         <DashboardSection title="Task Scheduling">
           <TaskScheduleApproval />
         </DashboardSection>
@@ -531,55 +503,28 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* AI Insights */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5" />
-            AI Insights
-          </CardTitle>
-          <CardDescription>Intelligent recommendations to optimize your productivity</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                title: "Optimize Meeting Times",
-                description: "AI suggests moving 3 meetings to improve focus time",
-                action: "Review suggestions",
-                icon: <Calendar className="h-4 w-4" />
-              },
-              {
-                title: "Email Prioritization",
-                description: "12 emails marked as high priority need attention",
-                action: "Process emails",
-                icon: <Mail className="h-4 w-4" />
-              },
-              {
-                title: "Productivity Patterns",
-                description: "Your most productive hours are 9-11 AM",
-                action: "View analytics",
-                icon: <BarChart3 className="h-4 w-4" />
-              }
-            ].map((insight, index) => (
-              <div key={index} className="p-4 rounded-lg border bg-card/50 hover:bg-card transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                    {insight.icon}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium mb-1">{insight.title}</h4>
-                    <p className="text-sm text-muted-foreground mb-3">{insight.description}</p>
-                    <Button variant="outline" size="sm" className="h-7 text-xs">
-                      {insight.action}
-                    </Button>
-                  </div>
+        {/* AI Insights - Simplified */}
+        {aiSuggestions.length > 0 && (
+          <Card className="glass-card">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="h-5 w-5" />
+                    AI Insights
+                  </CardTitle>
+                  <CardDescription>{pendingSuggestions} new suggestions available</CardDescription>
                 </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/dashboard/emails">
+                    Review All
+                    <ArrowRight className="ml-1 h-3 w-3" />
+                  </Link>
+                </Button>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardHeader>
+          </Card>
+        )}
       </PageContent>
     </PageLayout>
   )

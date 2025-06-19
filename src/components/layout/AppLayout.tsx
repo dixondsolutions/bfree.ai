@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
@@ -46,7 +47,49 @@ import {
   ChevronRight
 } from 'lucide-react'
 
-const navigationItems = [
+// Hook to fetch notification counts
+function useNotificationCounts() {
+  const [counts, setCounts] = useState({
+    emails: 0,
+    tasks: 0,
+    suggestions: 0
+  })
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const [emailsRes, tasksRes, suggestionsRes] = await Promise.all([
+          fetch('/api/emails?limit=50'),
+          fetch('/api/tasks?status=pending'),
+          fetch('/api/ai/suggestions?status=pending')
+        ])
+
+        const [emailsData, tasksData, suggestionsData] = await Promise.all([
+          emailsRes.ok ? emailsRes.json() : { emails: [] },
+          tasksRes.ok ? tasksRes.json() : { tasks: [] },
+          suggestionsRes.ok ? suggestionsRes.json() : { suggestions: [] }
+        ])
+
+        setCounts({
+          emails: emailsData.emails?.length || 0,
+          tasks: tasksData.tasks?.length || 0,
+          suggestions: suggestionsData.suggestions?.length || 0
+        })
+      } catch (error) {
+        console.error('Error fetching notification counts:', error)
+      }
+    }
+
+    fetchCounts()
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchCounts, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  return counts
+}
+
+const getNavigationItems = (counts: any) => [
   {
     title: 'Dashboard',
     url: '/dashboard',
@@ -58,20 +101,14 @@ const navigationItems = [
     url: '/dashboard/emails',
     icon: Mail,
     description: 'AI-processed email insights',
-    badge: '12'
+    badge: counts.emails > 0 ? counts.emails.toString() : undefined
   },
   {
     title: 'Calendar',
     url: '/dashboard/calendar',
     icon: Calendar,
-    description: 'Smart scheduling assistant'
-  },
-  {
-    title: 'AI Suggestions',
-    url: '/dashboard/suggestions',
-    icon: Sparkles,
-    description: 'Intelligent recommendations',
-    badge: '3'
+    description: 'Smart scheduling assistant',
+    badge: counts.tasks > 0 ? counts.tasks.toString() : undefined
   },
   {
     title: 'Analytics',
@@ -93,12 +130,16 @@ interface AppLayoutProps {
 
 function AppSidebarContent() {
   const pathname = usePathname()
-  const { state } = useSidebar()
+  const { state, setOpen } = useSidebar()
+  const notificationCounts = useNotificationCounts()
+  const navigationItems = getNavigationItems(notificationCounts)
   
   return (
     <Sidebar 
-      collapsible="offcanvas" 
+      collapsible="icon" 
       className="border-r bg-card/95 supports-[backdrop-filter]:bg-card/95"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
     >
       <SidebarHeader className="border-b py-3 px-4 bg-background/50">
         <div className={cn(
@@ -215,18 +256,20 @@ function AppSidebarContent() {
 
 function AppMainContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const notificationCounts = useNotificationCounts()
+  const totalNotifications = notificationCounts.emails + notificationCounts.tasks + notificationCounts.suggestions
   
   return (
     <SidebarInset className="flex-1 flex flex-col min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b bg-background/98 supports-[backdrop-filter]:bg-background/98">
+      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/90 shadow-sm">
         <div className="flex h-16 items-center gap-4 px-6">
           <SidebarTrigger className="h-8 w-8" />
           
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-semibold">
-                {navigationItems.find(item => item.url === pathname)?.title || 'Dashboard'}
+                {getNavigationItems(notificationCounts).find(item => item.url === pathname)?.title || 'Dashboard'}
               </h1>
             </div>
           </div>
@@ -237,9 +280,11 @@ function AppMainContent({ children }: { children: React.ReactNode }) {
             </Button>
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 relative">
               <Bell className="h-4 w-4" />
-              <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 text-[10px] font-medium text-white flex items-center justify-center">
-                3
-              </span>
+              {totalNotifications > 0 && (
+                <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 text-[10px] font-medium text-white flex items-center justify-center">
+                  {totalNotifications > 9 ? '9+' : totalNotifications}
+                </span>
+              )}
             </Button>
           </div>
         </div>
@@ -258,7 +303,7 @@ function AppMainContent({ children }: { children: React.ReactNode }) {
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider 
-      defaultOpen={false} 
+      defaultOpen={false}
       style={{
         "--sidebar-width": "280px",
         "--sidebar-width-icon": "64px"

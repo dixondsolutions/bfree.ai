@@ -46,11 +46,13 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
   const fetchPendingTasks = async () => {
     try {
       setLoading(true)
-      // Get tasks that need scheduling approval
-      const response = await fetch('/api/tasks?status=pending_schedule&ai_generated=true')
+      // Get unscheduled tasks that could benefit from scheduling
+      const response = await fetch('/api/tasks?status=pending&ai_generated=true')
       if (response.ok) {
         const data = await response.json()
-        setPendingTasks(data.tasks || [])
+        // Filter to only tasks that don't have a scheduled time yet
+        const unscheduledTasks = (data.tasks || []).filter(task => !task.scheduled_start)
+        setPendingTasks(unscheduledTasks)
       }
     } catch (error) {
       console.error('Error fetching pending tasks:', error)
@@ -59,105 +61,57 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
     }
   }
 
-  const handleApprove = async (task: PendingTask) => {
-    if (!task.scheduled_start || !task.scheduled_end) return
+  const generateScheduleSuggestion = (task: PendingTask) => {
+    const now = new Date()
+    const tomorrow = new Date(now)
+    tomorrow.setDate(now.getDate() + 1)
+    tomorrow.setHours(9, 0, 0, 0) // 9 AM tomorrow
     
-    setProcessingIds(prev => new Set(prev).add(task.id))
+    const duration = task.estimated_duration || 60
+    let suggestedStart = new Date(tomorrow)
     
-    try {
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scheduled_start: task.scheduled_start,
-          scheduled_end: task.scheduled_end,
-          status: 'scheduled'
-        })
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to approve schedule')
+    // Adjust based on priority
+    if (task.priority === 'urgent') {
+      if (now.getHours() < 17) {
+        suggestedStart = new Date(now.getTime() + 30 * 60000) // 30 minutes from now
       }
-      
-      // Remove from pending list
-      setPendingTasks(prev => prev.filter(t => t.id !== task.id))
-    } catch (error) {
-      console.error('Error approving schedule:', error)
-    } finally {
-      setProcessingIds(prev => {
-        const next = new Set(prev)
-        next.delete(task.id)
-        return next
-      })
+    } else if (task.priority === 'high') {
+      suggestedStart = tomorrow
+    } else {
+      suggestedStart.setDate(suggestedStart.getDate() + 1)
+    }
+    
+    const suggestedEnd = new Date(suggestedStart.getTime() + duration * 60000)
+    
+    return {
+      scheduled_start: suggestedStart.toISOString(),
+      scheduled_end: suggestedEnd.toISOString()
     }
   }
 
-  const handleReject = async (task: PendingTask) => {
+  const handleScheduleNow = async (task: PendingTask) => {
     setProcessingIds(prev => new Set(prev).add(task.id))
     
     try {
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          status: 'pending',
-          scheduled_start: null,
-          scheduled_end: null
-        })
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to reject schedule')
-      }
-      
-      // Remove from pending list
-      setPendingTasks(prev => prev.filter(t => t.id !== task.id))
-    } catch (error) {
-      console.error('Error rejecting schedule:', error)
-    } finally {
-      setProcessingIds(prev => {
-        const next = new Set(prev)
-        next.delete(task.id)
-        return next
-      })
-    }
-  }
-
-  const handleModify = async (task: PendingTask, timeAdjustment: number) => {
-    if (!task.scheduled_start) return
-    
-    setProcessingIds(prev => new Set(prev).add(task.id))
-    
-    try {
-      const currentStart = new Date(task.scheduled_start)
-      const newStart = addMinutes(currentStart, timeAdjustment)
-      const newEnd = addMinutes(newStart, task.estimated_duration)
+      const schedule = generateScheduleSuggestion(task)
       
       const response = await fetch(`/api/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          scheduled_start: newStart.toISOString(),
-          scheduled_end: newEnd.toISOString()
+          ...schedule,
+          status: 'pending' // Keep as pending but now with schedule
         })
       })
       
       if (!response.ok) {
-        throw new Error('Failed to modify schedule')
+        throw new Error('Failed to schedule task')
       }
       
-      // Update the task in the list
-      setPendingTasks(prev => prev.map(t => 
-        t.id === task.id 
-          ? { 
-              ...t, 
-              scheduled_start: newStart.toISOString(), 
-              scheduled_end: newEnd.toISOString() 
-            }
-          : t
-      ))
+      // Remove from pending list
+      setPendingTasks(prev => prev.filter(t => t.id !== task.id))
     } catch (error) {
-      console.error('Error modifying schedule:', error)
+      console.error('Error scheduling task:', error)
     } finally {
       setProcessingIds(prev => {
         const next = new Set(prev)
@@ -167,13 +121,28 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
     }
   }
 
-  const handleBulkApprove = async () => {
-    const tasksToApprove = pendingTasks.filter(t => 
-      t.scheduled_start && t.scheduled_end && !t.conflicts_detected
-    )
+  const handleDismiss = async (task: PendingTask) => {
+    setProcessingIds(prev => new Set(prev).add(task.id))
     
-    for (const task of tasksToApprove) {
-      await handleApprove(task)
+    try {
+      // Just remove from the scheduling suggestion list (no API call needed)
+      setPendingTasks(prev => prev.filter(t => t.id !== task.id))
+    } catch (error) {
+      console.error('Error dismissing task:', error)
+    } finally {
+      setProcessingIds(prev => {
+        const next = new Set(prev)
+        next.delete(task.id)
+        return next
+      })
+    }
+  }
+
+  const handleBulkSchedule = async () => {
+    const tasksToSchedule = pendingTasks.filter(t => !processingIds.has(t.id))
+    
+    for (const task of tasksToSchedule) {
+      await handleScheduleNow(task)
     }
   }
 
@@ -212,7 +181,7 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
             Task Scheduling Approval
           </CardTitle>
           <CardDescription>
-            AI-generated tasks that need scheduling approval
+            AI-generated tasks that could benefit from scheduling
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -220,7 +189,7 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
             <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">All caught up!</h3>
             <p className="text-muted-foreground">
-              No tasks are waiting for scheduling approval.
+              No unscheduled AI tasks found.
             </p>
           </div>
         </CardContent>
@@ -238,18 +207,18 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
               Task Scheduling Approval
             </CardTitle>
             <CardDescription>
-              {pendingTasks.length} AI-generated tasks need scheduling approval
+              {pendingTasks.length} AI-generated tasks could use scheduling
             </CardDescription>
           </div>
           
-          {pendingTasks.some(t => !t.conflicts_detected) && (
+          {pendingTasks.length > 0 && (
             <Button 
               variant="default"
-              onClick={handleBulkApprove}
+              onClick={handleBulkSchedule}
               disabled={processingIds.size > 0}
             >
               <Zap className="h-4 w-4 mr-2" />
-              Approve All ({pendingTasks.filter(t => !t.conflicts_detected).length})
+              Schedule All ({pendingTasks.length})
             </Button>
           )}
         </div>
@@ -280,75 +249,37 @@ export function TaskScheduleApproval(props: TaskScheduleApprovalProps = {}) {
                       </p>
                     )}
 
-                    {task.scheduled_start && task.scheduled_end ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <CalendarIcon className="h-4 w-4" />
-                          <span>
-                            {format(new Date(task.scheduled_start), 'MMM d, h:mm a')} - {format(new Date(task.scheduled_end), 'h:mm a')}
-                          </span>
-                          <span className="text-muted-foreground">
-                            ({task.estimated_duration}m)
-                          </span>
-                        </div>
-                        
-                        {task.conflicts_detected && (
-                          <div className="flex items-center gap-2 text-sm text-orange-600">
-                            <AlertTriangle className="h-4 w-4" />
-                            <span>Scheduling conflict detected</span>
-                          </div>
-                        )}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4" />
+                        <span>Estimated duration: {task.estimated_duration || 60} minutes</span>
                       </div>
-                    ) : (
                       <div className="text-sm text-muted-foreground">
-                        No suggested time available
+                        Ready for scheduling
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 ml-4">
-                    {/* Time adjustment buttons */}
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleModify(task, -60)}
-                        disabled={processingIds.has(task.id)}
-                        className="text-xs px-2 py-1"
-                      >
-                        -1h
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleModify(task, 60)}
-                        disabled={processingIds.has(task.id)}
-                        className="text-xs px-2 py-1"
-                      >
-                        +1h
-                      </Button>
-                    </div>
-
-                    {/* Main action buttons */}
                     <div className="flex flex-col gap-2">
                       <Button
                         variant="default"
                         size="sm"
-                        onClick={() => handleApprove(task)}
-                        disabled={processingIds.has(task.id) || !task.scheduled_start}
+                        onClick={() => handleScheduleNow(task)}
+                        disabled={processingIds.has(task.id)}
                       >
-                        <CheckCircle2 className="h-4 w-4 mr-1" />
-                        Approve
+                        <CalendarIcon className="h-4 w-4 mr-1" />
+                        Schedule
                       </Button>
                       
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleReject(task)}
+                        onClick={() => handleDismiss(task)}
                         disabled={processingIds.has(task.id)}
                       >
                         <X className="h-4 w-4 mr-1" />
-                        Reject
+                        Dismiss
                       </Button>
                     </div>
                   </div>

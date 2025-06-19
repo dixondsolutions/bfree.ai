@@ -5,91 +5,50 @@ import { taskService } from '@/lib/tasks/task-service'
 import { extractTasksFromEmail } from '@/lib/openai/task-extraction'
 import { z } from 'zod'
 
-// Helper function to auto-schedule task using automation settings
-async function autoScheduleTaskIfPossible(task: any) {
+// Helper function to suggest schedule for task without auto-updating
+async function suggestTaskSchedule(task: any) {
   try {
-    // Get user automation settings
-    const { getUserAutomationSettings, getSchedulingWindow } = await import('@/lib/automation/settings')
-    const automationSettings = await getUserAutomationSettings()
+    // Simple scheduling suggestion based on priority and current time
+    const now = new Date()
+    const startOfTomorrow = new Date(now)
+    startOfTomorrow.setDate(now.getDate() + 1)
+    startOfTomorrow.setHours(9, 0, 0, 0) // Default to 9 AM tomorrow
     
-    // Check if auto-scheduling is enabled
-    if (!automationSettings.autoScheduleTasks) {
-      return {
-        scheduled: false,
-        message: 'Auto-scheduling disabled in settings',
-        reason: 'automation_disabled'
+    const duration = task.estimated_duration || 60 // Default 1 hour
+    const endTime = new Date(startOfTomorrow.getTime() + duration * 60000)
+    
+    // Adjust based on priority
+    let suggestedStart = new Date(startOfTomorrow)
+    if (task.priority === 'urgent') {
+      // Schedule urgent tasks for today if it's still business hours
+      if (now.getHours() < 17) {
+        suggestedStart = new Date(now.getTime() + 30 * 60000) // 30 minutes from now
       }
+    } else if (task.priority === 'high') {
+      // Schedule high priority for tomorrow morning
+      suggestedStart = startOfTomorrow
+    } else {
+      // Schedule medium/low priority for later in the week
+      suggestedStart.setDate(suggestedStart.getDate() + 1)
     }
-
-    // Get scheduling window based on priority and settings
-    const schedulingInfo = await getSchedulingWindow(task.priority)
     
-    if (!schedulingInfo.autoSchedule) {
-      return {
-        scheduled: false,
-        message: `Auto-scheduling not configured for ${task.priority} priority tasks`,
-        reason: 'priority_not_configured',
-        suggested_start: schedulingInfo.suggestedStart.toISOString(),
-        suggested_end: schedulingInfo.suggestedEnd.toISOString()
-      }
-    }
-
-    // Update the task with scheduling information - set as pending approval
-    const { taskService } = await import('@/lib/tasks/task-service')
+    const suggestedEnd = new Date(suggestedStart.getTime() + duration * 60000)
     
-    const updateResult = await taskService.updateTask(task.id, {
-      scheduled_start: schedulingInfo.suggestedStart,
-      scheduled_end: schedulingInfo.suggestedEnd,
-      status: 'pending_schedule', // Requires user approval
-      notes: task.notes ? 
-        `${task.notes}\n\nAI suggested schedule: ${schedulingInfo.suggestedStart.toLocaleString()} (${task.priority} priority, pending approval)` : 
-        `AI suggested schedule: ${schedulingInfo.suggestedStart.toLocaleString()} (${task.priority} priority, pending approval)`
-    })
-
-    // Check for potential calendar conflicts (basic check)
-    const supabase = await createClient()
-    const user = await getCurrentUser()
-    
-    if (user) {
-      const { data: conflictingEvents } = await supabase
-        .from('events')
-        .select('id, title, start_time, end_time')
-        .eq('user_id', user.id)
-        .gte('start_time', schedulingInfo.suggestedStart.toISOString())
-        .lte('start_time', schedulingInfo.suggestedEnd.toISOString())
-
-      const hasConflicts = conflictingEvents && conflictingEvents.length > 0
-
-      return {
-        scheduled: true,
-        message: `Task auto-scheduled for ${schedulingInfo.suggestedStart.toLocaleString()}`,
-        scheduled_start: schedulingInfo.suggestedStart.toISOString(),
-        scheduled_end: schedulingInfo.suggestedEnd.toISOString(),
-        priority: task.priority,
-        estimated_duration: task.estimated_duration,
-        conflicts_detected: hasConflicts,
-        conflicting_events: hasConflicts ? conflictingEvents : undefined,
-        scheduling_window_hours: task.priority === 'urgent' ? 
-          automationSettings.taskDefaults.schedulingWindow.urgentHours :
-          automationSettings.taskDefaults.schedulingWindow.hours
-      }
-    }
-
     return {
-      scheduled: true,
-      message: `Task auto-scheduled for ${schedulingInfo.suggestedStart.toLocaleString()}`,
-      scheduled_start: schedulingInfo.suggestedStart.toISOString(),
-      scheduled_end: schedulingInfo.suggestedEnd.toISOString(),
+      suggested: true,
+      message: `Schedule suggested for ${suggestedStart.toLocaleDateString()} at ${suggestedStart.toLocaleTimeString()}`,
+      suggested_start: suggestedStart.toISOString(),
+      suggested_end: suggestedEnd.toISOString(),
       priority: task.priority,
-      estimated_duration: task.estimated_duration
+      estimated_duration: duration,
+      needs_approval: true
     }
   } catch (error) {
-    console.error('Auto-scheduling failed for task:', task.id, error)
+    console.error('Schedule suggestion failed for task:', task.id, error)
     return {
-      scheduled: false,
-      message: 'Auto-scheduling failed',
-      error: error instanceof Error ? error.message : 'Unknown error',
-      reason: 'scheduling_error'
+      suggested: false,
+      message: 'Schedule suggestion failed',
+      error: error instanceof Error ? error.message : 'Unknown error'
     }
   }
 }
@@ -205,26 +164,26 @@ async function createTaskFromEmail(body: any) {
         confidence_score: taskExtraction.confidence
       })
 
-      // Try to auto-schedule high priority tasks
-      const scheduleResult = await autoScheduleTaskIfPossible(task)
+      // Suggest schedule for all tasks
+      const scheduleResult = await suggestTaskSchedule(task)
 
       createdTasks.push({
         ...task,
         extraction_details: taskExtraction,
-        auto_scheduled: !!scheduleResult,
+        schedule_suggested: scheduleResult.suggested,
         schedule_result: scheduleResult
       })
     }
 
-    const autoScheduledCount = createdTasks.filter(t => t.auto_scheduled).length
+    const scheduleSuggestedCount = createdTasks.filter(t => t.schedule_suggested).length
 
     return NextResponse.json({
       message: `Created ${createdTasks.length} task(s) from email`,
       tasks: createdTasks,
       analysis: taskAnalysis,
       scheduling: {
-        auto_scheduled: autoScheduledCount,
-        manual_scheduling_needed: createdTasks.length - autoScheduledCount
+        schedule_suggested: scheduleSuggestedCount,
+        needs_manual_scheduling: createdTasks.length - scheduleSuggestedCount
       }
     }, { status: 201 })
 
@@ -278,8 +237,8 @@ async function createTaskFromSuggestion(body: any) {
       confidence_score: suggestion.confidence_score
     })
 
-    // Try to auto-schedule the task
-    const scheduleResult = await autoScheduleTaskIfPossible(task)
+    // Suggest schedule for the task
+    const scheduleResult = await suggestTaskSchedule(task)
 
     // Mark suggestion as converted to task
     await supabase
@@ -295,7 +254,7 @@ async function createTaskFromSuggestion(body: any) {
       message: 'Task created from AI suggestion',
       task: {
         ...task,
-        auto_scheduled: !!scheduleResult,
+        schedule_suggested: scheduleResult.suggested,
         schedule_result: scheduleResult
       },
       suggestion
