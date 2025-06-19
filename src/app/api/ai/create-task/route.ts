@@ -5,17 +5,79 @@ import { taskService } from '@/lib/tasks/task-service'
 import { extractTasksFromEmail } from '@/lib/openai/task-extraction'
 import { z } from 'zod'
 
+// Helper function to estimate task duration based on content analysis
+function enhancedDurationEstimation(task: any, taskExtraction?: any): number {
+  // Use AI-extracted duration if available and reasonable
+  if (taskExtraction?.estimatedDuration && taskExtraction.estimatedDuration > 0) {
+    return Math.min(Math.max(taskExtraction.estimatedDuration, 5), 480) // 5 min to 8 hours
+  }
+  
+  // Use task's estimated duration if set
+  if (task.estimated_duration && task.estimated_duration > 0) {
+    return task.estimated_duration
+  }
+  
+  // Intelligent estimation based on task characteristics
+  const title = (task.title || '').toLowerCase()
+  const description = (task.description || '').toLowerCase()
+  const content = `${title} ${description}`
+  
+  // Keywords that suggest different durations
+  const quickKeywords = ['quick', 'brief', 'short', 'call', 'email', 'review', 'check', 'update']
+  const longKeywords = ['meeting', 'workshop', 'presentation', 'training', 'planning', 'analysis', 'research']
+  const projectKeywords = ['project', 'develop', 'create', 'build', 'design', 'implement']
+  
+  // Check for time mentions in content
+  const timeMatches = content.match(/(\d+)\s*(min|minute|hour|hr)/gi)
+  if (timeMatches) {
+    const match = timeMatches[0]
+    const number = parseInt(match)
+    if (match.includes('hour') || match.includes('hr')) {
+      return Math.min(number * 60, 480) // Convert hours to minutes, max 8 hours
+    } else {
+      return Math.min(number, 480) // Already in minutes
+    }
+  }
+  
+  // Keyword-based estimation
+  if (quickKeywords.some(keyword => content.includes(keyword))) {
+    return 15 // 15 minutes for quick tasks
+  }
+  
+  if (projectKeywords.some(keyword => content.includes(keyword))) {
+    return 120 // 2 hours for project work
+  }
+  
+  if (longKeywords.some(keyword => content.includes(keyword))) {
+    return 90 // 1.5 hours for longer tasks
+  }
+  
+  // Priority-based fallback
+  switch (task.priority) {
+    case 'urgent':
+      return 30 // Urgent tasks are often quick
+    case 'high':
+      return 60 // Standard high priority
+    case 'medium':
+      return 45 // Medium tasks
+    case 'low':
+      return 30 // Low priority often simple
+    default:
+      return 45 // Default reasonable duration
+  }
+}
+
 // Helper function to suggest schedule for task without auto-updating
-async function suggestTaskSchedule(task: any) {
+async function suggestTaskSchedule(task: any, taskExtraction?: any) {
   try {
+    // Use enhanced duration estimation
+    const duration = enhancedDurationEstimation(task, taskExtraction)
+    
     // Simple scheduling suggestion based on priority and current time
     const now = new Date()
     const startOfTomorrow = new Date(now)
     startOfTomorrow.setDate(now.getDate() + 1)
     startOfTomorrow.setHours(9, 0, 0, 0) // Default to 9 AM tomorrow
-    
-    const duration = task.estimated_duration || 60 // Default 1 hour
-    const endTime = new Date(startOfTomorrow.getTime() + duration * 60000)
     
     // Adjust based on priority
     let suggestedStart = new Date(startOfTomorrow)
@@ -36,7 +98,7 @@ async function suggestTaskSchedule(task: any) {
     
     return {
       suggested: true,
-      message: `Schedule suggested for ${suggestedStart.toLocaleDateString()} at ${suggestedStart.toLocaleTimeString()}`,
+      message: `Schedule suggested for ${suggestedStart.toLocaleDateString()} at ${suggestedStart.toLocaleTimeString()} (${duration}m)`,
       suggested_start: suggestedStart.toISOString(),
       suggested_end: suggestedEnd.toISOString(),
       priority: task.priority,
@@ -149,12 +211,19 @@ async function createTaskFromEmail(body: any) {
     // Create tasks from extractions
     const createdTasks = []
     for (const taskExtraction of taskAnalysis.taskExtractions) {
+      const enhancedDuration = enhancedDurationEstimation({
+        title: taskExtraction.title,
+        description: taskExtraction.description,
+        priority: taskExtraction.priority,
+        estimated_duration: taskExtraction.estimatedDuration
+      }, taskExtraction)
+
       const task = await taskService.createTask({
         title: taskExtraction.title,
         description: taskExtraction.description,
         category: taskExtraction.category,
         priority: taskExtraction.priority as any,
-        estimated_duration: taskExtraction.estimatedDuration,
+        estimated_duration: enhancedDuration,
         due_date: taskExtraction.suggestedDueDate ? new Date(taskExtraction.suggestedDueDate) : undefined,
         energy_level: taskExtraction.energyLevel,
         tags: taskExtraction.suggestedTags,
@@ -165,7 +234,7 @@ async function createTaskFromEmail(body: any) {
       })
 
       // Suggest schedule for all tasks
-      const scheduleResult = await suggestTaskSchedule(task)
+      const scheduleResult = await suggestTaskSchedule(task, taskExtraction)
 
       createdTasks.push({
         ...task,
