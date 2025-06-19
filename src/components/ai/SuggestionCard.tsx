@@ -65,7 +65,17 @@ export function SuggestionCard({ suggestion, onApprove, onReject }: SuggestionCa
             <div className="mt-3 p-3 bg-gray-50 rounded-md">
               <p className="text-sm font-medium text-gray-700">Suggested Time:</p>
               <p className="text-sm text-gray-600">
-                {new Date(suggestion.suggested_time).toLocaleString()}
+                {(() => {
+                  try {
+                    const date = new Date(suggestion.suggested_time)
+                    if (isNaN(date.getTime())) {
+                      return 'Time not specified'
+                    }
+                    return date.toLocaleString()
+                  } catch (error) {
+                    return 'Time not specified'
+                  }
+                })()}
               </p>
             </div>
           )}

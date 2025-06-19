@@ -108,7 +108,10 @@ export async function GET(
       timeEntries: timeEntries || []
     }
 
-    return NextResponse.json({ task: taskWithDetails })
+    return NextResponse.json({ 
+      success: true,
+      task: taskWithDetails 
+    })
 
   } catch (error) {
     console.error('Error in GET /api/tasks/[id]:', error)
@@ -202,7 +205,10 @@ export async function PUT(
       })
     }
 
-    return NextResponse.json({ task })
+    return NextResponse.json({ 
+      success: true,
+      task 
+    })
 
   } catch (error) {
     if (error instanceof z.ZodError) {

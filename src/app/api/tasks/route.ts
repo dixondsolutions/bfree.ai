@@ -70,13 +70,19 @@ export async function GET(request: NextRequest) {
     if (priority) query = query.eq('priority', priority)
     if (parent_only) query = query.is('parent_task_id', null)
 
-    // Apply date range filters
+    // Apply date range filters - simplified approach
     if (startDate) {
-      // Include tasks that have any date field within our range
-      query = query.or(`and(scheduled_start.gte.${startDate},scheduled_start.lte.${endDate || startDate}),and(scheduled_end.gte.${startDate},scheduled_end.lte.${endDate || startDate}),and(due_date.gte.${startDate},due_date.lte.${endDate || startDate}),created_at.gte.${startDate}`)
+      if (endDate) {
+        // Filter tasks that have any relevant date within the range
+        query = query.or(`scheduled_start.gte.${startDate},due_date.gte.${startDate},created_at.gte.${startDate}`)
+        query = query.or(`scheduled_start.lte.${endDate},due_date.lte.${endDate},created_at.lte.${endDate}`)
+      } else {
+        // Single date - tasks that have any date on or after this date
+        query = query.or(`scheduled_start.gte.${startDate},due_date.gte.${startDate},created_at.gte.${startDate}`)
+      }
     }
     if (endDate && !startDate) {
-      query = query.or(`scheduled_start.lte.${endDate},scheduled_end.lte.${endDate},due_date.lte.${endDate}`)
+      query = query.or(`scheduled_start.lte.${endDate},due_date.lte.${endDate},created_at.lte.${endDate}`)
     }
 
     const { data: tasks, error } = await query
@@ -84,6 +90,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error fetching tasks:', error)
       return NextResponse.json({ 
+        success: false,
         error: 'Failed to fetch tasks',
         details: error.message 
       }, { status: 500 })
@@ -112,6 +119,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ 
+      success: true,
       tasks: tasks || [],
       pagination: {
         offset,
@@ -180,7 +188,10 @@ export async function POST(request: NextRequest) {
       console.warn('Failed to log task creation comment:', commentError)
     }
 
-    return NextResponse.json({ task }, { status: 201 })
+    return NextResponse.json({ 
+      success: true,
+      task 
+    }, { status: 201 })
 
   } catch (error) {
     if (error instanceof z.ZodError) {
