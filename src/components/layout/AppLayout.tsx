@@ -137,30 +137,28 @@ function AppSidebarContent() {
   return (
     <Sidebar 
       collapsible="icon" 
-      className="border-r bg-card/95 supports-[backdrop-filter]:bg-card/95"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      className="border-r border-gray-200 bg-white"
     >
-      <SidebarHeader className="border-b py-3 px-4 bg-background/50">
+      <SidebarHeader className="border-b border-gray-200 py-4 px-4 bg-white">
         <div className={cn(
           "flex items-center transition-all duration-200",
           state === "collapsed" ? "justify-center" : "gap-3"
         )}>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 flex-shrink-0 shadow-sm">
-            <Brain className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-600 flex-shrink-0">
+            <Brain className="h-5 w-5 text-white" />
           </div>
           {state === "expanded" && (
             <div className="flex flex-col min-w-0">
-              <span className="text-lg font-bold bg-gradient-to-r from-primary via-primary to-primary/80 bg-clip-text text-transparent truncate">
+              <span className="text-lg font-bold text-green-700 truncate">
                 bFree.ai
               </span>
-              <span className="text-xs text-muted-foreground truncate">AI Assistant</span>
+              <span className="text-xs text-gray-600 truncate">Email Assistant</span>
             </div>
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2 py-2">
+      <SidebarContent className="px-2 py-2 bg-white">
         <SidebarMenu>
           {navigationItems.map((item) => {
             const isActive = pathname === item.url
@@ -176,8 +174,8 @@ function AppSidebarContent() {
                       ? 'justify-center px-2 py-3 mx-1' 
                       : 'justify-start gap-3 px-3 py-2.5 mx-1 rounded-lg',
                     isActive
-                      ? 'bg-primary/15 text-primary border border-primary/20 shadow-sm'
-                      : 'hover:bg-accent/80 hover:text-accent-foreground'
+                      ? 'bg-green-50 text-green-700 border border-green-200'
+                      : 'hover:bg-gray-50 hover:text-gray-900 text-gray-700'
                   )}
                 >
                   <Link href={item.url} className="flex items-center gap-3 w-full">
@@ -186,16 +184,16 @@ function AppSidebarContent() {
                       <>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate">{item.title}</div>
-                          <div className="text-xs text-muted-foreground truncate">
+                          <div className="text-xs text-gray-500 truncate">
                             {item.description}
                           </div>
                         </div>
                         {item.badge && (
-                          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground flex-shrink-0">
+                          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-green-600 text-xs text-white flex-shrink-0">
                             {item.badge}
                           </span>
                         )}
-                        {isActive && <ChevronRight className="h-4 w-4 ml-auto flex-shrink-0" />}
+                        {isActive && <ChevronRight className="h-4 w-4 ml-auto flex-shrink-0 text-green-600" />}
                       </>
                     )}
                   </Link>
@@ -206,27 +204,27 @@ function AppSidebarContent() {
         </SidebarMenu>
       </SidebarContent>
 
-      <SidebarFooter className="border-t p-3 bg-background/50">
+      <SidebarFooter className="border-t border-gray-200 p-3 bg-white">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 
               variant="ghost" 
               className={cn(
-                "w-full transition-all",
+                "w-full transition-all text-gray-700 hover:bg-gray-50",
                 state === "collapsed" 
                   ? "justify-center px-2" 
                   : "justify-start gap-3 px-3 py-2"
               )}
             >
               <Avatar className="h-8 w-8 flex-shrink-0">
-                <div className="flex h-full w-full items-center justify-center rounded-full bg-primary">
-                  <User className="h-4 w-4 text-primary-foreground" />
+                <div className="flex h-full w-full items-center justify-center rounded-full bg-gray-200">
+                  <User className="h-4 w-4 text-gray-600" />
                 </div>
               </Avatar>
               {state === "expanded" && (
                 <div className="flex-1 text-left min-w-0">
                   <div className="text-sm font-medium truncate">John Doe</div>
-                  <div className="text-xs text-muted-foreground truncate">john@example.com</div>
+                  <div className="text-xs text-gray-500 truncate">john@example.com</div>
                 </div>
               )}
             </Button>
@@ -262,23 +260,23 @@ function AppMainContent({ children }: { children: React.ReactNode }) {
   return (
     <SidebarInset className="flex-1 flex flex-col min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/90 shadow-sm">
+      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
         <div className="flex h-16 items-center gap-4 px-6">
           <SidebarTrigger className="h-8 w-8" />
           
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold">
+              <h1 className="text-lg font-semibold text-gray-900">
                 {getNavigationItems(notificationCounts).find(item => item.url === pathname)?.title || 'Dashboard'}
               </h1>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100">
               <Search className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 relative">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 relative text-gray-600 hover:text-gray-900 hover:bg-gray-100">
               <Bell className="h-4 w-4" />
               {totalNotifications > 0 && (
                 <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 text-[10px] font-medium text-white flex items-center justify-center">
@@ -291,7 +289,7 @@ function AppMainContent({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 bg-background">
+      <main className="flex-1 min-h-0 bg-gray-50/30">
         <ErrorBoundary>
           {children}
         </ErrorBoundary>
@@ -309,7 +307,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         "--sidebar-width-icon": "64px"
       } as React.CSSProperties}
     >
-      <div className="flex min-h-screen w-full bg-background">
+      <div className="flex min-h-screen w-full bg-gray-50/30">
         <AppSidebarContent />
         <AppMainContent>{children}</AppMainContent>
       </div>

@@ -24,7 +24,7 @@ interface PageContentProps {
   fillHeight?: boolean
 }
 
-// Main Page Layout Component - Desktop First
+// Main Page Layout Component - Clean Design
 export function PageLayout({ 
   children, 
   className,
@@ -35,13 +35,13 @@ export function PageLayout({
 }: PageLayoutProps) {
   const maxWidthClasses = {
     default: 'max-w-7xl',
-    wide: 'max-w-[1600px]', // Increased for better desktop utilization
+    wide: 'max-w-[1600px]',
     full: 'max-w-none'
   }
 
   const paddingClasses = {
     tight: 'px-4 py-3 md:px-6 md:py-4',
-    default: 'px-6 py-4 md:px-8 md:py-6', // Desktop-first padding
+    default: 'px-6 py-4 md:px-8 md:py-6',
     loose: 'px-8 py-6 md:px-12 md:py-8'
   }
 
@@ -53,8 +53,8 @@ export function PageLayout({
 
   return (
     <div className={cn(
-      "w-full mx-auto",
-      fillHeight && "min-h-full flex flex-col",
+      "w-full mx-auto bg-gray-50/30",
+      fillHeight && "min-h-screen flex flex-col",
       maxWidthClasses[maxWidth],
       paddingClasses[padding],
       densityClasses[density],
@@ -65,7 +65,7 @@ export function PageLayout({
   )
 }
 
-// Standardized Page Header - Desktop Optimized
+// Clean Page Header
 export function PageHeader({ 
   title, 
   description, 
@@ -78,14 +78,14 @@ export function PageHeader({
       <div className="flex items-start justify-between gap-6">
         <div className="flex-1 min-w-0">
           <h1 className={cn(
-            "font-bold tracking-tight text-foreground leading-tight",
+            "font-bold tracking-tight text-gray-900 leading-tight",
             compact ? "text-2xl" : "text-3xl xl:text-4xl"
           )}>
             {title}
           </h1>
           {description && (
             <p className={cn(
-              "text-muted-foreground max-w-4xl leading-relaxed",
+              "text-gray-600 max-w-4xl leading-relaxed",
               compact ? "text-sm mt-1" : "text-base mt-2"
             )}>
               {description}
@@ -102,7 +102,7 @@ export function PageHeader({
   )
 }
 
-// Standardized Page Content Area
+// Clean Page Content Area
 export function PageContent({ children, className, fillHeight = true }: PageContentProps) {
   return (
     <div className={cn(
@@ -115,7 +115,7 @@ export function PageContent({ children, className, fillHeight = true }: PageCont
   )
 }
 
-// Enhanced Grid Layout for Desktop-First Design
+// Enhanced Grid Layout
 interface PageGridProps {
   children: ReactNode
   columns?: 1 | 2 | 3 | 4 | 5 | 6
@@ -131,7 +131,6 @@ export function PageGrid({
   className,
   responsive = true
 }: PageGridProps) {
-  // Desktop-first responsive grid classes
   const gridClasses = {
     1: 'grid-cols-1',
     2: responsive ? 'grid-cols-2 md:grid-cols-2' : 'grid-cols-2',
@@ -161,7 +160,7 @@ export function PageGrid({
   )
 }
 
-// Section with enhanced desktop layout
+// Clean Section Component
 interface PageSectionProps {
   title?: string
   description?: string
@@ -191,7 +190,7 @@ export function PageSection({
           <div className="flex-1 min-w-0">
             {title && (
               <h2 className={cn(
-                "font-semibold text-foreground leading-tight",
+                "font-semibold text-gray-900 leading-tight",
                 compact ? "text-lg" : "text-xl"
               )}>
                 {title}
@@ -199,7 +198,7 @@ export function PageSection({
             )}
             {description && (
               <p className={cn(
-                "text-muted-foreground",
+                "text-gray-600",
                 compact ? "text-sm mt-0.5" : "text-sm mt-1"
               )}>
                 {description}
@@ -240,7 +239,7 @@ export function PageSection({
   )
 }
 
-// Full Height Container for pages that need to fill the viewport
+// Full Height Container
 export function FullHeightContainer({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cn("h-full flex flex-col", className)}>
@@ -249,7 +248,7 @@ export function FullHeightContainer({ children, className }: { children: ReactNo
   )
 }
 
-// Updated Dashboard Components with better layout consistency
+// Dashboard Components with Clean Design
 export function DashboardGrid({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cn(
@@ -275,7 +274,7 @@ export function DashboardSection({
   return (
     <div className={cn("space-y-4", className)}>
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+        <h2 className="text-xl font-semibold tracking-tight text-gray-900">{title}</h2>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
       {children}

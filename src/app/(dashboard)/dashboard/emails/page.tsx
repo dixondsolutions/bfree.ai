@@ -11,12 +11,12 @@ export default function EmailsPage() {
   const [activeTab, setActiveTab] = useState('emails')
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-7xl mx-auto p-6 space-y-8 bg-gray-50/30 min-h-screen">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Emails</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold text-gray-900">Emails</h1>
+          <p className="text-gray-600">
             Manage your emails and AI-powered task creation
           </p>
         </div>
@@ -24,7 +24,7 @@ export default function EmailsPage() {
 
       {/* Tabs for different email functions */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-3 bg-white border border-gray-200">
           <TabsTrigger value="emails" className="flex items-center gap-2">
             <Mail className="h-4 w-4" />
             Email Viewer
@@ -48,12 +48,12 @@ export default function EmailsPage() {
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
-          <Card>
+          <Card className="border border-gray-200 bg-white shadow-sm">
             <CardHeader>
-              <CardTitle>Email Settings</CardTitle>
+              <CardTitle className="text-gray-900">Email Settings</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">
+              <p className="text-gray-600">
                 Email automation settings will be available here.
               </p>
             </CardContent>

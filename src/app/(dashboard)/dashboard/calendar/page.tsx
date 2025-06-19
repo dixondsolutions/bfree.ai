@@ -1,213 +1,176 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
+import React from 'react'
+import { useEffect, useState } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Calendar as CalendarIcon, Clock, CheckCircle2, Circle, AlertCircle, Plus, Settings, Filter, Brain, Zap } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 import { ModernCalendar } from '@/components/calendar/ModernCalendar'
-import { TaskScheduleView } from '@/components/tasks/TaskScheduleView'
-import { format, startOfDay, endOfDay } from 'date-fns'
+import { CalendarSync } from '@/components/calendar/CalendarSync'
+import { SchedulingAssistant } from '@/components/calendar/SchedulingAssistant'
+import { EnhancedCalendarView } from '@/components/calendar/EnhancedCalendarView'
+import { ModernCalendarScheduler } from '@/components/calendar/ModernCalendarScheduler'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Calendar as CalendarIcon,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Settings,
+  Plus,
+  Brain,
+  Zap,
+  Users,
+  TrendingUp
+} from 'lucide-react'
 
 interface CalendarEvent {
   id: string
   title: string
-  description?: string
-  start: string
-  end?: string
-  type: 'task' | 'event'
-  status?: string
-  priority?: string
-  category?: string
+  start_time: string
+  end_time: string
   ai_generated?: boolean
-  confidence_score?: number
-  estimated_duration?: number
-  source: 'tasks' | 'calendar'
 }
 
-interface CalendarTask {
+interface Calendar {
   id: string
-  title: string
-  description?: string
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'blocked'
-  priority: 'low' | 'medium' | 'high' | 'urgent'
-  category: string
-  estimated_duration?: number
-  due_date?: string
-  scheduled_start?: string
-  scheduled_end?: string
-  ai_generated: boolean
-  confidence_score?: number
-  created_at: string
+  name: string
+  provider: string
+  sync_enabled: boolean
 }
 
-interface EventSummary {
-  totalEvents: number
-  tasks: number
-  calendarEvents: number
-  dateRange: { start: string; end: string }
+interface CalendarSummary {
+  calendarEvents?: number
+  tasks?: number
+  upcomingWeek?: number
 }
 
 export default function CalendarPage() {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [events, setEvents] = useState<CalendarEvent[]>([])
-  const [eventsByDate, setEventsByDate] = useState<Record<string, CalendarEvent[]>>({})
-  const [summary, setSummary] = useState<EventSummary | null>(null)
+  const [calendars, setCalendars] = useState<Calendar[]>([])
+  const [summary, setSummary] = useState<CalendarSummary | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [view, setView] = useState<'month' | 'week' | 'day'>('month')
-  const [activeTab, setActiveTab] = useState<'calendar' | 'tasks'>('calendar')
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
-  const [selectedTask, setSelectedTask] = useState<CalendarTask | null>(null)
-  const [showAIScheduling, setShowAIScheduling] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
 
-  // AI Scheduling function
-  const triggerAIScheduling = useCallback(async () => {
-    try {
-      setShowAIScheduling(true)
-      setLoading(true)
-      
-      const response = await fetch('/api/ai/process', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'schedule_tasks' })
-      })
-      
-      const result = await response.json()
-      
-      if (result.success) {
-        // Show success message or handle result
-        console.log('AI Scheduling completed:', result)
+  useEffect(() => {
+    const fetchCalendarData = async () => {
+      try {
+        const [eventsRes, calendarsRes] = await Promise.all([
+          fetch('/api/calendar/events'),
+          fetch('/api/user/email-accounts')
+        ])
+
+        const [eventsData, calendarsData] = await Promise.all([
+          eventsRes.ok ? eventsRes.json() : { events: [] },
+          calendarsRes.ok ? calendarsRes.json() : { accounts: [] }
+        ])
+
+        setEvents(eventsData.events || [])
+        setCalendars(calendarsData.accounts || [])
+        
+        // Calculate summary
+        const todayEvents = eventsData.events?.filter((event: CalendarEvent) => {
+          const eventDate = new Date(event.start_time).toDateString()
+          const today = new Date().toDateString()
+          return eventDate === today
+        }).length || 0
+
+        setSummary({
+          calendarEvents: todayEvents,
+          tasks: 12, // Mock data
+          upcomingWeek: eventsData.events?.length || 0
+        })
+      } catch (error) {
+        console.error('Error fetching calendar data:', error)
+        // Set mock data for development
+        setSummary({
+          calendarEvents: 3,
+          tasks: 12,
+          upcomingWeek: 8
+        })
+      } finally {
+        setLoading(false)
       }
-    } catch (error) {
-      console.error('Error during AI scheduling:', error)
-    } finally {
-      setLoading(false)
-      setShowAIScheduling(false)
     }
+
+    fetchCalendarData()
   }, [])
 
-  const handleEventClick = (event: CalendarEvent) => {
-    setSelectedEvent(event)
-  }
-
-  const handleTaskClick = (task: CalendarTask) => {
-    setSelectedTask(task)
-  }
-
-  const refreshCalendar = () => {
-    // Calendar component handles its own data fetching
-    window.location.reload() // Simple refresh for now
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Enhanced Header */}
+    <div className="w-full max-w-7xl mx-auto p-6 space-y-8 bg-gray-50/30 min-h-screen">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Calendar & Tasks</h1>
-          <p className="text-muted-foreground">
-            Manage your schedule and tasks with AI-powered insights
+          <h1 className="text-3xl font-bold text-gray-900">Calendar</h1>
+          <p className="text-gray-600 mt-2">
+            Smart scheduling and calendar management with AI assistance
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* View Toggle */}
-          <div className="flex rounded-lg border p-1">
-            <Button
-              variant={activeTab === 'calendar' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setActiveTab('calendar')}
-              className="text-sm"
-            >
-              <CalendarIcon className="h-4 w-4 mr-2" />
-              Calendar
-            </Button>
-            <Button
-              variant={activeTab === 'tasks' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setActiveTab('tasks')}
-              className="text-sm"
-            >
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Tasks
-            </Button>
-          </div>
-
-          {/* Action Buttons */}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={refreshCalendar}
-            disabled={loading}
-          >
-            <CalendarIcon className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          
-          <Button 
-            variant="default"
-            size="sm"
-            onClick={triggerAIScheduling}
-            disabled={showAIScheduling}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-          >
-            <Brain className="h-4 w-4 mr-2" />
-            {showAIScheduling ? 'Scheduling...' : 'AI Schedule'}
-          </Button>
-          
-          <Button size="sm">
+          <Badge variant="outline" className="flex items-center gap-2 bg-white border-gray-200">
+            <Zap className="h-4 w-4" />
+            AI Scheduling Active
+          </Badge>
+          <Button className="bg-green-600 hover:bg-green-700 text-white">
             <Plus className="h-4 w-4 mr-2" />
-            Add Event
+            Schedule Meeting
           </Button>
         </div>
       </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="border border-gray-200 bg-white shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4 text-blue-600" />
+              <div className="p-2 rounded-lg bg-blue-50">
+                <CalendarIcon className="h-4 w-4 text-blue-600" />
+              </div>
               <div>
-                <p className="text-sm font-medium">Today's Events</p>
-                <p className="text-2xl font-bold">{summary?.calendarEvents || 0}</p>
+                <p className="text-sm font-medium text-gray-900">Today's Events</p>
+                <p className="text-2xl font-bold text-gray-900">{summary?.calendarEvents || 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="border border-gray-200 bg-white shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <div className="p-2 rounded-lg bg-green-50">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+              </div>
               <div>
-                <p className="text-sm font-medium">Tasks</p>
-                <p className="text-2xl font-bold">{summary?.tasks || 0}</p>
+                <p className="text-sm font-medium text-gray-900">Tasks</p>
+                <p className="text-2xl font-bold text-gray-900">{summary?.tasks || 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="border border-gray-200 bg-white shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <Brain className="h-4 w-4 text-purple-600" />
+              <div className="p-2 rounded-lg bg-purple-50">
+                <Brain className="h-4 w-4 text-purple-600" />
+              </div>
               <div>
-                <p className="text-sm font-medium">AI Generated</p>
-                <p className="text-2xl font-bold">5</p>
+                <p className="text-sm font-medium text-gray-900">AI Generated</p>
+                <p className="text-2xl font-bold text-gray-900">5</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="border border-gray-200 bg-white shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-orange-600" />
+              <div className="p-2 rounded-lg bg-orange-50">
+                <Clock className="h-4 w-4 text-orange-600" />
+              </div>
               <div>
-                <p className="text-sm font-medium">Hours Scheduled</p>
-                <p className="text-2xl font-bold">6.5</p>
+                <p className="text-sm font-medium text-gray-900">Hours Scheduled</p>
+                <p className="text-2xl font-bold text-gray-900">6.5</p>
               </div>
             </div>
           </CardContent>
@@ -215,127 +178,125 @@ export default function CalendarPage() {
       </div>
 
       {/* Main Content */}
-      {activeTab === 'calendar' ? (
-        <ModernCalendar
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-          onEventClick={handleEventClick}
-          onTaskClick={handleTaskClick}
-          view={view}
-          onViewChange={setView}
-          className="min-h-[600px]"
-        />
-      ) : (
-        <TaskScheduleView
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-          className="min-h-[600px]"
-        />
-      )}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-4 bg-white border border-gray-200">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <CalendarIcon className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="schedule" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Schedule
+          </TabsTrigger>
+          <TabsTrigger value="assistant" className="flex items-center gap-2">
+            <Brain className="h-4 w-4" />
+            AI Assistant
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Settings
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Event Details Dialog */}
-      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Event Details</DialogTitle>
-          </DialogHeader>
-          {selectedEvent && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold">{selectedEvent.title}</h3>
-                {selectedEvent.description && (
-                  <p className="text-muted-foreground">{selectedEvent.description}</p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium">Start:</span>
-                  <p>{format(new Date(selectedEvent.start), 'MMM d, yyyy h:mm a')}</p>
-                </div>
-                {selectedEvent.end && (
-                  <div>
-                    <span className="font-medium">End:</span>
-                    <p>{format(new Date(selectedEvent.end), 'MMM d, yyyy h:mm a')}</p>
-                  </div>
-                )}
-                {selectedEvent.category && (
-                  <div>
-                    <span className="font-medium">Category:</span>
-                    <p>{selectedEvent.category}</p>
-                  </div>
-                )}
-                {selectedEvent.priority && (
-                  <div>
-                    <span className="font-medium">Priority:</span>
-                    <Badge className="ml-2">{selectedEvent.priority}</Badge>
-                  </div>
-                )}
-              </div>
-              {selectedEvent.ai_generated && (
-                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
-                  <Brain className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm text-blue-800">
-                    AI Generated {selectedEvent.confidence_score && 
-                      `(${Math.round(selectedEvent.confidence_score * 100)}% confidence)`
-                    }
-                  </span>
-                </div>
-              )}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <Card className="border border-gray-200 bg-white shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-gray-900">Calendar View</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Your schedule at a glance
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ModernCalendar events={events} />
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            
+            <div className="space-y-6">
+              <Card className="border border-gray-200 bg-white shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-gray-900">Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button variant="outline" className="w-full justify-start border-gray-200 hover:bg-gray-50">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Event
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start border-gray-200 hover:bg-gray-50">
+                    <Brain className="h-4 w-4 mr-2" />
+                    AI Schedule Suggestion
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start border-gray-200 hover:bg-gray-50">
+                    <Users className="h-4 w-4 mr-2" />
+                    Schedule Meeting
+                  </Button>
+                </CardContent>
+              </Card>
 
-      {/* Task Details Dialog */}
-      <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Task Details</DialogTitle>
-          </DialogHeader>
-          {selectedTask && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold">{selectedTask.title}</h3>
-                {selectedTask.description && (
-                  <p className="text-muted-foreground">{selectedTask.description}</p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium">Status:</span>
-                  <Badge className="ml-2">{selectedTask.status.replace('_', ' ')}</Badge>
-                </div>
-                <div>
-                  <span className="font-medium">Priority:</span>
-                  <Badge className="ml-2">{selectedTask.priority}</Badge>
-                </div>
-                {selectedTask.estimated_duration && (
-                  <div>
-                    <span className="font-medium">Duration:</span>
-                    <p>{selectedTask.estimated_duration} minutes</p>
-                  </div>
-                )}
-                {selectedTask.category && (
-                  <div>
-                    <span className="font-medium">Category:</span>
-                    <p>{selectedTask.category}</p>
-                  </div>
-                )}
-              </div>
-              {selectedTask.ai_generated && (
-                <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
-                  <Brain className="h-4 w-4 text-purple-600" />
-                  <span className="text-sm text-purple-800">
-                    AI Generated from Email {selectedTask.confidence_score && 
-                      `(${Math.round(selectedTask.confidence_score * 100)}% confidence)`
-                    }
-                  </span>
-                </div>
-              )}
+              <Card className="border border-gray-200 bg-white shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-gray-900">Upcoming Events</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {events.length > 0 ? (
+                    <div className="space-y-3">
+                      {events.slice(0, 3).map((event) => (
+                        <div key={event.id} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                          <h4 className="font-medium text-gray-900">{event.title}</h4>
+                          <p className="text-sm text-gray-600">
+                            {new Date(event.start_time).toLocaleDateString()}
+                          </p>
+                          {event.ai_generated && (
+                            <Badge variant="outline" className="mt-2 text-xs bg-purple-50 text-purple-700 border-purple-200">
+                              AI Generated
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No upcoming events</p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="schedule" className="space-y-4">
+          <Card className="border border-gray-200 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-gray-900">Enhanced Calendar</CardTitle>
+              <CardDescription className="text-gray-600">
+                Advanced calendar with AI-powered scheduling
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <EnhancedCalendarView />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="assistant" className="space-y-4">
+          <SchedulingAssistant />
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-4">
+          <Card className="border border-gray-200 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-gray-900">Calendar Settings</CardTitle>
+              <CardDescription className="text-gray-600">
+                Manage your calendar connections and preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CalendarSync />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
