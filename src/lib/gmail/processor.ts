@@ -4,6 +4,56 @@ import { getCurrentUser } from '@/lib/database/utils'
 import { emailService } from '@/lib/email/email-service'
 
 /**
+ * Determine if an email should be analyzed by AI
+ */
+function shouldEmailBeAnalyzed(content: any, emailText: string): boolean {
+  const from = content.from.toLowerCase()
+  const subject = content.subject.toLowerCase()
+  
+  // Skip obvious promotional/automated emails
+  if (from.includes('noreply') || 
+      from.includes('no-reply') || 
+      from.includes('donotreply') ||
+      emailText.includes('unsubscribe') ||
+      emailText.includes('this is an automated message') ||
+      subject.includes('newsletter') ||
+      subject.includes('promotional')) {
+    return false
+  }
+  
+  // Always analyze work-related emails (same domain or known business contacts)
+  if (from.includes('@vnwil.com') || 
+      from.includes('@mcdmarketing.com') ||
+      subject.startsWith('re:') || 
+      subject.startsWith('fwd:')) {
+    return true
+  }
+  
+  // Analyze emails from business domains (.com, .org, etc.) but not gmail/yahoo/hotmail
+  if (from.includes('.com') && 
+      !from.includes('@gmail.com') && 
+      !from.includes('@yahoo.com') && 
+      !from.includes('@hotmail.com') &&
+      !from.includes('@outlook.com')) {
+    return true
+  }
+  
+  // Always analyze emails with obvious scheduling/task content
+  const importantKeywords = [
+    'meeting', 'schedule', 'appointment', 'call', 'conference',
+    'deadline', 'due', 'reminder', 'follow up', 'task', 'action',
+    'project', 'review', 'feedback', 'confirm', 'available'
+  ]
+  
+  if (importantKeywords.some(keyword => emailText.includes(keyword))) {
+    return true
+  }
+  
+  // Default: don't analyze (promotional emails, personal emails, etc.)
+  return false
+}
+
+/**
  * Fetch recent emails from Gmail
  */
 export async function fetchRecentEmails(maxResults: number = 50, query?: string) {
@@ -75,7 +125,7 @@ export async function processEmails(messages: GmailMessage[]) {
         continue // Skip already processed emails
       }
 
-      // Check if email contains scheduling-relevant keywords
+      // Classify email for AI analysis priority
       const schedulingKeywords = [
         'meeting', 'schedule', 'appointment', 'call', 'conference',
         'zoom', 'teams', 'calendar', 'available', 'book', 'reschedule',
@@ -84,9 +134,13 @@ export async function processEmails(messages: GmailMessage[]) {
       ]
 
       const emailText = `${content.subject} ${content.body}`.toLowerCase()
-      const hasSchedulingContent = schedulingKeywords.some(keyword => 
+      const hasObviousSchedulingKeywords = schedulingKeywords.some(keyword => 
         emailText.includes(keyword)
       )
+
+      // Determine if email should be analyzed by AI
+      const shouldAnalyzeWithAI = shouldEmailBeAnalyzed(content, emailText)
+      const hasSchedulingContent = hasObviousSchedulingKeywords // For database flag
 
       // Store email in the emails table first
       const emailData = {
@@ -109,8 +163,8 @@ export async function processEmails(messages: GmailMessage[]) {
       try {
         const storedEmail = await emailService.storeEmail(emailData)
 
-        if (hasSchedulingContent) {
-          // Add to processing queue with email record reference
+        if (shouldAnalyzeWithAI) {
+          // Add to processing queue for AI analysis
           const { data: queueItem, error: queueError } = await supabase
             .from('processing_queue')
             .insert({
@@ -139,7 +193,7 @@ export async function processEmails(messages: GmailMessage[]) {
             emailRecordId: storedEmail.id
           })
         } else {
-          // Still store email but mark as processed (no scheduling content)
+          // Skip AI analysis for promotional/low-value emails
           await supabase
             .from('processing_queue')
             .insert({
@@ -153,7 +207,7 @@ export async function processEmails(messages: GmailMessage[]) {
       } catch (emailError) {
         console.error('Error storing email:', emailError)
         // Continue with original logic as fallback
-        if (hasSchedulingContent) {
+        if (shouldAnalyzeWithAI) {
           const { data: queueItem, error: queueError } = await supabase
             .from('processing_queue')
             .insert({
