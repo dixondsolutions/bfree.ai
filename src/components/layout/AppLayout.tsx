@@ -260,9 +260,9 @@ function AppMainContent({ children }: { children: React.ReactNode }) {
   return (
     <SidebarInset className="flex-1 flex flex-col min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
+      <header className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
         <div className="flex h-16 items-center gap-4 px-6">
-          <SidebarTrigger className="h-8 w-8" />
+          <SidebarTrigger className="h-8 w-8 z-50 hover:bg-gray-100 rounded-md p-1" />
           
           <div className="flex-1">
             <div className="flex items-center gap-2">

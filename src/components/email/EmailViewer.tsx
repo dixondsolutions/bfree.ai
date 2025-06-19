@@ -1,554 +1,419 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Separator } from '@/components/ui/separator'
-import { cn } from '@/lib/utils'
-import {
-  Mail,
-  User,
-  Calendar,
-  Star,
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { 
+  X, 
+  Star, 
+  Archive, 
+  Trash2, 
+  Reply, 
+  ReplyAll, 
+  Forward, 
+  Calendar, 
+  Brain, 
+  Clock, 
+  User, 
   Paperclip,
-  Brain,
-  CheckCircle2,
-  Clock,
-  ArrowLeft,
-  ExternalLink,
-  Sparkles,
+  CheckCircle,
   AlertTriangle,
-  Bot,
-  FileText,
-  Target,
-  Zap,
-  RefreshCw
+  Tag,
+  Download,
+  MoreHorizontal
 } from 'lucide-react'
-import { AIAnalysisResults } from '@/components/ai/AIAnalysisResults'
-
-interface EmailViewerProps {
-  emailId: string
-  onClose?: () => void
-  className?: string
-}
+import { cn } from '@/lib/utils'
 
 interface EmailData {
   id: string
+  from: {
+    name: string
+    email: string
+    avatar?: string
+  }
+  to: Array<{
+    name: string
+    email: string
+  }>
+  cc?: Array<{
+    name: string
+    email: string
+  }>
+  bcc?: Array<{
+    name: string
+    email: string
+  }>
   subject: string
-  from_address: string
-  from_name: string
-  to_address: string
-  content_text: string
-  content_html: string
-  snippet: string
-  received_at: string
-  sent_at: string
-  is_unread: boolean
-  is_starred: boolean
-  importance_level: 'low' | 'normal' | 'high'
-  has_scheduling_content: boolean
-  ai_analyzed: boolean
-  ai_analysis_at: string
-  scheduling_keywords: string[]
-  labels: string[]
-  attachment_count: number
-  email_attachments: Array<{
-    id: string
-    filename: string
-    mime_type: string
-    size_bytes: number
+  body: string
+  html_body?: string
+  date: string
+  isRead: boolean
+  isStarred: boolean
+  hasAttachment: boolean
+  attachments?: Array<{
+    name: string
+    size: number
+    type: string
+    url: string
   }>
-  tasks: Array<{
-    id: string
-    title: string
-    status: string
-    priority: string
-    created_at: string
-    ai_generated: boolean
-    confidence_score: number
-  }>
-  ai_suggestions: Array<{
-    id: string
-    title: string
-    description: string
-    confidence_score: number
-    status: string
-    created_at: string
-  }>
+  aiAnalysis?: {
+    priority: 'high' | 'medium' | 'low'
+    needsScheduling: boolean
+    sentiment: 'positive' | 'neutral' | 'negative'
+    suggestedActions: string[]
+    extractedTasks?: Array<{
+      title: string
+      priority: string
+      estimatedDuration: string
+    }>
+    categories: string[]
+    confidence: number
+  }
+  labels?: string[]
 }
 
-export function EmailViewer({ emailId, onClose, className }: EmailViewerProps) {
+interface EmailViewerProps {
+  emailId: string | null
+  isOpen: boolean
+  onClose: () => void
+}
+
+export function EmailViewer({ emailId, isOpen, onClose }: EmailViewerProps) {
   const [email, setEmail] = useState<EmailData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isStarred, setIsStarred] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [isUnread, setIsUnread] = useState(true)
 
+  // Fetch email data when emailId changes
   useEffect(() => {
-    fetchEmail()
-  }, [emailId])
+    if (!emailId || !isOpen) {
+      setEmail(null)
+      return
+    }
 
-  const fetchEmail = async () => {
-    try {
+    const fetchEmail = async () => {
       setLoading(true)
       setError(null)
-
-      const response = await fetch(`/api/emails/${emailId}`)
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch email')
+      try {
+        const response = await fetch(`/api/emails/${emailId}`)
+        const data = await response.json()
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch email')
+        }
+        
+        setEmail(data.email)
+      } catch (err) {
+        console.error('Error fetching email:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load email')
+      } finally {
+        setLoading(false)
       }
-
-      setEmail(data.email)
-      setIsStarred(data.email.is_starred)
-      setIsUnread(data.email.is_unread)
-
-      // Mark as read when viewing
-      if (data.email.is_unread) {
-        markAsRead()
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch email')
-    } finally {
-      setLoading(false)
     }
-  }
 
-  const markAsRead = async () => {
-    try {
-      await fetch(`/api/emails/${emailId}`, {
-        method: 'PUT',
+    fetchEmail()
+  }, [emailId, isOpen])
+
+  // Mark email as read when opened
+  useEffect(() => {
+    if (email && !email.isRead) {
+      fetch(`/api/emails/${email.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_unread: false })
-      })
-      setIsUnread(false)
-    } catch (err) {
-      console.error('Failed to mark as read:', err)
+        body: JSON.stringify({ isRead: true })
+      }).catch(console.error)
     }
-  }
+  }, [email])
 
-  const toggleStar = async () => {
-    try {
-      const newStarred = !isStarred
-      await fetch(`/api/emails/${emailId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_starred: newStarred })
-      })
-      setIsStarred(newStarred)
-    } catch (err) {
-      console.error('Failed to toggle star:', err)
-    }
-  }
-
-  const processEmailWithAI = async () => {
+  const handleStarToggle = async () => {
     if (!email) return
-    
-    setIsProcessing(true)
     try {
-      const response = await fetch('/api/ai/process', {
-        method: 'POST',
+      const response = await fetch(`/api/emails/${email.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          emailId: email.id,
-          maxItems: 1
-        })
+        body: JSON.stringify({ isStarred: !email.isStarred })
       })
-
-      const data = await response.json()
       
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to process email with AI')
+      if (response.ok) {
+        setEmail(prev => prev ? { ...prev, isStarred: !prev.isStarred } : null)
       }
-
-      // Refresh email data to show updated AI analysis
-      await fetchEmail()
-
-    } catch (err) {
-      console.error('Error processing email with AI:', err)
-      setError(err instanceof Error ? err.message : 'Failed to process email with AI')
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const getImportanceColor = (level: string) => {
-    switch (level) {
-      case 'high': return 'text-red-600 bg-red-50 border-red-200'
-      case 'low': return 'text-blue-600 bg-blue-50 border-blue-200'
-      default: return 'text-gray-600 bg-gray-50 border-gray-200'
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'text-red-700 bg-red-100 border-red-300'
-      case 'high': return 'text-orange-700 bg-orange-100 border-orange-300'
-      case 'medium': return 'text-yellow-700 bg-yellow-100 border-yellow-300'
-      case 'low': return 'text-green-700 bg-green-100 border-green-300'
-      default: return 'text-gray-700 bg-gray-100 border-gray-300'
+    } catch (error) {
+      console.error('Error toggling star:', error)
     }
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      weekday: 'short',
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     })
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle2 className="h-4 w-4 text-green-600" />
-      case 'in_progress': return <Clock className="h-4 w-4 text-blue-600" />
-      default: return <Target className="h-4 w-4 text-gray-600" />
-    }
+  const priorityColors = {
+    high: 'bg-red-100 text-red-700 border-red-200',
+    medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    low: 'bg-green-100 text-green-700 border-green-200'
   }
 
-  if (loading) {
-    return (
-      <Card className={cn("w-full max-w-4xl mx-auto", className)}>
-        <CardContent className="p-8">
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <span className="ml-2 text-gray-600">Loading email...</span>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (error) {
-    return (
-      <Card className={cn("w-full max-w-4xl mx-auto", className)}>
-        <CardContent className="p-8">
-          <div className="text-center">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to load email</h3>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <Button onClick={fetchEmail} variant="outline">
-              Try Again
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (!email) {
-    return (
-      <Card className={cn("w-full max-w-4xl mx-auto", className)}>
-        <CardContent className="p-8">
-          <div className="text-center">
-            <Mail className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">Email not found</p>
-          </div>
-        </CardContent>
-      </Card>
-    )
+  const sentimentIcons = {
+    positive: <CheckCircle className="h-4 w-4 text-green-500" />,
+    neutral: <Clock className="h-4 w-4 text-gray-500" />,
+    negative: <AlertTriangle className="h-4 w-4 text-red-500" />
   }
 
   return (
-    <div className={cn("w-full max-w-4xl mx-auto space-y-6", className)}>
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                {onClose && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onClose}
-                    className="mr-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                )}
-                <Mail className="h-5 w-5 text-gray-500" />
-                <span className="text-sm text-gray-500">Email Details</span>
-              </div>
-              <h1 className="text-xl font-semibold text-gray-900 mb-2">
-                {email.subject || '(No Subject)'}
-              </h1>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  <span className="font-medium">{email.from_name || email.from_address}</span>
-                  <span className="text-gray-400">({email.from_address})</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>{formatDate(email.received_at)}</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={getImportanceColor(email.importance_level)}>
-                {email.importance_level} importance
-              </Badge>
-              {email.has_scheduling_content && (
-                <Badge className="text-purple-700 bg-purple-100 border-purple-300">
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  Scheduling Content
-                </Badge>
-              )}
-              {email.ai_analyzed && (
-                <Badge className="text-green-700 bg-green-100 border-green-300">
-                  <Bot className="h-3 w-3 mr-1" />
-                  AI Analyzed
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleStar}
-                className={cn("p-2", isStarred && "text-yellow-500")}
-              >
-                <Star className={cn("h-4 w-4", isStarred && "fill-current")} />
-              </Button>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl w-full max-h-[90vh] p-0 gap-0">
+        {loading ? (
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+              <p className="text-sm text-muted-foreground">Loading email...</p>
             </div>
           </div>
-        </CardHeader>
-      </Card>
-
-      {/* Email Content */}
-      <Card>
-        <CardHeader>
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Email Content
-          </h3>
-        </CardHeader>
-        <CardContent>
-          {email.content_text ? (
-            <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-              {email.content_text}
+        ) : error ? (
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+              <p className="text-sm text-red-600 mb-4">{error}</p>
+              <Button variant="outline" onClick={onClose}>Close</Button>
             </div>
-          ) : email.content_html ? (
-            <div 
-              className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: email.content_html }}
-            />
-          ) : email.snippet ? (
-            <div className="text-gray-600 italic p-4 bg-blue-50 rounded border border-blue-200">
-              <Mail className="h-5 w-5 mx-auto mb-2 text-blue-400" />
-              <p className="text-center mb-2">Snippet Preview:</p>
-              <p className="text-center text-sm">{email.snippet}</p>
-              <p className="text-center text-xs mt-2">Try syncing emails to get full content.</p>
-            </div>
-          ) : (
-            <div className="text-gray-500 italic p-4 bg-gray-50 rounded border border-dashed">
-              <Mail className="h-5 w-5 mx-auto mb-2 text-gray-400" />
-              <p className="text-center">Email content not available.</p>
-              <p className="text-center text-xs">This might be a snippet-only view. Try syncing emails to get full content.</p>
-            </div>
-          )}
-
-          {/* AI Analysis Button */}
-          {!email.ai_analyzed && (
-            <div className="mt-4 pt-4 border-t">
-              <Button
-                onClick={() => processEmailWithAI()}
-                disabled={isProcessing}
-                size="sm"
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                {isProcessing ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Bot className="h-4 w-4" />
-                )}
-                {isProcessing ? 'Analyzing...' : 'Analyze with AI'}
-              </Button>
-            </div>
-          )}
-
-          {/* Attachments */}
-          {email.attachment_count > 0 && (
-            <div className="mt-6 pt-4 border-t">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <Paperclip className="h-4 w-4" />
-                Attachments ({email.attachment_count})
-              </h4>
-              <div className="space-y-2">
-                {email.email_attachments.map((attachment) => (
-                  <div key={attachment.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <FileText className="h-5 w-5 text-gray-500" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{attachment.filename}</p>
-                      <p className="text-xs text-gray-500">
-                        {attachment.mime_type} • {Math.round(attachment.size_bytes / 1024)} KB
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Scheduling Keywords */}
-          {email.scheduling_keywords && email.scheduling_keywords.length > 0 && (
-            <div className="mt-6 pt-4 border-t">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <Zap className="h-4 w-4" />
-                Detected Keywords
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {email.scheduling_keywords.map((keyword, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
-                    {keyword}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* AI Suggestions */}
-      {email.ai_suggestions && email.ai_suggestions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Brain className="h-5 w-5 text-purple-600" />
-              AI Suggestions ({email.ai_suggestions.length})
-            </h3>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {email.ai_suggestions.map((suggestion) => (
-                <div key={suggestion.id} className="p-4 border rounded-lg bg-purple-50 border-purple-200">
-                  <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-medium text-gray-900">{suggestion.title}</h4>
-                    <div className="flex items-center gap-2">
-                      <Badge className={getPriorityColor(suggestion.status)}>
-                        {suggestion.status}
+          </div>
+        ) : email ? (
+          <div className="flex flex-col h-full">
+            {/* Header */}
+            <DialogHeader className="border-b p-6 pb-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <DialogTitle className="text-xl font-semibold mb-2 pr-8">
+                    {email.subject}
+                  </DialogTitle>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {email.aiAnalysis && (
+                      <>
+                        <Badge className={cn("text-xs", priorityColors[email.aiAnalysis.priority])}>
+                          {email.aiAnalysis.priority} priority
+                        </Badge>
+                        <div className="flex items-center gap-1">
+                          {sentimentIcons[email.aiAnalysis.sentiment]}
+                          <span className="text-xs text-muted-foreground capitalize">
+                            {email.aiAnalysis.sentiment}
+                          </span>
+                        </div>
+                        {email.aiAnalysis.needsScheduling && (
+                          <Badge variant="outline" className="text-xs">
+                            <Calendar className="h-3 w-3 mr-1" />
+                            Needs Scheduling
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                    {email.labels?.map((label) => (
+                      <Badge key={label} variant="secondary" className="text-xs">
+                        <Tag className="h-3 w-3 mr-1" />
+                        {label}
                       </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {Math.round(suggestion.confidence_score * 100)}% confidence
-                      </Badge>
-                    </div>
-                  </div>
-                  {suggestion.description && (
-                    <p className="text-sm text-gray-700 mb-2">{suggestion.description}</p>
-                  )}
-                  <div className="text-xs text-gray-500">
-                    Created: {formatDate(suggestion.created_at)}
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                <DialogClose asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DialogClose>
+              </div>
+            </DialogHeader>
 
-      {/* Generated Tasks */}
-      {email.tasks && email.tasks.length > 0 && (
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Target className="h-5 w-5 text-green-600" />
-              Generated Tasks ({email.tasks.length})
-            </h3>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {email.tasks.map((task) => (
-                <div key={task.id} className="p-4 border rounded-lg bg-green-50 border-green-200">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(task.status)}
-                      <h4 className="font-medium text-gray-900">{task.title}</h4>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={getPriorityColor(task.priority)}>
-                        {task.priority}
-                      </Badge>
-                      <Badge className={task.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                        {task.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
+            {/* Email Details */}
+            <div className="border-b p-6 py-4 bg-gray-50/50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0">
+                    {email.from.avatar ? (
+                      <img src={email.from.avatar} alt={email.from.name} className="h-10 w-10 rounded-full" />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center gap-4">
-                      <span>Created: {formatDate(task.created_at)}</span>
-                      {task.ai_generated && (
-                        <span className="flex items-center gap-1">
-                          <Bot className="h-3 w-3" />
-                          AI Generated
-                        </span>
-                      )}
-                      {task.confidence_score && (
-                        <span>{Math.round(task.confidence_score * 100)}% confidence</span>
-                      )}
-                    </div>
-                    <Button size="sm" variant="outline" className="text-xs">
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      View Task
-                    </Button>
+                  <div>
+                    <div className="font-medium text-sm">{email.from.name}</div>
+                    <div className="text-xs text-muted-foreground">{email.from.email}</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* AI Analysis Results */}
-      <AIAnalysisResults emailId={email.id} />
-
-      {/* Email Metadata */}
-      <Card>
-        <CardHeader>
-          <h3 className="text-lg font-semibold">Email Metadata</h3>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="font-medium text-gray-500">To:</span>
-              <p className="text-gray-900">{email.to_address}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">Received:</span>
-              <p className="text-gray-900">{formatDate(email.received_at)}</p>
-            </div>
-            {email.sent_at && (
-              <div>
-                <span className="font-medium text-gray-500">Sent:</span>
-                <p className="text-gray-900">{formatDate(email.sent_at)}</p>
+                <div className="text-right">
+                  <div className="text-sm text-muted-foreground">{formatDate(email.date)}</div>
+                </div>
               </div>
-            )}
-            {email.ai_analysis_at && (
-              <div>
-                <span className="font-medium text-gray-500">AI Analyzed:</span>
-                <p className="text-gray-900">{formatDate(email.ai_analysis_at)}</p>
-              </div>
-            )}
-            {email.labels && email.labels.length > 0 && (
-              <div className="col-span-2">
-                <span className="font-medium text-gray-500">Labels:</span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {email.labels.map((label, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      {label}
-                    </Badge>
+
+              <div className="text-sm space-y-1">
+                <div>
+                  <span className="text-muted-foreground">To: </span>
+                  {email.to.map((recipient, index) => (
+                    <span key={index}>
+                      {recipient.name} &lt;{recipient.email}&gt;
+                      {index < email.to.length - 1 && ', '}
+                    </span>
                   ))}
                 </div>
+                {email.cc && email.cc.length > 0 && (
+                  <div>
+                    <span className="text-muted-foreground">CC: </span>
+                    {email.cc.map((recipient, index) => (
+                      <span key={index}>
+                        {recipient.name} &lt;{recipient.email}&gt;
+                        {index < email.cc.length - 1 && ', '}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between p-6 py-3 border-b bg-white">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm">
+                  <Reply className="h-4 w-4 mr-2" />
+                  Reply
+                </Button>
+                <Button variant="outline" size="sm">
+                  <ReplyAll className="h-4 w-4 mr-2" />
+                  Reply All
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Forward className="h-4 w-4 mr-2" />
+                  Forward
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={handleStarToggle}>
+                  <Star className={cn("h-4 w-4", email.isStarred && "fill-current text-yellow-500")} />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Archive className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="p-6">
+                  {/* Email Body */}
+                  <div className="prose max-w-none">
+                    {email.html_body ? (
+                      <div 
+                        dangerouslySetInnerHTML={{ __html: email.html_body }}
+                        className="email-content"
+                      />
+                    ) : (
+                      <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                        {email.body}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Attachments */}
+                  {email.attachments && email.attachments.length > 0 && (
+                    <div className="mt-6 pt-6 border-t">
+                      <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                        <Paperclip className="h-4 w-4" />
+                        Attachments ({email.attachments.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {email.attachments.map((attachment, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
+                                <Paperclip className="h-4 w-4 text-gray-600" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium">{attachment.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {(attachment.size / 1024).toFixed(1)} KB • {attachment.type}
+                                </div>
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="sm">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* AI Analysis */}
+                  {email.aiAnalysis && (
+                    <div className="mt-6 pt-6 border-t">
+                      <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                        <Brain className="h-4 w-4 text-purple-600" />
+                        AI Analysis
+                      </h4>
+                      <div className="space-y-4">
+                        {email.aiAnalysis.extractedTasks && email.aiAnalysis.extractedTasks.length > 0 && (
+                          <div>
+                            <h5 className="text-sm font-medium mb-2">Extracted Tasks</h5>
+                            <div className="space-y-2">
+                              {email.aiAnalysis.extractedTasks.map((task, index) => (
+                                <div key={index} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium">{task.title}</span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {task.priority}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Est. {task.estimatedDuration}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {email.aiAnalysis.suggestedActions.length > 0 && (
+                          <div>
+                            <h5 className="text-sm font-medium mb-2">Suggested Actions</h5>
+                            <div className="space-y-1">
+                              {email.aiAnalysis.suggestedActions.map((action, index) => (
+                                <div key={index} className="text-sm text-muted-foreground flex items-center gap-2">
+                                  <CheckCircle className="h-3 w-3 text-green-500" />
+                                  {action}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>Categories: {email.aiAnalysis.categories.join(', ')}</span>
+                          <span>Confidence: {(email.aiAnalysis.confidence * 100).toFixed(0)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   )
 }

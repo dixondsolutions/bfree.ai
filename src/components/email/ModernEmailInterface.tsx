@@ -77,8 +77,8 @@ const EmailItem: React.FC<EmailProps & { onClick: () => void }> = ({
     <div 
       onClick={onClick}
       className={cn(
-        "group relative flex items-start space-x-4 p-4 border-b hover:bg-accent/50 transition-all cursor-pointer",
-        !isRead && "bg-primary/5 border-l-4 border-l-primary"
+        "group relative flex items-start space-x-4 p-4 border-b hover:bg-gray-50 transition-all cursor-pointer",
+        !isRead && "bg-blue-50/30 border-l-4 border-l-blue-500"
       )}
     >
       {/* Avatar */}
@@ -86,8 +86,8 @@ const EmailItem: React.FC<EmailProps & { onClick: () => void }> = ({
         {from.avatar ? (
           <img src={from.avatar} alt={from.name} className="h-10 w-10 rounded-full" />
         ) : (
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <User className="h-5 w-5 text-primary" />
+          <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+            <User className="h-5 w-5 text-gray-600" />
           </div>
         )}
       </div>
@@ -96,45 +96,45 @@ const EmailItem: React.FC<EmailProps & { onClick: () => void }> = ({
       <div className="flex-1 min-w-0 space-y-2">
         {/* Header */}
         <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 min-w-0 flex-1">
             <h3 className={cn(
               "text-sm font-medium truncate",
-              isRead ? "text-foreground" : "text-foreground font-semibold"
+              isRead ? "text-gray-900" : "text-gray-900 font-semibold"
             )}>
               {from.name}
             </h3>
             {aiAnalysis && (
               <span className={cn(
-                "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border",
+                "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border flex-shrink-0",
                 priorityColors[aiAnalysis.priority]
               )}>
                 {aiAnalysis.priority}
               </span>
             )}
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-muted-foreground">{time}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            <span className="text-xs text-gray-500">{time}</span>
+            <ChevronRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </div>
 
         {/* Subject */}
         <div className="flex items-center space-x-2">
           <h4 className={cn(
-            "text-sm truncate",
-            isRead ? "text-muted-foreground" : "text-foreground font-medium"
+            "text-sm truncate flex-1",
+            isRead ? "text-gray-600" : "text-gray-900 font-medium"
           )}>
             {subject}
           </h4>
-          <div className="flex items-center space-x-1">
-            {hasAttachment && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            {hasAttachment && <Paperclip className="h-3 w-3 text-gray-400" />}
             {isStarred && <Star className="h-3 w-3 text-yellow-500 fill-current" />}
             {aiAnalysis?.sentiment && sentimentIcons[aiAnalysis.sentiment]}
           </div>
         </div>
 
         {/* Preview */}
-        <p className="text-sm text-muted-foreground truncate">{preview}</p>
+        <p className="text-sm text-gray-500 truncate">{preview}</p>
 
         {/* AI Analysis */}
         {aiAnalysis && (
@@ -154,14 +154,23 @@ const EmailItem: React.FC<EmailProps & { onClick: () => void }> = ({
       </div>
 
       {/* Quick Actions */}
-      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button className="p-2 rounded-lg hover:bg-accent/80 text-muted-foreground hover:text-foreground">
+      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+        <button 
+          onClick={(e) => { e.stopPropagation(); /* Add archive logic */ }}
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+        >
           <Archive className="h-4 w-4" />
         </button>
-        <button className="p-2 rounded-lg hover:bg-accent/80 text-muted-foreground hover:text-foreground">
+        <button 
+          onClick={(e) => { e.stopPropagation(); /* Add star logic */ }}
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+        >
           <Star className="h-4 w-4" />
         </button>
-        <button className="p-2 rounded-lg hover:bg-accent/80 text-muted-foreground hover:text-foreground">
+        <button 
+          onClick={(e) => { e.stopPropagation(); /* Add delete logic */ }}
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+        >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
@@ -190,29 +199,29 @@ const EmailListHeader: React.FC<EmailListHeaderProps> = ({
   onRefresh 
 }) => {
   return (
-    <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4 space-y-4">
+    <div className="border-b bg-white p-4 space-y-4 flex-shrink-0">
       {/* Search Bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
           placeholder="Search emails..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+          className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
       {/* Filters and Stats */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2">
           <button 
             onClick={() => setActiveFilter('all')}
             className={cn(
               "flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
               activeFilter === 'all' 
-                ? "bg-primary text-primary-foreground" 
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                ? "bg-blue-600 text-white" 
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             )}
           >
             <MessageSquare className="h-4 w-4" />
@@ -223,8 +232,8 @@ const EmailListHeader: React.FC<EmailListHeaderProps> = ({
             className={cn(
               "flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
               activeFilter === 'ai-priority' 
-                ? "bg-primary text-primary-foreground" 
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                ? "bg-blue-600 text-white" 
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             )}
           >
             <Brain className="h-4 w-4" />
@@ -235,8 +244,8 @@ const EmailListHeader: React.FC<EmailListHeaderProps> = ({
             className={cn(
               "flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
               activeFilter === 'needs-scheduling' 
-                ? "bg-primary text-primary-foreground" 
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                ? "bg-blue-600 text-white" 
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             )}
           >
             <Calendar className="h-4 w-4" />
@@ -245,84 +254,17 @@ const EmailListHeader: React.FC<EmailListHeaderProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-gray-500">
             {totalEmails} email{totalEmails !== 1 ? 's' : ''}
           </span>
           <button 
             onClick={onRefresh}
             disabled={isLoading}
-            className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-50"
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 disabled:opacity-50"
           >
             <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
           </button>
         </div>
-      </div>
-    </div>
-  );
-};
-
-// AI Suggestions Panel
-const AISuggestionsPanel: React.FC = () => {
-  const suggestions = [
-    {
-      type: 'schedule',
-      title: 'Schedule Meeting with Alice',
-      description: 'AI detected meeting request in email from Alice Johnson',
-      action: 'Schedule',
-      priority: 'high' as const
-    },
-    {
-      type: 'reply',
-      title: 'Draft Reply to Budget Review',
-      description: 'Suggested response based on previous conversations',
-      action: 'Draft',
-      priority: 'medium' as const
-    },
-    {
-      type: 'reminder',
-      title: 'Follow up on Project Status',
-      description: 'No response received after 3 days',
-      action: 'Remind',
-      priority: 'low' as const
-    }
-  ];
-
-  const priorityColors = {
-    high: 'bg-red-100 text-red-700',
-    medium: 'bg-yellow-100 text-yellow-700',
-    low: 'bg-green-100 text-green-700'
-  };
-
-  return (
-    <div className="w-80 border-l bg-card/50 backdrop-blur-sm overflow-hidden">
-      <div className="p-4 border-b">
-        <div className="flex items-center space-x-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold text-foreground">AI Suggestions</h3>
-        </div>
-        <p className="text-sm text-muted-foreground mt-1">
-          Smart actions based on your emails
-        </p>
-      </div>
-
-      <div className="p-4 space-y-4">
-        {suggestions.map((suggestion, index) => (
-          <div key={index} className="p-3 rounded-lg border bg-background/50 hover:bg-accent/50 transition-colors">
-            <div className="flex items-start justify-between mb-2">
-              <h4 className="text-sm font-medium text-foreground">{suggestion.title}</h4>
-              <span className={cn(
-                "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-                priorityColors[suggestion.priority]
-              )}>
-                {suggestion.priority}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">{suggestion.description}</p>
-            <button className="w-full px-3 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
-              {suggestion.action}
-            </button>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -344,7 +286,8 @@ interface EmailsResponse {
 
 // Main Email Interface Component
 export const ModernEmailInterface: React.FC = () => {
-  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emails, setEmails] = useState<EmailProps[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -355,6 +298,47 @@ export const ModernEmailInterface: React.FC = () => {
   const [totalEmails, setTotalEmails] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Transform database email data to component format
+  const transformEmailData = (rawEmail: any): EmailProps => {
+    return {
+      id: rawEmail.id,
+      from: {
+        name: rawEmail.from_name || rawEmail.from_address || 'Unknown',
+        email: rawEmail.from_address || '',
+        avatar: undefined
+      },
+      subject: rawEmail.subject || '(No Subject)',
+      preview: rawEmail.snippet || rawEmail.content_text?.substring(0, 100) || 'No preview available',
+      time: formatEmailTime(rawEmail.received_at || rawEmail.created_at),
+      isRead: !rawEmail.is_unread,
+      isStarred: rawEmail.is_starred || false,
+      hasAttachment: (rawEmail.attachment_count || 0) > 0,
+      aiAnalysis: rawEmail.ai_analyzed ? {
+        priority: rawEmail.importance_level === 'high' ? 'high' : 
+                  rawEmail.importance_level === 'low' ? 'low' : 'medium',
+        needsScheduling: rawEmail.has_scheduling_content || false,
+        sentiment: 'neutral', // Default since we don't have sentiment analysis yet
+        suggestedActions: []
+      } : undefined
+    };
+  };
+
+  const formatEmailTime = (dateString: string): string => {
+    if (!dateString) return '';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    } else if (diffInHours < 168) { // 7 days
+      return date.toLocaleDateString('en-US', { weekday: 'short' });
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
+
   // Fetch emails function
   const fetchEmails = async (page: number = 1, reset: boolean = true) => {
     try {
@@ -362,30 +346,27 @@ export const ModernEmailInterface: React.FC = () => {
       
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: '20',
-        filter: activeFilter,
-        ...(searchQuery && { query: searchQuery })
+        limit: '50',
+        ...(searchQuery && { search: searchQuery })
       });
 
+      // Add filter-specific parameters
+      if (activeFilter === 'ai-priority') {
+        params.append('ai_analyzed', 'true');
+        params.append('importance', 'high');
+      } else if (activeFilter === 'needs-scheduling') {
+        params.append('has_scheduling_content', 'true');
+      }
+
       const response = await fetch(`/api/emails/list?${params}`);
-      const data: EmailsResponse = await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch emails');
       }
 
-      // Transform API response to match EmailProps interface
-      const transformedEmails: EmailProps[] = data.emails.map(email => ({
-        id: email.id,
-        from: email.from,
-        subject: email.subject,
-        preview: email.preview,
-        time: email.time,
-        isRead: email.isRead,
-        isStarred: email.isStarred,
-        hasAttachment: email.hasAttachment,
-        aiAnalysis: email.aiAnalysis
-      }));
+      // Transform the raw email data
+      const transformedEmails = data.emails?.map(transformEmailData) || [];
 
       if (reset) {
         setEmails(transformedEmails);
@@ -393,10 +374,10 @@ export const ModernEmailInterface: React.FC = () => {
         setEmails(prev => [...prev, ...transformedEmails]);
       }
       
-      setTotalEmails(data.total);
-      setHasNextPage(data.hasNextPage);
+      setTotalEmails(data.total || transformedEmails.length);
+      setHasNextPage(data.hasMore || false);
       setCurrentPage(page);
-      setError(data.error || null);
+      setError(null);
       
     } catch (err) {
       console.error('Error fetching emails:', err);
@@ -419,6 +400,20 @@ export const ModernEmailInterface: React.FC = () => {
   const refreshEmails = async () => {
     setIsRefreshing(true);
     await fetchEmails(1, true);
+  };
+
+  // Handle email click
+  const handleEmailClick = (emailId: string) => {
+    setSelectedEmailId(emailId);
+    setIsEmailModalOpen(true);
+  };
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setIsEmailModalOpen(false);
+    setSelectedEmailId(null);
+    // Refresh the list to update read status
+    refreshEmails();
   };
 
   // Initial load and filter/search effects
@@ -445,135 +440,109 @@ export const ModernEmailInterface: React.FC = () => {
   }, [searchQuery]);
 
   return (
-    <div className="flex h-full bg-background">
-      {/* Email List */}
-      <div className={cn("flex flex-col", selectedEmail ? "w-1/2" : "flex-1")}>
-        <EmailListHeader 
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          activeFilter={activeFilter}
-          setActiveFilter={setActiveFilter}
-          totalEmails={totalEmails}
-          isLoading={loading || isRefreshing}
-          onRefresh={refreshEmails}
-        />
-        
-        <div className="flex-1 overflow-auto">
-          {loading && emails.length === 0 ? (
-            // Loading state
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Loading emails...</p>
+    <div className="flex flex-col h-full bg-white overflow-hidden">
+      {/* Email List Header */}
+      <EmailListHeader 
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        activeFilter={activeFilter}
+        setActiveFilter={setActiveFilter}
+        totalEmails={totalEmails}
+        isLoading={loading || isRefreshing}
+        onRefresh={refreshEmails}
+      />
+      
+      {/* Email List Content */}
+      <div className="flex-1 overflow-auto">
+        {loading && emails.length === 0 ? (
+          // Loading state
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
+              <p className="text-sm text-gray-500">Loading emails...</p>
+            </div>
+          </div>
+        ) : error && emails.length === 0 ? (
+          // Error state
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center max-w-md px-4">
+              <AlertTriangle className="h-8 w-8 mx-auto mb-4 text-red-500" />
+              <h3 className="text-lg font-medium mb-2 text-gray-900">Unable to Load Emails</h3>
+              <p className="text-sm text-gray-600 mb-4">{error}</p>
+              <div className="space-y-2">
+                <button 
+                  onClick={refreshEmails}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Try Again
+                </button>
               </div>
             </div>
-          ) : error && emails.length === 0 ? (
-            // Error state
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center max-w-md">
-                <AlertTriangle className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-medium mb-2">Unable to Load Emails</h3>
-                <p className="text-sm text-muted-foreground mb-4">{error}</p>
-                <div className="space-y-2">
-                  <button 
-                    onClick={refreshEmails}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-                  >
-                    Try Again
-                  </button>
-                </div>
-              </div>
+          </div>
+        ) : emails.length === 0 ? (
+          // Empty state
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center max-w-md px-4">
+              <Mail className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-lg font-medium mb-2 text-gray-900">
+                {activeFilter === 'all' ? 'No Emails Found' : 
+                 activeFilter === 'ai-priority' ? 'No High Priority Emails' :
+                 'No Emails Need Scheduling'}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                {activeFilter === 'all' 
+                  ? 'Connect your Gmail account to start managing your emails with AI assistance.' 
+                  : 'Try adjusting your filters or check back later.'}
+              </p>
+              <Link 
+                href="/dashboard/emails?tab=sync"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Sync Emails
+              </Link>
             </div>
-          ) : emails.length === 0 ? (
-            // Empty state
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center max-w-md">
-                <Mail className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-medium mb-2">
-                  {activeFilter === 'all' ? 'No Emails Found' : 
-                   activeFilter === 'ai-priority' ? 'No High Priority Emails' :
-                   'No Emails Need Scheduling'}
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {activeFilter === 'all' 
-                    ? 'Connect your Gmail account to start managing your emails with AI assistance.' 
-                    : 'Try adjusting your filters or check back later.'}
-                </p>
-                <div className="space-y-2">
-                  <Link href="/dashboard/settings">
-                    <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                      <Settings className="h-4 w-4 mr-2 inline" />
-                      Connect Gmail
-                    </button>
-                  </Link>
-                  {activeFilter !== 'all' && (
-                    <button 
-                      onClick={() => setActiveFilter('all')}
-                      className="block px-4 py-2 bg-accent text-accent-foreground rounded-lg text-sm font-medium hover:bg-accent/80 transition-colors mx-auto"
-                    >
-                      View All Emails
-                    </button>
+          </div>
+        ) : (
+          // Email list
+          <div>
+            {emails.map((email) => (
+              <EmailItem
+                key={email.id}
+                {...email}
+                onClick={() => handleEmailClick(email.id)}
+              />
+            ))}
+            
+            {/* Load More Button */}
+            {hasNextPage && (
+              <div className="p-4 border-t bg-gray-50">
+                <button
+                  onClick={loadMoreEmails}
+                  disabled={loading}
+                  className="w-full py-2 px-4 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Loading...
+                    </div>
+                  ) : (
+                    `Load More (${totalEmails - emails.length} remaining)`
                   )}
-                </div>
+                </button>
               </div>
-            </div>
-          ) : (
-            <>
-              {emails.map((email) => (
-                <EmailItem
-                  key={email.id}
-                  {...email}
-                  onClick={() => setSelectedEmail(email.id)}
-                />
-              ))}
-              
-              {/* Load More Button */}
-              {hasNextPage && (
-                <div className="p-4 text-center border-t">
-                  <button
-                    onClick={loadMoreEmails}
-                    disabled={loading}
-                    className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2 inline" />
-                        Loading...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4 mr-2 inline" />
-                        Load More Emails
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Email Viewer */}
-      {selectedEmail && (
-        <div className="w-1/2 border-l border-border flex flex-col">
-          <div className="flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur">
-            <h2 className="text-sm font-medium">Email Details</h2>
-            <button
-              onClick={() => setSelectedEmail(null)}
-              className="p-2 rounded-lg hover:bg-accent/80 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-auto">
-            <EmailViewer emailId={selectedEmail} />
-          </div>
-        </div>
-      )}
-
-      {/* AI Suggestions Sidebar - only show if no email selected */}
-      {!selectedEmail && <AISuggestionsPanel />}
+      {/* Email Viewer Modal */}
+      <EmailViewer 
+        emailId={selectedEmailId}
+        isOpen={isEmailModalOpen}
+        onClose={handleModalClose}
+      />
     </div>
   );
 };

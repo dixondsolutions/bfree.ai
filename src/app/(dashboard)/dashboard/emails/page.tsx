@@ -11,55 +11,64 @@ export default function EmailsPage() {
   const [activeTab, setActiveTab] = useState('emails')
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-6 space-y-8 bg-gray-50/30 min-h-screen">
+    <div className="flex flex-col h-full w-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Emails</h1>
-          <p className="text-gray-600">
-            Manage your emails and AI-powered task creation
-          </p>
+      <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Emails</h1>
+            <p className="text-gray-600 text-sm">
+              Manage your emails and AI-powered task creation
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Tabs for different email functions */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 bg-white border border-gray-200">
-          <TabsTrigger value="emails" className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            Email Viewer
-          </TabsTrigger>
-          <TabsTrigger value="sync" className="flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            Sync & AI Process
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
+      {/* Content */}
+      <div className="flex-1 overflow-hidden">
+        {/* Tabs for different email functions */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+          <div className="flex-shrink-0 px-6 pt-4">
+            <TabsList className="grid w-full max-w-md grid-cols-3 bg-white border border-gray-200">
+              <TabsTrigger value="emails" className="flex items-center gap-2 text-sm">
+                <Mail className="h-4 w-4" />
+                Email Viewer
+              </TabsTrigger>
+              <TabsTrigger value="sync" className="flex items-center gap-2 text-sm">
+                <Zap className="h-4 w-4" />
+                Sync & AI Process
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center gap-2 text-sm">
+                <Settings className="h-4 w-4" />
+                Settings
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <TabsContent value="emails" className="space-y-4">
-          <ModernEmailInterface />
-        </TabsContent>
+          <div className="flex-1 overflow-hidden">
+            <TabsContent value="emails" className="h-full m-0 p-0">
+              <ModernEmailInterface />
+            </TabsContent>
 
-        <TabsContent value="sync" className="space-y-4">
-          <ManualEmailSync />
-        </TabsContent>
+            <TabsContent value="sync" className="h-full m-0 p-6">
+              <ManualEmailSync />
+            </TabsContent>
 
-        <TabsContent value="settings" className="space-y-4">
-          <Card className="border border-gray-200 bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-gray-900">Email Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">
-                Email automation settings will be available here.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            <TabsContent value="settings" className="h-full m-0 p-6">
+              <Card className="border border-gray-200 bg-white shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-gray-900">Email Settings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600">
+                    Email automation settings will be available here.
+                  </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </div>
+        </Tabs>
+      </div>
     </div>
   )
 }
