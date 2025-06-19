@@ -32,7 +32,7 @@ export default async function LoginPage() {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
       },
     })
     
@@ -47,7 +47,7 @@ export default async function LoginPage() {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
       },
     })
     

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/Badge'
+import { signUpWithEmail } from '@/lib/auth/actions'
 import { 
   Brain, 
   Mail, 
@@ -31,7 +32,7 @@ export default async function SignupPage() {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
       },
     })
     
@@ -46,7 +47,7 @@ export default async function SignupPage() {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
       },
     })
     
@@ -185,11 +186,12 @@ export default async function SignupPage() {
               </div>
 
               {/* Email Form */}
-              <form className="space-y-4">
+              <form action={signUpWithEmail} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     placeholder="Enter your email address"
                     className="h-11 focus-ring"
@@ -200,6 +202,7 @@ export default async function SignupPage() {
                   <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
+                    name="password"
                     type="password"
                     placeholder="Create a strong password"
                     className="h-11 focus-ring"
