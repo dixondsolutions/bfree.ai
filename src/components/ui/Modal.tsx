@@ -44,6 +44,10 @@ export function Modal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className={cn(sizeClasses[size], className)}>
+        <div className="sr-only">
+          <DialogTitle>Modal Dialog</DialogTitle>
+          <DialogDescription>Interactive modal dialog content</DialogDescription>
+        </div>
         {children}
       </DialogContent>
     </Dialog>
