@@ -540,8 +540,14 @@ export const ModernEmailInterface: React.FC = () => {
   // Handle email click
   const handleEmailClick = (emailId: string) => {
     setSelectedEmailId(emailId);
-    setIsEmailModalOpen(true);
   };
+
+  // Open modal when emailId is set
+  useEffect(() => {
+    if (selectedEmailId) {
+      setIsEmailModalOpen(true);
+    }
+  }, [selectedEmailId]);
 
   // Handle modal close
   const handleModalClose = () => {
