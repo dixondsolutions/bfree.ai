@@ -28,91 +28,52 @@ import {
   XIcon,
   Loader2,
   Plus,
-  ChevronRight
+  ChevronRight,
+  Sparkles,
+  Target,
+  ListTodo
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Raw email data from API
-interface RawEmailData {
+// Database email structure
+interface DatabaseEmail {
   id: string
-  gmail_id: string
   subject: string
   from_address: string
-  from_name?: string
+  from_name: string | null
   to_address: string
-  cc_addresses?: string[]
-  bcc_addresses?: string[]
-  content_text?: string
-  content_html?: string
-  snippet?: string
+  cc_addresses: string[] | null
+  bcc_addresses: string[] | null
+  content_text: string | null
+  content_html: string | null
+  snippet: string | null
+  labels: string[] | null
   received_at: string
-  sent_at?: string
+  sent_at: string | null
   is_unread: boolean
   is_starred: boolean
   has_attachments: boolean
-  attachment_count?: number
+  attachment_count: number
+  importance_level: 'low' | 'normal' | 'high'
   ai_analyzed: boolean
-  has_scheduling_content?: boolean
-  scheduling_keywords?: string[]
-  labels?: string[]
-  // Related data from joins
-  tasks?: Array<{
-    id: string
-    title: string
-    status: string
-    priority: string
-    ai_generated: boolean
-    confidence_score: number
-    created_at: string
-  }>
-  ai_suggestions?: Array<{
-    id: string
-    title: string
-    description: string
-    confidence_score: number
-    status: string
-    created_at: string
-    suggestion_type: string
-  }>
-  email_attachments?: Array<{
-    id: string
-    filename: string
-    mime_type: string
-    size_bytes: number
-  }>
+  ai_analysis_at: string | null
 }
 
-// AI Analysis result
-interface AIAnalysisResult {
-  suggestions: Array<{
-    id: string
-    type: string
-    title: string
-    description: string
-    confidence: number
-    status: string
-    reasoning?: string
-    participants?: string[]
-    location?: string
-    duration?: number
-    priority?: string
-    created_at: string
-  }>
-  tasks_created: Array<{
-    id: string
-    title: string
-    status: string
-    priority: string
-    confidence: number
-    ai_generated: boolean
-    created_at: string
-  }>
-  summary: {
-    total_suggestions: number
-    total_tasks_created: number
-    avg_confidence: number
-    high_confidence_suggestions: number
-  }
+interface AISuggestion {
+  id: string
+  suggestion_type: 'meeting' | 'task' | 'deadline' | 'reminder'
+  title: string
+  description: string
+  suggested_time: string | null
+  confidence_score: number
+  status: 'pending' | 'approved' | 'rejected' | 'processed' | 'converted' | 'auto_converted'
+  priority: 'low' | 'medium' | 'high' | 'urgent' | null
+  task_category: string | null
+  estimated_duration: number | null
+  suggested_due_date: string | null
+  energy_level: number | null
+  suggested_tags: string[] | null
+  location: string | null
 }
 
 interface EmailViewerProps {
@@ -121,241 +82,228 @@ interface EmailViewerProps {
   onClose: () => void
 }
 
-export function EmailViewer({ emailId, isOpen, onClose }: EmailViewerProps) {
-  const [email, setEmail] = useState<RawEmailData | null>(null)
+export default function EmailViewer({ emailId, isOpen, onClose }: EmailViewerProps) {
+  const [email, setEmail] = useState<DatabaseEmail | null>(null)
+  const [suggestions, setSuggestions] = useState<AISuggestion[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
-  const [analysisResult, setAnalysisResult] = useState<AIAnalysisResult | null>(null)
-  const [processingTasks, setProcessingTasks] = useState<Set<string>>(new Set())
+  const [processingTaskId, setProcessingTaskId] = useState<string | null>(null)
 
-  // Fetch email data when emailId changes
+  // Fetch email data
   useEffect(() => {
-    if (!emailId || !isOpen) {
-      setEmail(null)
-      setAnalysisResult(null)
-      return
+    if (emailId && isOpen) {
+      fetchEmail()
+      fetchSuggestions()
     }
-
-    const fetchEmail = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        console.log('Fetching email with ID:', emailId)
-        const response = await fetch(`/api/emails/${emailId}`)
-        const data = await response.json()
-        
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch email')
-        }
-        
-        console.log('Email data received:', data.email)
-        setEmail(data.email)
-
-        // If email is already analyzed, fetch analysis results
-        if (data.email?.ai_analyzed) {
-          fetchAnalysisResults()
-        }
-      } catch (err) {
-        console.error('Error fetching email:', err)
-        setError(err instanceof Error ? err.message : 'Failed to load email')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchEmail()
   }, [emailId, isOpen])
 
-  const fetchAnalysisResults = async () => {
+  const fetchEmail = async () => {
     if (!emailId) return
     
+    setLoading(true)
+    setError(null)
+    
     try {
-      const response = await fetch(`/api/emails/${emailId}/analysis`)
-      const data = await response.json()
-      
-      if (response.ok) {
-        setAnalysisResult(data.analysis)
+      const response = await fetch(`/api/emails/${emailId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch email')
       }
+      
+      const data = await response.json()
+      setEmail(data.email)
     } catch (err) {
-      console.error('Error fetching analysis results:', err)
+      console.error('Error fetching email:', err)
+      setError('Failed to load email. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Mark email as read when opened
-  useEffect(() => {
-    if (email && email.is_unread) {
-      fetch(`/api/emails/${email.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_unread: false })
-      }).catch(console.error)
-    }
-  }, [email])
-
-  const handleStarToggle = async () => {
-    if (!email) return
+  const fetchSuggestions = async () => {
+    if (!emailId) return
+    
     try {
-      const response = await fetch(`/api/emails/${email.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_starred: !email.is_starred })
-      })
-      
+      const response = await fetch(`/api/ai/suggestions?email_record_id=${emailId}`)
       if (response.ok) {
-        setEmail(prev => prev ? { ...prev, is_starred: !prev.is_starred } : null)
+        const data = await response.json()
+        setSuggestions(data.suggestions || [])
       }
-    } catch (error) {
-      console.error('Error toggling star:', error)
+    } catch (err) {
+      console.error('Error fetching suggestions:', err)
     }
   }
 
   const handleAIAnalysis = async () => {
-    if (!email || analyzing) return
+    if (!email) return
     
     setAnalyzing(true)
+    
     try {
-      // First, add email to processing queue
+      // First, queue the email for processing
       const queueResponse = await fetch('/api/automation/process-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailId: email.id })
+        body: JSON.stringify({
+          emailId: email.id,
+          priority: 'high'
+        })
       })
-
+      
       if (!queueResponse.ok) {
         throw new Error('Failed to queue email for processing')
       }
-
+      
       // Then trigger AI processing
       const processResponse = await fetch('/api/ai/process', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email_record_id: email.id,
+          content: email.content_text || email.snippet,
+          subject: email.subject,
+          from: email.from_address,
+          received_at: email.received_at
+        })
       })
-
+      
       if (!processResponse.ok) {
         throw new Error('Failed to process email with AI')
       }
-
-      // Fetch updated email data and analysis results
-      const emailResponse = await fetch(`/api/emails/${email.id}`)
-      const emailData = await emailResponse.json()
       
-      if (emailResponse.ok) {
-        setEmail(emailData.email)
-      }
-
-      // Fetch analysis results
-      await fetchAnalysisResults()
-
+      // Update email as analyzed
+      await fetch(`/api/emails/${email.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ai_analyzed: true,
+          ai_analysis_at: new Date().toISOString()
+        })
+      })
+      
+      // Refresh suggestions
+      await fetchSuggestions()
+      
+      // Update email state
+      setEmail(prev => prev ? { ...prev, ai_analyzed: true, ai_analysis_at: new Date().toISOString() } : null)
+      
     } catch (err) {
-      console.error('Error during AI analysis:', err)
-      setError(err instanceof Error ? err.message : 'AI analysis failed')
+      console.error('Error analyzing email:', err)
+      setError('Failed to analyze email. Please try again.')
     } finally {
       setAnalyzing(false)
     }
   }
 
-  const handleTaskApproval = async (suggestionId: string, approve: boolean) => {
-    if (processingTasks.has(suggestionId)) return
-    
-    setProcessingTasks(prev => new Set(prev).add(suggestionId))
+  const handleSuggestionAction = async (suggestionId: string, action: 'approve' | 'decline') => {
+    setProcessingTaskId(suggestionId)
     
     try {
-      if (approve) {
+      if (action === 'approve') {
         // Create task from suggestion
-        const response = await fetch('/api/ai/create-task', {
+        const suggestion = suggestions.find(s => s.id === suggestionId)
+        if (!suggestion) return
+        
+        const createTaskResponse = await fetch('/api/ai/create-task', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ suggestionId })
+          body: JSON.stringify({
+            suggestion_id: suggestionId,
+            title: suggestion.title,
+            description: suggestion.description,
+            category: suggestion.task_category || 'other',
+            priority: suggestion.priority || 'medium',
+            estimated_duration: suggestion.estimated_duration,
+            due_date: suggestion.suggested_due_date,
+            energy_level: suggestion.energy_level,
+            tags: suggestion.suggested_tags,
+            location: suggestion.location
+          })
         })
-
-        if (!response.ok) {
+        
+        if (!createTaskResponse.ok) {
           throw new Error('Failed to create task')
         }
-
-        const result = await response.json()
-        console.log('Task created:', result)
-      } else {
-        // Decline suggestion
-        const response = await fetch(`/api/ai/suggestions/${suggestionId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'declined' })
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to decline suggestion')
-        }
       }
-
-      // Refresh analysis results
-      await fetchAnalysisResults()
+      
+      // Update suggestion status
+      const updateResponse = await fetch(`/api/ai/suggestions/${suggestionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: action === 'approve' ? 'approved' : 'rejected',
+          feedback: {
+            user_notes: action === 'decline' ? 'User declined suggestion' : 'User approved suggestion'
+          }
+        })
+      })
+      
+      if (!updateResponse.ok) {
+        throw new Error('Failed to update suggestion')
+      }
+      
+      // Refresh suggestions
+      await fetchSuggestions()
       
     } catch (err) {
-      console.error('Error processing task approval:', err)
+      console.error('Error processing suggestion:', err)
+      setError(`Failed to ${action} suggestion. Please try again.`)
     } finally {
-      setProcessingTasks(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(suggestionId)
-        return newSet
-      })
+      setProcessingTaskId(null)
     }
   }
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
+    return new Date(dateString).toLocaleString('en-US', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     })
   }
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'bg-green-100 text-green-700 border-green-200'
-    if (confidence >= 0.6) return 'bg-yellow-100 text-yellow-700 border-yellow-200'
-    return 'bg-red-100 text-red-700 border-red-200'
-  }
-
-  const parseEmailAddresses = (addressString: string) => {
-    if (!addressString) return []
-    return addressString.split(',').map(addr => {
-      const match = addr.trim().match(/^(.+?)\s*<(.+)>$/)
-      if (match) {
-        return { name: match[1].trim(), email: match[2].trim() }
-      }
-      return { name: addr.trim(), email: addr.trim() }
-    })
-  }
-
-  const renderEmailContent = () => {
-    if (!email) return null
-
-    // Try to render HTML content first, fallback to text
-    const content = email.content_html || email.content_text || email.snippet || 'No content available'
-    
-    if (email.content_html) {
-      return (
-        <div 
-          className="prose prose-sm max-w-none"
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
-      )
+  const getImportanceColor = (level: string) => {
+    switch (level) {
+      case 'high': return 'bg-red-100 text-red-800'
+      case 'low': return 'bg-gray-100 text-gray-800'
+      default: return 'bg-blue-100 text-blue-800'
     }
-    
-    return (
-      <div className="whitespace-pre-wrap text-sm leading-relaxed">
-        {content}
-      </div>
-    )
+  }
+
+  const getSuggestionTypeIcon = (type: string) => {
+    switch (type) {
+      case 'meeting': return Calendar
+      case 'task': return ListTodo
+      case 'deadline': return Clock
+      case 'reminder': return AlertTriangle
+      default: return Target
+    }
+  }
+
+  const getSuggestionTypeColor = (type: string) => {
+    switch (type) {
+      case 'meeting': return 'bg-purple-100 text-purple-800'
+      case 'task': return 'bg-green-100 text-green-800'
+      case 'deadline': return 'bg-red-100 text-red-800'
+      case 'reminder': return 'bg-yellow-100 text-yellow-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getPriorityColor = (priority: string | null) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-500 text-white'
+      case 'high': return 'bg-orange-500 text-white'
+      case 'medium': return 'bg-yellow-500 text-white'
+      case 'low': return 'bg-green-500 text-white'
+      default: return 'bg-gray-500 text-white'
+    }
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl w-full max-h-[90vh] p-0 gap-0">
+      <DialogContent className="max-w-7xl w-full max-h-[90vh] p-0 gap-0">
         {loading ? (
           <>
             <DialogTitle className="sr-only">Loading Email</DialogTitle>
@@ -369,300 +317,314 @@ export function EmailViewer({ emailId, isOpen, onClose }: EmailViewerProps) {
           </>
         ) : error ? (
           <>
-            <DialogTitle className="sr-only">Email Load Error</DialogTitle>
-            <DialogDescription className="sr-only">An error occurred while loading the email</DialogDescription>
+            <DialogTitle className="sr-only">Error Loading Email</DialogTitle>
+            <DialogDescription className="sr-only">There was an error loading the email content</DialogDescription>
             <div className="flex items-center justify-center h-96">
               <div className="text-center">
-                <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-                <p className="text-sm text-red-600 mb-4">{error}</p>
-                <Button variant="outline" onClick={onClose}>Close</Button>
+                <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <p className="text-sm text-muted-foreground mb-4">{error}</p>
+                <Button onClick={fetchEmail} variant="outline">
+                  Try Again
+                </Button>
               </div>
             </div>
           </>
         ) : email ? (
-          <div className="flex flex-col h-full">
-            {/* Header */}
-            <DialogHeader className="border-b p-6 pb-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <DialogTitle className="text-xl font-semibold mb-2 pr-8">
-                    {email.subject || 'No Subject'}
-                  </DialogTitle>
-                  <DialogDescription className="sr-only">
-                    Email from {email.from_name || email.from_address} received on {formatDate(email.received_at)}
-                  </DialogDescription>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {email.ai_analyzed && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Brain className="h-3 w-3 mr-1" />
-                        AI Analyzed
+          <div className="flex h-full">
+            {/* Main Email Content */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Header */}
+              <DialogHeader className="border-b p-6 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <DialogTitle className="text-xl font-semibold mb-2 pr-8">
+                      {email.subject}
+                    </DialogTitle>
+                    <DialogDescription className="sr-only">
+                      Email from {email.from_name || email.from_address} received on {formatDate(email.received_at)}
+                    </DialogDescription>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          {email.from_name ? `${email.from_name} <${email.from_address}>` : email.from_address}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          {formatDate(email.received_at)}
+                        </span>
+                      </div>
+                      <Badge className={cn("text-xs", getImportanceColor(email.importance_level))}>
+                        {email.importance_level.toUpperCase()}
                       </Badge>
-                    )}
-                    {email.has_scheduling_content && (
-                      <Badge variant="outline" className="text-xs">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        Scheduling Content
-                      </Badge>
-                    )}
-                    {email.has_attachments && (
-                      <Badge variant="outline" className="text-xs">
-                        <Paperclip className="h-3 w-3 mr-1" />
-                        {email.attachment_count || 1} Attachment{(email.attachment_count || 1) > 1 ? 's' : ''}
-                      </Badge>
-                    )}
-                    {email.labels?.map((label) => (
-                      <Badge key={label} variant="secondary" className="text-xs">
-                        <Tag className="h-3 w-3 mr-1" />
-                        {label}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleStarToggle}
-                    className={cn(
-                      "h-8 w-8 p-0",
-                      email.is_starred && "text-yellow-500"
-                    )}
-                  >
-                    <Star className={cn("h-4 w-4", email.is_starred && "fill-current")} />
-                  </Button>
-                  <DialogClose asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </DialogClose>
-                </div>
-              </div>
-            </DialogHeader>
-
-            {/* Email Details */}
-            <div className="border-b p-6 py-4 bg-gray-50/50">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex-shrink-0">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="h-5 w-5 text-primary" />
+                      {email.is_unread && (
+                        <Badge variant="secondary" className="text-xs">
+                          UNREAD
+                        </Badge>
+                      )}
+                      {email.has_attachments && (
+                        <Badge variant="outline" className="text-xs">
+                          <Paperclip className="h-3 w-3 mr-1" />
+                          {email.attachment_count} attachment{email.attachment_count !== 1 ? 's' : ''}
+                        </Badge>
+                      )}
                     </div>
                   </div>
-                  <div>
-                    <div className="font-medium text-sm">{email.from_name || email.from_address}</div>
-                    <div className="text-xs text-muted-foreground">{email.from_address}</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-muted-foreground">{formatDate(email.received_at)}</div>
-                </div>
-              </div>
-
-              <div className="text-sm space-y-1">
-                <div>
-                  <span className="text-muted-foreground">To: </span>
-                  {parseEmailAddresses(email.to_address).map((recipient, index) => (
-                    <span key={index}>
-                      {recipient.name !== recipient.email ? `${recipient.name} <${recipient.email}>` : recipient.email}
-                      {index < parseEmailAddresses(email.to_address).length - 1 && ', '}
-                    </span>
-                  ))}
-                </div>
-                {email.cc_addresses && email.cc_addresses.length > 0 && (
-                  <div>
-                    <span className="text-muted-foreground">CC: </span>
-                    {email.cc_addresses.join(', ')}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Main Content Area */}
-            <div className="flex-1 flex">
-              {/* Email Content */}
-              <div className="flex-1 flex flex-col">
-                {/* Action Bar */}
-                <div className="border-b p-4 bg-white">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm">
-                        <Reply className="h-4 w-4 mr-2" />
-                        Reply
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <ReplyAll className="h-4 w-4 mr-2" />
-                        Reply All
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Forward className="h-4 w-4 mr-2" />
-                        Forward
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant={email.ai_analyzed ? "secondary" : "default"}
-                        size="sm"
-                        onClick={handleAIAnalysis}
-                        disabled={analyzing}
-                      >
-                        {analyzing ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={handleAIAnalysis}
+                      disabled={analyzing}
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    >
+                      {analyzing ? (
+                        <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Brain className="h-4 w-4 mr-2" />
-                        )}
-                        {analyzing ? 'Analyzing...' : email.ai_analyzed ? 'Re-analyze' : 'AI Analysis'}
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          AI Analysis
+                        </>
+                      )}
+                    </Button>
+                    <DialogClose asChild>
+                      <Button variant="ghost" size="sm">
+                        <X className="h-4 w-4" />
                       </Button>
-                    </div>
+                    </DialogClose>
                   </div>
                 </div>
+              </DialogHeader>
 
-                {/* Email Body */}
-                <ScrollArea className="flex-1 p-6">
-                  {renderEmailContent()}
+              {/* Email Content */}
+              <div className="flex-1 overflow-hidden">
+                <ScrollArea className="h-full">
+                  <div className="p-6">
+                    {/* Recipients */}
+                    <div className="mb-4 space-y-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="font-medium text-muted-foreground w-12">To:</span>
+                        <span>{email.to_address}</span>
+                      </div>
+                      {email.cc_addresses && email.cc_addresses.length > 0 && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="font-medium text-muted-foreground w-12">CC:</span>
+                          <span>{email.cc_addresses.join(', ')}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator className="my-4" />
+
+                    {/* Email Body */}
+                    <div className="prose prose-sm max-w-none">
+                      {email.content_html ? (
+                        <div 
+                          dangerouslySetInnerHTML={{ __html: email.content_html }}
+                          className="email-content"
+                        />
+                      ) : email.content_text ? (
+                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                          {email.content_text}
+                        </pre>
+                      ) : (
+                        <div className="text-muted-foreground italic">
+                          {email.snippet || 'No content available'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </ScrollArea>
               </div>
 
-              {/* AI Analysis Sidebar */}
-              {(email.ai_analyzed || analyzing) && (
-                <div className="w-96 border-l bg-gray-50/50 flex flex-col">
-                  <div className="p-4 border-b bg-white">
-                    <h3 className="font-semibold text-sm flex items-center gap-2">
-                      <Brain className="h-4 w-4" />
-                      AI Analysis
-                    </h3>
-                  </div>
+              {/* Action Bar */}
+              <div className="border-t p-4">
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm">
+                    <Reply className="h-4 w-4 mr-2" />
+                    Reply
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <ReplyAll className="h-4 w-4 mr-2" />
+                    Reply All
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Forward className="h-4 w-4 mr-2" />
+                    Forward
+                  </Button>
+                  <div className="flex-1" />
+                  <Button variant="ghost" size="sm">
+                    <Star className={cn("h-4 w-4", email.is_starred && "fill-yellow-400 text-yellow-400")} />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Archive className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
 
-                  <ScrollArea className="flex-1 p-4">
-                    {analyzing ? (
-                      <div className="text-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-                        <p className="text-sm text-muted-foreground">Analyzing email content...</p>
-                      </div>
-                    ) : analysisResult ? (
-                      <div className="space-y-4">
-                        {/* Summary */}
-                        <div className="bg-white rounded-lg p-4 border">
-                          <h4 className="font-medium text-sm mb-2">Analysis Summary</h4>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div>
-                              <span className="text-muted-foreground">Suggestions:</span>
-                              <div className="font-medium">{analysisResult.summary.total_suggestions}</div>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Tasks Created:</span>
-                              <div className="font-medium">{analysisResult.summary.total_tasks_created}</div>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Avg Confidence:</span>
-                              <div className="font-medium">{Math.round(analysisResult.summary.avg_confidence * 100)}%</div>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">High Confidence:</span>
-                              <div className="font-medium">{analysisResult.summary.high_confidence_suggestions}</div>
-                            </div>
-                          </div>
-                        </div>
+            {/* AI Analysis Sidebar */}
+            <div className="w-96 border-l bg-muted/30 flex flex-col">
+              <div className="p-4 border-b bg-background">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-purple-600" />
+                  <h3 className="font-semibold">AI Analysis</h3>
+                  {email.ai_analyzed && (
+                    <Badge variant="secondary" className="text-xs">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Analyzed
+                    </Badge>
+                  )}
+                </div>
+                {email.ai_analysis_at && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Last analyzed: {formatDate(email.ai_analysis_at)}
+                  </p>
+                )}
+              </div>
 
-                        {/* AI Suggestions */}
-                        {analysisResult.suggestions.length > 0 && (
-                          <div className="bg-white rounded-lg p-4 border">
-                            <h4 className="font-medium text-sm mb-3">Suggested Tasks</h4>
-                            <div className="space-y-3">
-                              {analysisResult.suggestions.map((suggestion) => (
-                                <div key={suggestion.id} className="border rounded-lg p-3">
-                                  <div className="flex items-start justify-between mb-2">
-                                    <div className="flex-1 min-w-0">
-                                      <h5 className="font-medium text-sm">{suggestion.title}</h5>
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        {suggestion.description}
-                                      </p>
-                                    </div>
-                                    <Badge className={cn("text-xs ml-2", getConfidenceColor(suggestion.confidence))}>
-                                      {Math.round(suggestion.confidence * 100)}%
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-4">
+                  {suggestions.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {email.ai_analyzed 
+                          ? "No actionable items found in this email."
+                          : "Click 'AI Analysis' to generate actionable tasks from this email."
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-muted-foreground">
+                        Suggested Actions ({suggestions.length})
+                      </h4>
+                      
+                      {suggestions.map((suggestion) => {
+                        const IconComponent = getSuggestionTypeIcon(suggestion.suggestion_type)
+                        const isProcessing = processingTaskId === suggestion.id
+                        
+                        return (
+                          <div
+                            key={suggestion.id}
+                            className="border rounded-lg p-3 bg-background space-y-3"
+                          >
+                            <div className="flex items-start gap-2">
+                              <IconComponent className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge className={cn("text-xs", getSuggestionTypeColor(suggestion.suggestion_type))}>
+                                    {suggestion.suggestion_type.toUpperCase()}
+                                  </Badge>
+                                  {suggestion.priority && (
+                                    <Badge className={cn("text-xs", getPriorityColor(suggestion.priority))}>
+                                      {suggestion.priority.toUpperCase()}
                                     </Badge>
-                                  </div>
-                                  
-                                  {suggestion.status === 'pending' && (
-                                    <div className="flex items-center gap-2 mt-3">
-                                      <Button
-                                        size="sm"
-                                        variant="default"
-                                        className="flex-1 h-8"
-                                        onClick={() => handleTaskApproval(suggestion.id, true)}
-                                        disabled={processingTasks.has(suggestion.id)}
-                                      >
-                                        {processingTasks.has(suggestion.id) ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <>
-                                            <Check className="h-3 w-3 mr-1" />
-                                            Approve
-                                          </>
-                                        )}
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="flex-1 h-8"
-                                        onClick={() => handleTaskApproval(suggestion.id, false)}
-                                        disabled={processingTasks.has(suggestion.id)}
-                                      >
-                                        <XIcon className="h-3 w-3 mr-1" />
-                                        Decline
-                                      </Button>
+                                  )}
+                                  <span className="text-xs text-muted-foreground">
+                                    {Math.round(suggestion.confidence_score * 100)}% confidence
+                                  </span>
+                                </div>
+                                <h5 className="font-medium text-sm mb-1">{suggestion.title}</h5>
+                                <p className="text-xs text-muted-foreground mb-2">{suggestion.description}</p>
+                                
+                                {/* Task Details */}
+                                <div className="space-y-1 text-xs text-muted-foreground">
+                                  {suggestion.estimated_duration && (
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      <span>{suggestion.estimated_duration} minutes</span>
                                     </div>
                                   )}
-                                  
-                                  {suggestion.status === 'processed' && (
-                                    <Badge variant="secondary" className="text-xs mt-2">
+                                  {suggestion.suggested_due_date && (
+                                    <div className="flex items-center gap-1">
+                                      <Calendar className="h-3 w-3" />
+                                      <span>Due: {formatDate(suggestion.suggested_due_date)}</span>
+                                    </div>
+                                  )}
+                                  {suggestion.energy_level && (
+                                    <div className="flex items-center gap-1">
+                                      <span>Energy: {suggestion.energy_level}/5</span>
+                                    </div>
+                                  )}
+                                  {suggestion.suggested_tags && suggestion.suggested_tags.length > 0 && (
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                      <Tag className="h-3 w-3" />
+                                      {suggestion.suggested_tags.map((tag, index) => (
+                                        <Badge key={index} variant="outline" className="text-xs">
+                                          {tag}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            {suggestion.status === 'pending' && (
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSuggestionAction(suggestion.id, 'approve')}
+                                  disabled={isProcessing}
+                                  className="flex-1"
+                                >
+                                  {isProcessing ? (
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <Check className="h-3 w-3 mr-1" />
+                                  )}
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleSuggestionAction(suggestion.id, 'decline')}
+                                  disabled={isProcessing}
+                                  className="flex-1"
+                                >
+                                  <XIcon className="h-3 w-3 mr-1" />
+                                  Decline
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* Status Badge */}
+                            {suggestion.status !== 'pending' && (
+                              <div className="flex justify-center">
+                                <Badge 
+                                  variant={suggestion.status === 'approved' ? 'default' : 'secondary'}
+                                  className="text-xs"
+                                >
+                                  {suggestion.status === 'approved' ? (
+                                    <>
                                       <CheckCircle className="h-3 w-3 mr-1" />
                                       Task Created
-                                    </Badge>
-                                  )}
-                                  
-                                  {suggestion.status === 'declined' && (
-                                    <Badge variant="outline" className="text-xs mt-2">
+                                    </>
+                                  ) : (
+                                    <>
                                       <XIcon className="h-3 w-3 mr-1" />
                                       Declined
-                                    </Badge>
+                                    </>
                                   )}
-                                </div>
-                              ))}
-                            </div>
+                                </Badge>
+                              </div>
+                            )}
                           </div>
-                        )}
-
-                        {/* Created Tasks */}
-                        {analysisResult.tasks_created.length > 0 && (
-                          <div className="bg-white rounded-lg p-4 border">
-                            <h4 className="font-medium text-sm mb-3">Created Tasks</h4>
-                            <div className="space-y-2">
-                              {analysisResult.tasks_created.map((task) => (
-                                <div key={task.id} className="flex items-center justify-between p-2 bg-green-50 rounded border">
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium text-sm">{task.title}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                      {task.priority} priority • {Math.round(task.confidence * 100)}% confidence
-                                    </div>
-                                  </div>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {task.status}
-                                  </Badge>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Brain className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No analysis results available</p>
-                      </div>
-                    )}
-                  </ScrollArea>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
+              </ScrollArea>
             </div>
           </div>
         ) : (
