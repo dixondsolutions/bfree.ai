@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0')
     const include_subtasks = searchParams.get('include_subtasks') === 'true'
     const parent_only = searchParams.get('parent_only') === 'true'
+    const source_email_id = searchParams.get('source_email_id')
 
     // Parse multiple status values
     const statusValues = statusParam ? statusParam.split(',').map(s => s.trim()) : null
@@ -69,6 +70,7 @@ export async function GET(request: NextRequest) {
     if (category) query = query.eq('category', category)
     if (priority) query = query.eq('priority', priority)
     if (parent_only) query = query.is('parent_task_id', null)
+    if (source_email_id) query = query.eq('source_email_id', source_email_id)
 
     // Apply date range filters - simplified approach
     if (startDate) {

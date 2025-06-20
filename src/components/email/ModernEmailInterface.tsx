@@ -146,10 +146,17 @@ const EmailItem: React.FC<EmailProps & { onClick: () => void }> = ({
                 <span>Scheduling needed</span>
               </div>
             )}
-            <div className="flex items-center space-x-1 text-purple-600">
-              <Brain className="h-3 w-3" />
-              <span>AI analyzed</span>
-            </div>
+            {aiAnalysis.isAnalyzed ? (
+              <div className="flex items-center space-x-1 text-green-600">
+                <CheckCircle className="h-3 w-3" />
+                <span>AI analyzed</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-1 text-gray-500">
+                <Brain className="h-3 w-3" />
+                <span>Ready for analysis</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -301,15 +308,47 @@ export const ModernEmailInterface: React.FC = () => {
 
   // Transform database email data to component format
   const transformEmailData = (rawEmail: any): EmailProps => {
+    // Better sender name extraction
+    let senderName = rawEmail.from_name;
+    if (!senderName && rawEmail.from_address) {
+      // Extract name from email address if no name provided
+      const emailParts = rawEmail.from_address.split('@');
+      if (emailParts[0]) {
+        // Convert email username to readable name (e.g., "john.doe" -> "John Doe")
+        senderName = emailParts[0]
+          .split(/[._-]/)
+          .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(' ');
+      }
+    }
+    
+    // Better preview extraction
+    let preview = rawEmail.snippet;
+    if (!preview && rawEmail.content_text) {
+      // Extract meaningful preview from content
+      preview = rawEmail.content_text
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim()
+        .substring(0, 150);
+    }
+    if (!preview && rawEmail.content_html) {
+      // Extract text from HTML if available
+      preview = rawEmail.content_html
+        .replace(/<[^>]*>/g, ' ') // Strip HTML tags
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim()
+        .substring(0, 150);
+    }
+
     return {
       id: rawEmail.id,
       from: {
-        name: rawEmail.from_name || rawEmail.from_address || 'Unknown',
+        name: senderName || rawEmail.from_address || 'Unknown Sender',
         email: rawEmail.from_address || '',
         avatar: undefined
       },
       subject: rawEmail.subject || '(No Subject)',
-      preview: rawEmail.snippet || rawEmail.content_text?.substring(0, 100) || 'No preview available',
+      preview: preview || 'No preview available',
       time: formatEmailTime(rawEmail.received_at || rawEmail.created_at),
       isRead: !rawEmail.is_unread,
       isStarred: rawEmail.is_starred || false,
@@ -318,25 +357,74 @@ export const ModernEmailInterface: React.FC = () => {
         priority: rawEmail.importance_level === 'high' ? 'high' : 
                   rawEmail.importance_level === 'low' ? 'low' : 'medium',
         needsScheduling: rawEmail.has_scheduling_content || false,
-        sentiment: 'neutral', // Default since we don't have sentiment analysis yet
-        suggestedActions: []
-      } : undefined
+        sentiment: 'neutral',
+        suggestedActions: [],
+        isAnalyzed: true
+      } : {
+        priority: 'medium',
+        needsScheduling: false,
+        sentiment: 'neutral',
+        suggestedActions: [],
+        isAnalyzed: false
+      }
     };
   };
 
   const formatEmailTime = (dateString: string): string => {
     if (!dateString) return '';
     
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    if (diffInHours < 24) {
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    } else if (diffInHours < 168) { // 7 days
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInMs = now.getTime() - date.getTime();
+      const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+      const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      
+      // Handle future dates (shouldn't happen but just in case)
+      if (diffInMs < 0) {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+      
+      // Less than an hour ago
+      if (diffInMinutes < 60) {
+        if (diffInMinutes < 1) return 'Just now';
+        if (diffInMinutes === 1) return '1 min ago';
+        return `${diffInMinutes} min ago`;
+      }
+      
+      // Less than a day ago (show time)
+      if (diffInHours < 24) {
+        return date.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit', 
+          hour12: true 
+        });
+      }
+      
+      // Less than a week ago (show day)
+      if (diffInDays < 7) {
+        if (diffInDays === 1) return 'Yesterday';
+        return date.toLocaleDateString('en-US', { weekday: 'short' });
+      }
+      
+      // This year (show month and day)
+      if (date.getFullYear() === now.getFullYear()) {
+        return date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric' 
+        });
+      }
+      
+      // Different year (show month, day, year)
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Unknown';
     }
   };
 

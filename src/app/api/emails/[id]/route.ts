@@ -98,6 +98,16 @@ export async function PUT(
 }
 
 /**
+ * PATCH /api/emails/[id] - Update a specific email (alias for PUT)
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  return PUT(request, { params })
+}
+
+/**
  * DELETE /api/emails/[id] - Delete a specific email
  */
 export async function DELETE(

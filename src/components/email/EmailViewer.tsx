@@ -31,7 +31,8 @@ import {
   ChevronRight,
   Sparkles,
   Target,
-  ListTodo
+  ListTodo,
+  Mail
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -87,21 +88,38 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([])
+  const [tasks, setTasks] = useState<any[]>([])
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [processingTaskId, setProcessingTaskId] = useState<string | null>(null)
+  const [loadingTasks, setLoadingTasks] = useState(false)
+
+  // Fetch email data and mark as read
+  useEffect(() => {
+    if (emailId && isOpen) {
+      fetchEmail()
+      markAsRead()
+    }
+  }, [emailId, isOpen])
 
   // Don't render anything if emailId is null
   if (!emailId) {
     return null
   }
 
-  // Fetch email data
-  useEffect(() => {
-    if (emailId && isOpen) {
-      fetchEmail()
+  const markAsRead = async () => {
+    if (!emailId) return
+    
+    try {
+      await fetch(`/api/emails/${emailId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_unread: false })
+      })
+    } catch (err) {
+      console.error('Error marking email as read:', err)
     }
-  }, [emailId, isOpen])
+  }
 
   const fetchEmail = async () => {
     if (!emailId) return
@@ -118,8 +136,11 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
       const data = await response.json()
       setEmail(data.email)
       
-      // Also fetch existing suggestions
-      await fetchSuggestions()
+      // Also fetch existing suggestions and tasks
+      await Promise.all([
+        fetchSuggestions(),
+        fetchTasks()
+      ])
       
     } catch (err) {
       console.error('Error fetching email:', err)
@@ -141,6 +162,23 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
       }
     } catch (err) {
       console.error('Error fetching suggestions:', err)
+    }
+  }
+
+  const fetchTasks = async () => {
+    if (!emailId) return
+    
+    try {
+      setLoadingTasks(true)
+      const response = await fetch(`/api/tasks?source_email_id=${emailId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setTasks(data.tasks || [])
+      }
+    } catch (err) {
+      console.error('Error fetching tasks:', err)
+    } finally {
+      setLoadingTasks(false)
     }
   }
 
@@ -191,8 +229,11 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
         })
       })
       
-      // Refresh suggestions
-      await fetchSuggestions()
+      // Refresh suggestions and tasks
+      await Promise.all([
+        fetchSuggestions(),
+        fetchTasks()
+      ])
       
       // Update email state
       setEmail(prev => prev ? { ...prev, ai_analyzed: true, ai_analysis_at: new Date().toISOString() } : null)
@@ -252,8 +293,11 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
         throw new Error('Failed to update suggestion')
       }
       
-      // Refresh suggestions
-      await fetchSuggestions()
+      // Refresh suggestions and tasks
+      await Promise.all([
+        fetchSuggestions(),
+        fetchTasks()
+      ])
       
     } catch (err) {
       console.error('Error processing suggestion:', err)
@@ -434,15 +478,21 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
                       {email.content_html ? (
                         <div 
                           dangerouslySetInnerHTML={{ __html: email.content_html }}
-                          className="email-content"
+                          className="email-content [&>*]:max-w-none [&_img]:max-w-full [&_img]:h-auto [&_table]:w-full [&_table]:border-collapse"
                         />
                       ) : email.content_text ? (
-                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                        <div className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-gray-800">
                           {email.content_text}
-                        </pre>
+                        </div>
+                      ) : email.snippet ? (
+                        <div className="text-gray-600 italic bg-gray-50 p-4 rounded border-l-4 border-gray-300">
+                          <p className="text-sm text-gray-500 mb-2">Email preview:</p>
+                          {email.snippet}
+                        </div>
                       ) : (
-                        <div className="text-muted-foreground italic">
-                          {email.snippet || 'No content available'}
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>No email content available</p>
                         </div>
                       )}
                     </div>
@@ -500,8 +550,71 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
               </div>
 
               <ScrollArea className="flex-1">
-                <div className="p-4 space-y-4">
-                  {suggestions.length === 0 ? (
+                <div className="p-4 space-y-6">
+                  {/* Existing Tasks Section */}
+                  {tasks.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-green-700 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Generated Tasks ({tasks.length})
+                      </h4>
+                      
+                      {tasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className="border rounded-lg p-3 bg-green-50 border-green-200 space-y-2"
+                        >
+                          <div className="flex items-start gap-2">
+                            <CheckCircle className="h-4 w-4 mt-0.5 text-green-600 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge className="text-xs bg-green-100 text-green-800 border-green-200">
+                                  TASK
+                                </Badge>
+                                <Badge className={cn("text-xs", getPriorityColor(task.priority))}>
+                                  {task.priority?.toUpperCase() || 'MEDIUM'}
+                                </Badge>
+                                {task.ai_generated && (
+                                  <Badge variant="outline" className="text-xs">
+                                    <Sparkles className="h-2 w-2 mr-1" />
+                                    AI
+                                  </Badge>
+                                )}
+                              </div>
+                              <h5 className="font-medium text-sm mb-1">{task.title}</h5>
+                              {task.description && (
+                                <p className="text-xs text-muted-foreground mb-2">{task.description}</p>
+                              )}
+                              
+                              {/* Task Details */}
+                              <div className="space-y-1 text-xs text-muted-foreground">
+                                {task.estimated_duration && (
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    <span>{task.estimated_duration} minutes</span>
+                                  </div>
+                                )}
+                                {task.due_date && (
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    <span>Due: {formatDate(task.due_date)}</span>
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
+                                    Status: {task.status || 'pending'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Pending Suggestions Section */}
+                  {suggestions.length === 0 && tasks.length === 0 ? (
                     <div className="text-center py-8">
                       <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-sm text-muted-foreground mb-4">
@@ -511,10 +624,11 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
                         }
                       </p>
                     </div>
-                  ) : (
+                  ) : suggestions.length > 0 ? (
                     <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        Suggested Actions ({suggestions.length})
+                      <h4 className="text-sm font-medium text-orange-700 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        Pending Suggestions ({suggestions.length})
                       </h4>
                       
                       {suggestions.map((suggestion) => {
@@ -632,7 +746,7 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
                         )
                       })}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </ScrollArea>
             </div>

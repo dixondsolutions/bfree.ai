@@ -310,7 +310,7 @@ export async function processEmailWithAI(emailData: {
 /**
  * Get AI suggestions for a user
  */
-export async function getUserAISuggestions(status?: string) {
+export async function getUserAISuggestions(status?: string, email_id?: string) {
   const user = await getCurrentUser()
   if (!user) {
     return []
@@ -326,6 +326,10 @@ export async function getUserAISuggestions(status?: string) {
 
   if (status) {
     query = query.eq('status', status)
+  }
+
+  if (email_id) {
+    query = query.eq('source_email_id', email_id)
   }
 
   const { data, error } = await query
