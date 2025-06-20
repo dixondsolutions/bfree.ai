@@ -500,8 +500,20 @@ export const ModernEmailInterface: React.FC = () => {
         throw new Error(data.error || 'Failed to fetch emails');
       }
 
-      // The API already returns transformed email data, no need to transform again
-      const emails = data.emails || [];
+      // Debug: Log the API response
+      console.log('API Response:', data);
+      console.log('Raw emails from API:', data.emails?.slice(0, 2)); // Log first 2 emails
+      
+      // Check if emails are already transformed (have 'from' object structure)
+      const isAlreadyTransformed = data.emails?.[0]?.from && typeof data.emails[0].from === 'object';
+      console.log('Data already transformed?', isAlreadyTransformed);
+      
+      const emails = isAlreadyTransformed 
+        ? data.emails 
+        : data.emails?.map(transformEmailData) || [];
+      
+      // Debug: Log final emails
+      console.log('Final emails for UI:', emails?.slice(0, 2)); // Log first 2 final
 
       if (reset) {
         setEmails(emails);
@@ -554,15 +566,11 @@ export const ModernEmailInterface: React.FC = () => {
 
   // Handle email click
   const handleEmailClick = (emailId: string) => {
+    console.log('Email clicked with ID:', emailId);
+    console.log('Email ID type:', typeof emailId);
     setSelectedEmailId(emailId);
+    setIsEmailModalOpen(true);
   };
-
-  // Open modal when emailId is set
-  useEffect(() => {
-    if (selectedEmailId) {
-      setIsEmailModalOpen(true);
-    }
-  }, [selectedEmailId]);
 
   // Handle modal close
   const handleModalClose = () => {
