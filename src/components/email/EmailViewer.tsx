@@ -102,11 +102,6 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
     }
   }, [emailId, isOpen])
 
-  // Don't render anything if emailId is null
-  if (!emailId) {
-    return null
-  }
-
   const markAsRead = async () => {
     if (!emailId) return
     
@@ -358,7 +353,18 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-7xl w-full max-h-[90vh] p-0 gap-0">
-        {loading ? (
+        {!emailId ? (
+          <>
+            <DialogTitle className="sr-only">No Email Selected</DialogTitle>
+            <DialogDescription className="sr-only">Please select an email to view</DialogDescription>
+            <div className="flex items-center justify-center h-96">
+              <div className="text-center">
+                <Mail className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-sm text-muted-foreground">No email selected</p>
+              </div>
+            </div>
+          </>
+        ) : loading ? (
           <>
             <DialogTitle className="sr-only">Loading Email</DialogTitle>
             <DialogDescription className="sr-only">Please wait while the email is being loaded</DialogDescription>
