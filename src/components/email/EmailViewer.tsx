@@ -82,29 +82,34 @@ interface EmailViewerProps {
   onClose: () => void
 }
 
-export default function EmailViewer({ emailId, isOpen, onClose }: EmailViewerProps) {
+export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClose }) => {
   const [email, setEmail] = useState<DatabaseEmail | null>(null)
-  const [suggestions, setSuggestions] = useState<AISuggestion[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [analyzing, setAnalyzing] = useState(false)
+  const [suggestions, setSuggestions] = useState<AISuggestion[]>([])
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [processingTaskId, setProcessingTaskId] = useState<string | null>(null)
+
+  // Don't render anything if emailId is null
+  if (!emailId) {
+    return null
+  }
 
   // Fetch email data
   useEffect(() => {
     if (emailId && isOpen) {
       fetchEmail()
-      fetchSuggestions()
     }
   }, [emailId, isOpen])
 
   const fetchEmail = async () => {
     if (!emailId) return
     
-    setLoading(true)
-    setError(null)
-    
     try {
+      setLoading(true)
+      setError(null)
+      
       const response = await fetch(`/api/emails/${emailId}`)
       if (!response.ok) {
         throw new Error('Failed to fetch email')
@@ -112,9 +117,13 @@ export default function EmailViewer({ emailId, isOpen, onClose }: EmailViewerPro
       
       const data = await response.json()
       setEmail(data.email)
+      
+      // Also fetch existing suggestions
+      await fetchSuggestions()
+      
     } catch (err) {
       console.error('Error fetching email:', err)
-      setError('Failed to load email. Please try again.')
+      setError(err instanceof Error ? err.message : 'Failed to load email')
     } finally {
       setLoading(false)
     }
@@ -124,10 +133,11 @@ export default function EmailViewer({ emailId, isOpen, onClose }: EmailViewerPro
     if (!emailId) return
     
     try {
-      const response = await fetch(`/api/ai/suggestions?email_record_id=${emailId}`)
+      const response = await fetch(`/api/ai/suggestions?email_id=${emailId}`)
       if (response.ok) {
         const data = await response.json()
         setSuggestions(data.suggestions || [])
+        setShowSuggestions(data.suggestions?.length > 0)
       }
     } catch (err) {
       console.error('Error fetching suggestions:', err)
@@ -137,7 +147,7 @@ export default function EmailViewer({ emailId, isOpen, onClose }: EmailViewerPro
   const handleAIAnalysis = async () => {
     if (!email) return
     
-    setAnalyzing(true)
+    setIsAnalyzing(true)
     
     try {
       // First, queue the email for processing
@@ -191,7 +201,7 @@ export default function EmailViewer({ emailId, isOpen, onClose }: EmailViewerPro
       console.error('Error analyzing email:', err)
       setError('Failed to analyze email. Please try again.')
     } finally {
-      setAnalyzing(false)
+      setIsAnalyzing(false)
     }
   }
 
@@ -375,10 +385,10 @@ export default function EmailViewer({ emailId, isOpen, onClose }: EmailViewerPro
                   <div className="flex items-center gap-2">
                     <Button
                       onClick={handleAIAnalysis}
-                      disabled={analyzing}
+                      disabled={isAnalyzing}
                       className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                     >
-                      {analyzing ? (
+                      {isAnalyzing ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           Analyzing...
