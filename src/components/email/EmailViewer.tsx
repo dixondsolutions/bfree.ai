@@ -401,7 +401,14 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">
-                          {email.from_name ? `${email.from_name} <${email.from_address}>` : email.from_address}
+                          {email.from_name && email.from_name !== 'Unknown Sender' ? (
+                            <>
+                              <span className="font-medium">{email.from_name}</span>
+                              <span className="text-gray-500"> &lt;{email.from_address}&gt;</span>
+                            </>
+                          ) : (
+                            <span className="font-medium">{email.from_address}</span>
+                          )}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -475,24 +482,37 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
 
                     {/* Email Body */}
                     <div className="prose prose-sm max-w-none">
-                      {email.content_html ? (
+                      {email.content_html && email.content_html.trim() ? (
                         <div 
-                          dangerouslySetInnerHTML={{ __html: email.content_html }}
-                          className="email-content [&>*]:max-w-none [&_img]:max-w-full [&_img]:h-auto [&_table]:w-full [&_table]:border-collapse"
+                          dangerouslySetInnerHTML={{ 
+                            __html: email.content_html
+                              .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts for security
+                              .replace(/<link[^>]*>/gi, '') // Remove external stylesheets
+                              .replace(/on\w+="[^"]*"/gi, '') // Remove inline event handlers
+                          }}
+                          className="email-content [&>*]:max-w-none [&_img]:max-w-full [&_img]:h-auto [&_table]:w-full [&_table]:border-collapse [&_a]:text-blue-600 [&_a]:underline [&_p]:mb-3 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic"
                         />
-                      ) : email.content_text ? (
-                        <div className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-gray-800">
+                      ) : email.content_text && email.content_text.trim() ? (
+                        <div className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-gray-800 bg-white p-4 rounded border">
                           {email.content_text}
                         </div>
-                      ) : email.snippet ? (
-                        <div className="text-gray-600 italic bg-gray-50 p-4 rounded border-l-4 border-gray-300">
-                          <p className="text-sm text-gray-500 mb-2">Email preview:</p>
-                          {email.snippet}
+                      ) : email.snippet && email.snippet.trim() ? (
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Mail className="h-5 w-5 text-blue-600" />
+                            <p className="text-sm font-medium text-blue-800">Email Preview</p>
+                          </div>
+                          <p className="text-gray-700 italic leading-relaxed">{email.snippet}</p>
+                          <p className="text-xs text-blue-600 mt-3">Full content may be available after email sync</p>
                         </div>
                       ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                          <p>No email content available</p>
+                        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                          <Mail className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">No Content Available</h3>
+                          <p className="text-gray-600 mb-4">This email doesn't have readable content.</p>
+                          <div className="text-xs text-gray-500 bg-white px-3 py-2 rounded inline-block">
+                            Email ID: {email.id}
+                          </div>
                         </div>
                       )}
                     </div>

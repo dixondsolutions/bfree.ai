@@ -78,18 +78,22 @@ const EmailItem: React.FC<EmailProps & { onClick: () => void }> = ({
     <div 
       onClick={onClick}
       className={cn(
-        "group relative flex items-start space-x-4 p-4 border-b hover:bg-gray-50 transition-all cursor-pointer",
-        !isRead && "bg-blue-50/30 border-l-4 border-l-blue-500"
+        "group relative flex items-start space-x-4 p-4 border-b hover:bg-blue-50/20 hover:shadow-sm transition-all cursor-pointer border-gray-100",
+        !isRead && "bg-blue-50/40 border-l-4 border-l-blue-500 shadow-sm",
+        isRead && "hover:bg-gray-50/80"
       )}
     >
       {/* Avatar */}
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 relative">
         {from.avatar ? (
-          <img src={from.avatar} alt={from.name} className="h-10 w-10 rounded-full" />
+          <img src={from.avatar} alt={from.name} className="h-10 w-10 rounded-full ring-2 ring-white shadow-sm" />
         ) : (
-          <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-            <User className="h-5 w-5 text-gray-600" />
+          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center ring-2 ring-white shadow-sm">
+            <User className="h-5 w-5 text-blue-600" />
           </div>
+        )}
+        {!isRead && (
+          <div className="absolute -top-1 -right-1 h-3 w-3 bg-blue-500 rounded-full border-2 border-white"></div>
         )}
       </div>
 
@@ -114,8 +118,8 @@ const EmailItem: React.FC<EmailProps & { onClick: () => void }> = ({
             )}
           </div>
           <div className="flex items-center space-x-2 flex-shrink-0">
-            <span className="text-xs text-gray-500">{time}</span>
-            <ChevronRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <span className="text-xs text-gray-500 font-medium">{time}</span>
+            <ChevronRight className="h-4 w-4 text-blue-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200" />
           </div>
         </div>
 
@@ -135,7 +139,7 @@ const EmailItem: React.FC<EmailProps & { onClick: () => void }> = ({
         </div>
 
         {/* Preview */}
-        <p className="text-sm text-gray-500 truncate">{preview}</p>
+        <p className="text-sm text-gray-600 truncate leading-relaxed">{preview}</p>
 
         {/* AI Analysis */}
         {aiAnalysis && (
@@ -308,36 +312,71 @@ export const ModernEmailInterface: React.FC = () => {
 
   // Transform database email data to component format
   const transformEmailData = (rawEmail: any): EmailProps => {
-    // Better sender name extraction
-    let senderName = rawEmail.from_name;
-    if (!senderName && rawEmail.from_address) {
-      // Extract name from email address if no name provided
+    // Enhanced sender name extraction with better fallbacks
+    let senderName = '';
+    
+    // Try from_name first
+    if (rawEmail.from_name && rawEmail.from_name.trim() && rawEmail.from_name !== 'Unknown') {
+      senderName = rawEmail.from_name.trim();
+    }
+    // Try to extract from email address
+    else if (rawEmail.from_address) {
       const emailParts = rawEmail.from_address.split('@');
-      if (emailParts[0]) {
+      if (emailParts[0] && emailParts[0].length > 0) {
         // Convert email username to readable name (e.g., "john.doe" -> "John Doe")
-        senderName = emailParts[0]
-          .split(/[._-]/)
-          .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-          .join(' ');
+        const username = emailParts[0];
+        if (username.includes('.') || username.includes('_') || username.includes('-')) {
+          senderName = username
+            .split(/[._-]/)
+            .filter(part => part.length > 0)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+            .join(' ');
+        } else {
+          // Single word email username
+          senderName = username.charAt(0).toUpperCase() + username.slice(1).toLowerCase();
+        }
+      } else {
+        // Use domain if username is empty
+        const domain = emailParts[1]?.split('.')[0];
+        if (domain) {
+          senderName = domain.charAt(0).toUpperCase() + domain.slice(1);
+        }
       }
     }
     
-    // Better preview extraction
-    let preview = rawEmail.snippet;
-    if (!preview && rawEmail.content_text) {
-      // Extract meaningful preview from content
+    // Enhanced preview extraction with better text cleaning
+    let preview = '';
+    
+    // Try snippet first
+    if (rawEmail.snippet && rawEmail.snippet.trim()) {
+      preview = rawEmail.snippet.trim();
+    }
+    // Extract from plain text content
+    else if (rawEmail.content_text && rawEmail.content_text.trim()) {
       preview = rawEmail.content_text
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .replace(/\r?\n/g, ' ') // Replace line breaks
+        .trim()
+        .substring(0, 150);
+    }
+    // Extract from HTML content
+    else if (rawEmail.content_html && rawEmail.content_html.trim()) {
+      preview = rawEmail.content_html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Remove styles
+        .replace(/<[^>]*>/g, ' ') // Strip HTML tags
+        .replace(/&[^;]+;/g, ' ') // Remove HTML entities
         .replace(/\s+/g, ' ') // Normalize whitespace
         .trim()
         .substring(0, 150);
     }
-    if (!preview && rawEmail.content_html) {
-      // Extract text from HTML if available
-      preview = rawEmail.content_html
-        .replace(/<[^>]*>/g, ' ') // Strip HTML tags
-        .replace(/\s+/g, ' ') // Normalize whitespace
-        .trim()
-        .substring(0, 150);
+    
+    // Clean up preview
+    if (preview) {
+      preview = preview.replace(/^\W+/, '').replace(/\W+$/, ''); // Remove leading/trailing non-word chars
+      if (preview.length > 100) {
+        preview = preview.substring(0, 100) + '...';
+      }
     }
 
     return {
@@ -347,9 +386,9 @@ export const ModernEmailInterface: React.FC = () => {
         email: rawEmail.from_address || '',
         avatar: undefined
       },
-      subject: rawEmail.subject || '(No Subject)',
-      preview: preview || 'No preview available',
-      time: formatEmailTime(rawEmail.received_at || rawEmail.created_at),
+      subject: rawEmail.subject && rawEmail.subject.trim() ? rawEmail.subject.trim() : '(No Subject)',
+      preview: preview || 'Click to view email content',
+      time: formatEmailTime(rawEmail.received_at || rawEmail.sent_at || rawEmail.created_at),
       isRead: !rawEmail.is_unread,
       isStarred: rawEmail.is_starred || false,
       hasAttachment: (rawEmail.attachment_count || 0) > 0,
@@ -371,10 +410,17 @@ export const ModernEmailInterface: React.FC = () => {
   };
 
   const formatEmailTime = (dateString: string): string => {
-    if (!dateString) return '';
+    if (!dateString) return 'No date';
     
     try {
       const date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateString);
+        return 'Invalid date';
+      }
+      
       const now = new Date();
       const diffInMs = now.getTime() - date.getTime();
       const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
@@ -423,8 +469,8 @@ export const ModernEmailInterface: React.FC = () => {
         year: 'numeric'
       });
     } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Unknown';
+      console.error('Error formatting date:', dateString, error);
+      return 'Date error';
     }
   };
 
@@ -580,28 +626,42 @@ export const ModernEmailInterface: React.FC = () => {
         ) : emails.length === 0 ? (
           // Empty state
           <div className="flex items-center justify-center h-96">
-            <div className="text-center max-w-md px-4 mx-auto">
-              <Mail className="h-16 w-16 mx-auto mb-6 text-gray-300" />
-              <h3 className="text-xl font-semibold mb-3 text-gray-900">
-                {activeFilter === 'all' ? 'No Emails Found' : 
-                 activeFilter === 'ai-priority' ? 'No High Priority Emails' :
-                 'No Emails Need Scheduling'}
-              </h3>
-              <p className="text-gray-600 mb-6 leading-relaxed">
-                {activeFilter === 'all' 
-                  ? 'Connect your Gmail account to start managing your emails with AI assistance. Once connected, your emails will be automatically analyzed and organized.' 
-                  : 'Try adjusting your filters or check back later. New emails are processed automatically once your account is connected.'}
-              </p>
-              <div className="space-y-3">
-                <Link 
-                  href="/dashboard/emails?tab=sync"
-                  className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors shadow-sm"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Connect Gmail Account
-                </Link>
-                <div className="text-xs text-gray-500">
-                  Your emails will be encrypted and processed securely
+            <div className="text-center max-w-lg px-4 mx-auto">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-8 rounded-2xl border border-blue-200 shadow-sm">
+                <Mail className="h-20 w-20 mx-auto mb-6 text-blue-400" />
+                <h3 className="text-2xl font-bold mb-4 text-gray-900">
+                  {activeFilter === 'all' ? 'Ready to Sync Your Emails' : 
+                   activeFilter === 'ai-priority' ? 'No High Priority Emails Found' :
+                   'No Scheduling-Required Emails'}
+                </h3>
+                <p className="text-gray-700 mb-6 leading-relaxed text-lg">
+                  {activeFilter === 'all' 
+                    ? 'Connect your Gmail account to start managing your emails with AI assistance. Your emails will be automatically analyzed, organized, and turned into actionable tasks.' 
+                    : searchQuery 
+                      ? `No emails match your search "${searchQuery}". Try adjusting your search terms or clearing filters.`
+                      : 'Try switching to "All Mail" or adjusting your filters. New emails are processed automatically once your account is connected.'}
+                </p>
+                <div className="space-y-4">
+                  {activeFilter === 'all' ? (
+                    <Link 
+                      href="/dashboard/emails?tab=sync"
+                      className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                    >
+                      <Plus className="h-5 w-5 mr-2" />
+                      Connect Gmail Account
+                    </Link>
+                  ) : (
+                    <button 
+                      onClick={() => setActiveFilter('all')}
+                      className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      View All Emails
+                    </button>
+                  )}
+                  <div className="text-sm text-gray-600 bg-white/60 px-4 py-2 rounded-lg">
+                    <strong>🔒 Secure:</strong> Your emails are encrypted and processed with enterprise-grade security
+                  </div>
                 </div>
               </div>
             </div>
