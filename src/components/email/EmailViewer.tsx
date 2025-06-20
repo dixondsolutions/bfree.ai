@@ -84,6 +84,7 @@ interface EmailViewerProps {
 }
 
 export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClose }) => {
+  console.log('EmailViewer props:', { emailId, isOpen });
   const [email, setEmail] = useState<DatabaseEmail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

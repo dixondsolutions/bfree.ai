@@ -215,45 +215,96 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          email_id: string
+          gmail_id: string
           thread_id: string | null
+          message_id: string | null
           subject: string
           from_address: string
+          from_name: string | null
           to_address: string
-          body_text: string | null
-          body_html: string | null
+          cc_addresses: string[] | null
+          bcc_addresses: string[] | null
+          content_text: string | null
+          content_html: string | null
+          snippet: string | null
+          labels: string[] | null
           received_at: string
+          sent_at: string | null
+          processed_at: string | null
           ai_analyzed: boolean
+          ai_analysis_at: string | null
+          has_attachments: boolean
+          attachment_count: number
+          attachment_info: Json | null
+          has_scheduling_content: boolean
+          scheduling_keywords: string[] | null
+          importance_level: string
+          is_unread: boolean
+          is_starred: boolean
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          email_id: string
+          gmail_id: string
           thread_id?: string | null
+          message_id?: string | null
           subject: string
           from_address: string
+          from_name?: string | null
           to_address: string
-          body_text?: string | null
-          body_html?: string | null
+          cc_addresses?: string[] | null
+          bcc_addresses?: string[] | null
+          content_text?: string | null
+          content_html?: string | null
+          snippet?: string | null
+          labels?: string[] | null
           received_at: string
+          sent_at?: string | null
+          processed_at?: string | null
           ai_analyzed?: boolean
+          ai_analysis_at?: string | null
+          has_attachments?: boolean
+          attachment_count?: number
+          attachment_info?: Json | null
+          has_scheduling_content?: boolean
+          scheduling_keywords?: string[] | null
+          importance_level?: string
+          is_unread?: boolean
+          is_starred?: boolean
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          email_id?: string
+          gmail_id?: string
           thread_id?: string | null
+          message_id?: string | null
           subject?: string
           from_address?: string
+          from_name?: string | null
           to_address?: string
-          body_text?: string | null
-          body_html?: string | null
+          cc_addresses?: string[] | null
+          bcc_addresses?: string[] | null
+          content_text?: string | null
+          content_html?: string | null
+          snippet?: string | null
+          labels?: string[] | null
           received_at?: string
+          sent_at?: string | null
+          processed_at?: string | null
           ai_analyzed?: boolean
+          ai_analysis_at?: string | null
+          has_attachments?: boolean
+          attachment_count?: number
+          attachment_info?: Json | null
+          has_scheduling_content?: boolean
+          scheduling_keywords?: string[] | null
+          importance_level?: string
+          is_unread?: boolean
+          is_starred?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -798,6 +849,61 @@ export interface Database {
           }
         ]
       }
+      email_attachments: {
+        Row: {
+          id: string
+          email_id: string
+          user_id: string
+          filename: string
+          mime_type: string | null
+          size_bytes: number | null
+          attachment_id: string | null
+          is_downloaded: boolean
+          download_url: string | null
+          local_path: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          email_id: string
+          user_id: string
+          filename: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          attachment_id?: string | null
+          is_downloaded?: boolean
+          download_url?: string | null
+          local_path?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          email_id?: string
+          user_id?: string
+          filename?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          attachment_id?: string | null
+          is_downloaded?: boolean
+          download_url?: string | null
+          local_path?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_attachments_email_id_fkey"
+            columns: ["email_id"]
+            referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_attachments_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       automation_logs: {
         Row: {
           id: string
@@ -864,6 +970,22 @@ export interface Database {
       }
     }
     Views: {
+      email_statistics: {
+        Row: {
+          user_id: string
+          total_emails: number
+          analyzed_emails: number
+          scheduling_emails: number
+          unread_emails: number
+          high_importance_emails: number
+          emails_with_attachments: number
+          emails_last_7_days: number
+          analyzed_last_7_days: number
+          processing_efficiency: number
+          latest_email_time: string | null
+          latest_analysis_time: string | null
+        }
+      }
       task_overview: {
         Row: {
           id: string
@@ -926,6 +1048,30 @@ export interface Database {
       }
     }
     Functions: {
+      get_emails_with_counts: {
+        Args: {
+          p_user_id: string
+          p_limit?: number
+          p_offset?: number
+          p_unread_only?: boolean
+          p_scheduling_only?: boolean
+        }
+        Returns: {
+          email_id: string
+          subject: string
+          from_address: string
+          from_name: string | null
+          received_at: string
+          snippet: string | null
+          is_unread: boolean
+          importance_level: string
+          has_scheduling_content: boolean
+          ai_analyzed: boolean
+          task_count: number
+          suggestion_count: number
+          attachment_count: number
+        }[]
+      }
       calculate_task_actual_duration: {
         Args: {
           p_task_id: string
@@ -980,6 +1126,90 @@ export interface Database {
         Args: {}
         Returns: number
       }
+      get_email_task_calendar_data: {
+        Args: {
+          p_user_id: string
+          p_start_date: string
+          p_end_date: string
+        }
+        Returns: {
+          email_id: string
+          gmail_id: string
+          subject: string
+          from_address: string
+          from_name: string | null
+          received_at: string
+          importance_level: string
+          processing_status: string
+          task_id: string | null
+          task_title: string | null
+          task_status: string | null
+          task_priority: string | null
+          task_category: string | null
+          scheduled_start: string | null
+          scheduled_end: string | null
+          due_date: string | null
+          estimated_duration: number | null
+          ai_generated: boolean | null
+          confidence_score: number | null
+          task_created_at: string | null
+          suggestion_id: string | null
+          suggestion_status: string | null
+          suggested_time: string | null
+          suggestion_type: string | null
+          suggestion_confidence: number | null
+        }[]
+      }
+      get_active_email_account_tokens: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: {
+          account_id: string
+          email: string
+          provider: string
+          access_token: string
+          refresh_token: string | null
+          expires_at: string | null
+          last_sync: string | null
+        }[]
+      }
+      get_processing_queue_stats: {
+        Args: {
+          p_user_id?: string | null
+        }
+        Returns: {
+          user_id: string
+          pending_count: number
+          processing_count: number
+          failed_count: number
+          completed_count: number
+          total_count: number
+          avg_processing_time_minutes: number
+          oldest_pending_age_hours: number
+          error_rate: number
+        }[]
+      }
+      search_emails_advanced: {
+        Args: {
+          p_user_id: string
+          p_search_query: string
+          p_search_fields?: string[]
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: {
+          email_id: string
+          subject: string
+          from_address: string
+          from_name: string | null
+          received_at: string
+          snippet: string | null
+          importance_level: string
+          match_score: number
+          match_field: string
+        }[]
+      }
     }
     Enums: {
       task_status: 'pending' | 'pending_schedule' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'blocked' | 'deferred'
@@ -1014,9 +1244,11 @@ export type TaskAttachment = Tables<'task_attachments'>
 export type TaskComment = Tables<'task_comments'>
 export type TaskTimeEntry = Tables<'task_time_entries'>
 export type AutomationLog = Tables<'automation_logs'>
+export type EmailAttachment = Tables<'email_attachments'>
 
 // Type aliases for easier usage
 export type CalendarData = Calendar
+export type EmailStatistics = Database['public']['Views']['email_statistics']['Row']
 export type TaskOverview = Database['public']['Views']['task_overview']['Row']
 export type TaskStatus = Enums<'task_status'>
 export type TaskPriority = Enums<'task_priority'>

@@ -1,6 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { processQueuedEmails, getAIProcessingStats } from '@/lib/openai/processor'
+import {
+  successResponse,
+  unauthorizedResponse,
+  handleSupabaseError,
+  internalErrorResponse,
+  withAsyncTiming
+} from '@/lib/api/response-utils'
 
 /**
  * Initialize default automation settings for a user
@@ -158,112 +165,145 @@ async function createTasksFromSuggestions(userId: string) {
 }
 
 export async function GET(request: NextRequest) {
-  try {
+  const { result, processingTime } = await withAsyncTiming(async () => {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return unauthorizedResponse()
     }
 
-    // Initialize automation settings if they don't exist
-    await initializeAutomationSettings(user.id)
+    try {
+      // Initialize automation settings if they don't exist
+      await initializeAutomationSettings(user.id)
 
-    // Check if there are any pending items in the processing queue
-    const { data: pendingItems, error: queueError } = await supabase
-      .from('processing_queue')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('status', 'pending')
-      .limit(1)
+      // Check if there are any pending items in the processing queue
+      const { data: pendingItems, error: queueError } = await supabase
+        .from('processing_queue')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .limit(1)
 
-    if (queueError) {
-      return NextResponse.json({ error: 'Failed to check processing queue' }, { status: 500 })
-    }
+      if (queueError) {
+        return handleSupabaseError(queueError, 'Processing queue check')
+      }
 
-    // Get processing stats
-    const stats = await getAIProcessingStats()
+      // Get processing stats
+      const stats = await getAIProcessingStats()
 
-    return NextResponse.json({
-      success: true,
-      status: pendingItems && pendingItems.length > 0 ? 'processing' : 'idle',
-      stats,
-      message: pendingItems && pendingItems.length > 0 
+      const status = pendingItems && pendingItems.length > 0 ? 'processing' : 'idle'
+      const message = status === 'processing' 
         ? 'Processing queue has pending items'
         : 'No pending items to process'
-    })
 
-  } catch (error) {
-    console.error('Error in GET /api/ai/process:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
+      return successResponse(
+        {
+          status,
+          stats: stats || {
+            totalSuggestions: 0,
+            pendingSuggestions: 0,
+            approvedSuggestions: 0,
+            queuePending: 0,
+            queueCompleted: 0,
+            queueFailed: 0
+          }
+        },
+        message,
+        undefined,
+        200,
+        processingTime
+      )
+
+    } catch (error) {
+      console.error('Error in GET /api/ai/process:', error)
+      return internalErrorResponse(
+        'Failed to get AI processing status',
+        error instanceof Error ? error.message : 'Unknown error'
+      )
+    }
+  })
+
+  return result
 }
 
 export async function POST(request: NextRequest) {
-  try {
+  const { result, processingTime } = await withAsyncTiming(async () => {
     const supabase = await createClient()
     const { data: { user }, error } = await supabase.auth.getUser()
 
     if (error || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return unauthorizedResponse()
     }
 
-    // Get user's automation settings for consistent confidence threshold
-    const { getUserAutomationSettings } = await import('@/lib/automation/settings')
-    const automationSettings = await getUserAutomationSettings()
+    try {
+      // Get user's automation settings for consistent confidence threshold
+      const { getUserAutomationSettings } = await import('@/lib/automation/settings')
+      const automationSettings = await getUserAutomationSettings()
 
-    // Initialize automation settings if needed
-    await initializeAutomationSettings(user.id)
+      // Initialize automation settings if needed
+      await initializeAutomationSettings(user.id)
 
-    // Process emails with AI
-    const result = await processQueuedEmails()
+      // Process emails with AI
+      const result = await processQueuedEmails()
 
-    // Get suggestions that meet the user's confidence threshold for auto-creation
-    const { data: highConfidenceSuggestions } = await supabase
-      .from('ai_suggestions')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('status', 'pending')
-      .gte('confidence_score', automationSettings.confidenceThreshold || 0.4) // Use user's threshold
+      // Get suggestions that meet the user's confidence threshold for auto-creation
+      const { data: highConfidenceSuggestions, error: suggestionError } = await supabase
+        .from('ai_suggestions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .gte('confidence_score', automationSettings.confidenceThreshold || 0.4)
 
-    const tasksAutoCreated = highConfidenceSuggestions?.length || 0
-
-    // Get current stats
-    const stats = await getAIProcessingStats()
-
-    return NextResponse.json({
-      success: true,
-      message: `Processed ${result.processed} emails, created ${result.suggestions} suggestions, auto-created ${tasksAutoCreated} tasks`,
-      details: {
-        emailsQueued: result.processed,
-        emailsProcessed: result.processed,
-        suggestionsCreated: result.suggestions,
-        tasksAutoCreated,
-        errors: result.errors
-      },
-      stats: stats || {
-        totalSuggestions: 0,
-        pendingSuggestions: 0,
-        approvedSuggestions: 0,
-        queuePending: 0,
-        queueCompleted: 0,
-        queueFailed: 0
-      },
-      automationSettings: {
-        enabled: automationSettings.enabled,
-        categories: automationSettings.categories,
-        keywordFilters: automationSettings.keywordFilters,
-        autoCreateTasks: automationSettings.autoCreateTasks,
-        dailyProcessing: automationSettings.dailyProcessing,
-        confidenceThreshold: automationSettings.confidenceThreshold
+      if (suggestionError) {
+        console.warn('Failed to fetch high confidence suggestions:', suggestionError)
       }
-    })
 
-  } catch (error) {
-    console.error('Error processing emails:', error)
-    return NextResponse.json({ 
-      error: 'Failed to process emails',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
-  }
+      const tasksAutoCreated = highConfidenceSuggestions?.length || 0
+
+      // Get current stats
+      const stats = await getAIProcessingStats()
+
+      return successResponse(
+        {
+          processing_summary: {
+            emails_processed: result.processed,
+            suggestions_created: result.suggestions,
+            tasks_auto_created: tasksAutoCreated,
+            errors: result.errors,
+            error_details: result.errorDetails || []
+          },
+          stats: stats || {
+            totalSuggestions: 0,
+            pendingSuggestions: 0,
+            approvedSuggestions: 0,
+            queuePending: 0,
+            queueCompleted: 0,
+            queueFailed: 0
+          },
+          automation_settings: {
+            enabled: automationSettings.enabled,
+            categories: automationSettings.categories,
+            keyword_filters: automationSettings.keywordFilters,
+            auto_create_tasks: automationSettings.autoCreateTasks,
+            daily_processing: automationSettings.dailyProcessing,
+            confidence_threshold: automationSettings.confidenceThreshold
+          }
+        },
+        `Processed ${result.processed} emails, created ${result.suggestions} suggestions, auto-created ${tasksAutoCreated} tasks`,
+        undefined,
+        200,
+        processingTime
+      )
+
+    } catch (error) {
+      console.error('Error processing emails:', error)
+      return internalErrorResponse(
+        'Failed to process emails',
+        error instanceof Error ? error.message : 'Unknown error'
+      )
+    }
+  })
+
+  return result
 }

@@ -1,71 +1,79 @@
 import { google } from 'googleapis'
 import { createClient } from '@/lib/supabase/server'
+import { GmailErrorHandler } from './error-handler'
+import { GmailQuotaManager } from './quota-manager'
 
 /**
  * Create an authenticated Gmail client using stored OAuth tokens
  */
 export async function createGmailClient(userEmailAccount?: any) {
-  if (!userEmailAccount) {
-    // Get the user's email account from the database
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      throw new Error('User not authenticated')
-    }
+  return await GmailErrorHandler.executeWithRetry(
+    async () => {
+      if (!userEmailAccount) {
+        // Get the user's email account from the database
+        const supabase = await createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (!user) {
+          throw new Error('User not authenticated')
+        }
 
-    const { data: emailAccounts, error } = await supabase
-      .from('email_accounts')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('provider', 'gmail')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
+        const { data: emailAccounts, error } = await supabase
+          .from('email_accounts')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('provider', 'gmail')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
 
-    if (error || !emailAccounts?.length) {
-      throw new Error('No Gmail account connected')
-    }
+        if (error || !emailAccounts?.length) {
+          throw new Error('No Gmail account connected')
+        }
 
-    userEmailAccount = emailAccounts[0]
-  }
+        userEmailAccount = emailAccounts[0]
+      }
 
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-  )
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      )
 
-  // Decrypt tokens before use
-  const { decrypt } = await import('@/lib/utils/encryption')
-  
-  oauth2Client.setCredentials({
-    access_token: decrypt(userEmailAccount.access_token),
-    refresh_token: userEmailAccount.refresh_token ? decrypt(userEmailAccount.refresh_token) : null,
-    expiry_date: userEmailAccount.expires_at ? new Date(userEmailAccount.expires_at).getTime() : undefined,
-  })
-
-  // Set up automatic token refresh
-  oauth2Client.on('tokens', async (tokens) => {
-    if (tokens.refresh_token) {
-      // Encrypt tokens before updating
-      const { encrypt } = await import('@/lib/utils/encryption')
+      // Decrypt tokens before use
+      const { decrypt } = await import('@/lib/utils/encryption')
       
-      // Update the stored tokens in the database
-      const supabase = await createClient()
-      await supabase
-        .from('email_accounts')
-        .update({
-          access_token: encrypt(tokens.access_token!),
-          refresh_token: encrypt(tokens.refresh_token),
-          expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userEmailAccount.id)
-    }
-  })
+      oauth2Client.setCredentials({
+        access_token: decrypt(userEmailAccount.access_token),
+        refresh_token: userEmailAccount.refresh_token ? decrypt(userEmailAccount.refresh_token) : null,
+        expiry_date: userEmailAccount.expires_at ? new Date(userEmailAccount.expires_at).getTime() : undefined,
+      })
 
-  return google.gmail({ version: 'v1', auth: oauth2Client })
+      // Set up automatic token refresh
+      oauth2Client.on('tokens', async (tokens) => {
+        if (tokens.refresh_token) {
+          // Encrypt tokens before updating
+          const { encrypt } = await import('@/lib/utils/encryption')
+          
+          // Update the stored tokens in the database
+          const supabase = await createClient()
+          await supabase
+            .from('email_accounts')
+            .update({
+              access_token: encrypt(tokens.access_token!),
+              refresh_token: encrypt(tokens.refresh_token),
+              expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', userEmailAccount.id)
+        }
+      })
+
+      return google.gmail({ version: 'v1', auth: oauth2Client })
+    },
+    'create_gmail_client',
+    { userId: userEmailAccount?.user_id }
+  )
 }
 
 /**
@@ -151,4 +159,98 @@ export function extractMessageContent(message: GmailMessage): {
   body = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 
   return { subject, from, to, body, date }
+}
+
+/**
+ * Quota-aware Gmail API operations
+ */
+export class QuotaAwareGmailClient {
+  private client: any
+  private userId: string
+
+  constructor(client: any, userId: string) {
+    this.client = client
+    this.userId = userId
+  }
+
+  async listMessages(options: any = {}) {
+    const quotaCheck = await GmailQuotaManager.checkQuota(this.userId, 'messages.list')
+    if (!quotaCheck.allowed) {
+      throw new Error(`Quota exceeded: ${quotaCheck.reason}`)
+    }
+
+    return await GmailErrorHandler.executeWithRetry(
+      () => this.client.users.messages.list({ userId: 'me', ...options }),
+      'list_messages',
+      { userId: this.userId }
+    )
+  }
+
+  async getMessage(messageId: string) {
+    const quotaCheck = await GmailQuotaManager.checkQuota(this.userId, 'messages.get')
+    if (!quotaCheck.allowed) {
+      throw new Error(`Quota exceeded: ${quotaCheck.reason}`)
+    }
+
+    return await GmailErrorHandler.executeWithRetry(
+      () => this.client.users.messages.get({ userId: 'me', id: messageId }),
+      'get_message',
+      { userId: this.userId, messageId }
+    )
+  }
+
+  async batchGetMessages(messageIds: string[], batchSize: number = 10) {
+    const optimalBatchSize = GmailQuotaManager.getOptimalBatchSize(this.userId, 'messages.get', batchSize)
+    const results = []
+
+    for (let i = 0; i < messageIds.length; i += optimalBatchSize) {
+      const batch = messageIds.slice(i, i + optimalBatchSize)
+      
+      const batchResult = await GmailQuotaManager.reserveQuotaForBatch(this.userId, [
+        { operation: 'messages.get', count: batch.length }
+      ])
+
+      if (!batchResult.allowed) {
+        if (batchResult.retryAfter) {
+          await new Promise(resolve => setTimeout(resolve, batchResult.retryAfter))
+          continue
+        }
+        throw new Error(`Batch quota exceeded: ${batchResult.reason}`)
+      }
+
+      try {
+        const batchResults = await Promise.all(
+          batch.map(id => this.getMessage(id))
+        )
+        results.push(...batchResults)
+      } catch (error) {
+        // Release quota for failed operations
+        GmailQuotaManager.releaseQuota(this.userId, 'messages.get', batch.length)
+        throw error
+      }
+    }
+
+    return results
+  }
+
+  async getUserProfile() {
+    const quotaCheck = await GmailQuotaManager.checkQuota(this.userId, 'users.getProfile')
+    if (!quotaCheck.allowed) {
+      throw new Error(`Quota exceeded: ${quotaCheck.reason}`)
+    }
+
+    return await GmailErrorHandler.executeWithRetry(
+      () => this.client.users.getProfile({ userId: 'me' }),
+      'get_user_profile',
+      { userId: this.userId }
+    )
+  }
+}
+
+/**
+ * Create a quota-aware Gmail client
+ */
+export async function createQuotaAwareGmailClient(userId: string, userEmailAccount?: any) {
+  const client = await createGmailClient(userEmailAccount)
+  return new QuotaAwareGmailClient(client, userId)
 }

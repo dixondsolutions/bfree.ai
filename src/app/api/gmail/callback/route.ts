@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
+import { GmailErrorHandler } from '@/lib/gmail/error-handler'
 
 // Robust base URL construction that handles all edge cases
 function getBaseUrl(request: NextRequest): string {
@@ -83,33 +84,39 @@ export async function GET(request: NextRequest) {
 
     // Exchange code for tokens with enhanced error handling
     console.log('Exchanging code for tokens...')
-    let tokens
-    try {
-      const tokenResponse = await oauth2Client.getToken(code)
-      tokens = tokenResponse.tokens
-      console.log('Token exchange successful, token types:', Object.keys(tokens))
-    } catch (tokenError: any) {
+    const tokens = await GmailErrorHandler.executeWithRetry(
+      async () => {
+        const tokenResponse = await oauth2Client.getToken(code)
+        console.log('Token exchange successful, token types:', Object.keys(tokenResponse.tokens))
+        return tokenResponse.tokens
+      },
+      'token_exchange',
+      { userId: user.id }
+    ).catch((tokenError: any) => {
       console.error('Token exchange failed:', {
         error: tokenError.message,
         code: tokenError.code,
         status: tokenError.status,
         details: tokenError.response?.data
       })
-      return NextResponse.redirect(`${baseUrl}/dashboard?error=token_exchange_failed`)
-    }
+      throw new Error('token_exchange_failed')
+    })
 
     oauth2Client.setCredentials(tokens)
 
     // Get user info to store email address
-    let userInfo
-    try {
-      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
-      const response = await oauth2.userinfo.get()
-      userInfo = response.data
-    } catch (userInfoError: any) {
+    const userInfo = await GmailErrorHandler.executeWithRetry(
+      async () => {
+        const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
+        const response = await oauth2.userinfo.get()
+        return response.data
+      },
+      'get_user_info',
+      { userId: user.id }
+    ).catch((userInfoError: any) => {
       console.error('Failed to get user info:', userInfoError.message)
-      return NextResponse.redirect(`${baseUrl}/dashboard?error=userinfo_failed`)
-    }
+      throw new Error('userinfo_failed')
+    })
 
     if (!userInfo.email) {
       console.error('No email address found in user info')
@@ -163,6 +170,14 @@ export async function GET(request: NextRequest) {
     
     // Use the same robust base URL function for error handling
     const baseUrl = getBaseUrl(request)
+    
+    // Handle specific error types
+    if (error.message === 'token_exchange_failed') {
+      return NextResponse.redirect(`${baseUrl}/dashboard?error=token_exchange_failed`)
+    } else if (error.message === 'userinfo_failed') {
+      return NextResponse.redirect(`${baseUrl}/dashboard?error=userinfo_failed`)
+    }
+    
     return NextResponse.redirect(`${baseUrl}/dashboard?error=callback_failed`)
   }
 }

@@ -181,14 +181,37 @@ export class EmailService {
     const limit = filters.limit || 50
     const offset = filters.offset || 0
 
-    // Use the database function for efficient querying
-    const { data: emails, error } = await supabase.rpc('get_emails_with_counts', {
-      p_user_id: userId,
-      p_limit: limit + 1, // Get one extra to check if there are more
-      p_offset: offset,
-      p_unread_only: filters.unread_only || false,
-      p_scheduling_only: filters.scheduling_only || false
-    })
+    // Try the advanced optimized function first
+    let emails, error
+    try {
+      const result = await supabase.rpc('get_emails_with_advanced_filtering', {
+        p_user_id: userId,
+        p_limit: limit + 1, // Get one extra to check if there are more
+        p_offset: offset,
+        p_unread_only: filters.unread_only || false,
+        p_scheduling_only: filters.scheduling_only || false,
+        p_importance_level: filters.importance_level || null,
+        p_has_attachments: filters.has_attachments || null,
+        p_from_address: filters.from_address || null,
+        p_search_query: filters.search_query || null,
+        p_date_from: filters.date_from?.toISOString() || null,
+        p_date_to: filters.date_to?.toISOString() || null
+      })
+      emails = result.data
+      error = result.error
+    } catch (advancedError) {
+      console.log('Advanced function not available, using basic function')
+      // Fallback to basic function
+      const result = await supabase.rpc('get_emails_with_counts', {
+        p_user_id: userId,
+        p_limit: limit + 1,
+        p_offset: offset,
+        p_unread_only: filters.unread_only || false,
+        p_scheduling_only: filters.scheduling_only || false
+      })
+      emails = result.data
+      error = result.error
+    }
 
     if (error) {
       throw new Error(`Failed to get emails: ${error.message}`)
@@ -197,45 +220,10 @@ export class EmailService {
     const hasMore = emails.length > limit
     const emailsToReturn = hasMore ? emails.slice(0, -1) : emails
 
-    // Apply additional filters if needed
-    let filteredEmails = emailsToReturn
-
-    if (filters.importance_level) {
-      filteredEmails = filteredEmails.filter(email => 
-        email.importance_level === filters.importance_level
-      )
-    }
-
-    if (filters.date_from) {
-      filteredEmails = filteredEmails.filter(email => 
-        new Date(email.received_at) >= filters.date_from!
-      )
-    }
-
-    if (filters.date_to) {
-      filteredEmails = filteredEmails.filter(email => 
-        new Date(email.received_at) <= filters.date_to!
-      )
-    }
-
-    if (filters.from_address) {
-      filteredEmails = filteredEmails.filter(email => 
-        email.from_address.toLowerCase().includes(filters.from_address!.toLowerCase())
-      )
-    }
-
-    if (filters.search_query) {
-      const query = filters.search_query.toLowerCase()
-      filteredEmails = filteredEmails.filter(email => 
-        email.subject.toLowerCase().includes(query) ||
-        email.from_address.toLowerCase().includes(query) ||
-        email.snippet.toLowerCase().includes(query)
-      )
-    }
-
+    // All filtering is now handled by the database function
     return {
-      emails: filteredEmails,
-      total: filteredEmails.length,
+      emails: emailsToReturn,
+      total: emailsToReturn.length,
       pagination: {
         limit,
         offset,

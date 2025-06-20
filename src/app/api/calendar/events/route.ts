@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '@/lib/calendar/google-calendar'
 import { getCurrentUser } from '@/lib/database/utils'
+import { CalendarErrorHandler } from '@/lib/calendar/calendar-error-handler'
+import { ConflictDetector } from '@/lib/calendar/conflict-detector'
 import { startOfDay, endOfDay } from 'date-fns'
+import {
+  successResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+  internalErrorResponse,
+  withAsyncTiming
+} from '@/lib/api/response-utils'
 
 // Cache control headers for better performance
 const CACHE_HEADERS = {
@@ -13,10 +22,10 @@ const CACHE_HEADERS = {
  * GET /api/calendar/events - Get calendar events and tasks for a date range
  */
 export async function GET(request: NextRequest) {
-  try {
+  const { result, processingTime } = await withAsyncTiming(async () => {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return unauthorizedResponse()
     }
 
     const supabase = await createClient()
@@ -27,7 +36,10 @@ export async function GET(request: NextRequest) {
     const includeCompleted = searchParams.get('include_completed') === 'true'
     
     if (!startDateParam) {
-      return NextResponse.json({ error: 'start_date parameter is required' }, { status: 400 })
+      return validationErrorResponse(
+        { field: 'start_date', message: 'start_date parameter is required' },
+        'Missing required parameter'
+      )
     }
 
     const startDate = startOfDay(new Date(startDateParam)).toISOString()
@@ -94,11 +106,10 @@ export async function GET(request: NextRequest) {
 
     if (tasksError) {
       console.error('Error fetching tasks:', tasksError)
-      return NextResponse.json({ 
-        error: 'Failed to fetch tasks',
-        details: tasksError.message,
-        success: false
-      }, { status: 500 })
+      return internalErrorResponse(
+        'Failed to fetch tasks',
+        tasksError.message
+      )
     }
 
     // Fetch calendar events for the date range (if events table exists)
@@ -167,95 +178,165 @@ export async function GET(request: NextRequest) {
       return acc
     }, {} as Record<string, any[]>)
 
-    const response = NextResponse.json({
-      success: true,
-      events: allEvents,
-      eventsByDate,
-      summary: {
-        totalEvents: allEvents.length,
-        tasks: taskEvents.length,
-        calendarEvents: calendarEvents.length,
-        dateRange: { start: startDate, end: endDate }
-      }
-    })
+    return successResponse(
+      {
+        events: allEvents,
+        eventsByDate,
+        summary: {
+          totalEvents: allEvents.length,
+          tasks: taskEvents.length,
+          calendarEvents: calendarEvents.length,
+          dateRange: { start: startDate, end: endDate }
+        }
+      },
+      'Calendar events retrieved successfully',
+      undefined,
+      200,
+      processingTime
+    )
+  })
 
-    // Add cache headers for better performance
-    Object.entries(CACHE_HEADERS).forEach(([key, value]) => {
-      response.headers.set(key, value)
-    })
+  // Add cache headers for better performance
+  Object.entries(CACHE_HEADERS).forEach(([key, value]) => {
+    result.headers.set(key, value)
+  })
 
-    return response
-
-  } catch (error) {
-    console.error('Error in GET /api/calendar/events:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
-  }
+  return result
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
+  const { result, processingTime } = await withAsyncTiming(async () => {
+    return await CalendarErrorHandler.executeWithRetry(
+      async () => {
+        const user = await getCurrentUser()
+        if (!user) {
+          return unauthorizedResponse()
+        }
 
-    if (error || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+        const eventData = await request.json().catch(() => {
+          throw new Error('Invalid JSON in request body')
+        })
 
-    const eventData = await request.json()
+        // Validate required fields
+        if (!eventData.title || !eventData.start_time || !eventData.end_time) {
+          return validationErrorResponse(
+            { 
+              fields: ['title', 'start_time', 'end_time'],
+              message: 'Title, start_time, and end_time are required'
+            },
+            'Missing required fields'
+          )
+        }
 
-    // Create event in Google Calendar
-    const googleEvent = await createCalendarEvent(eventData.calendarId || 'primary', {
-      summary: eventData.title,
-      description: eventData.description,
-      start: {
-        dateTime: new Date(eventData.start_time).toISOString(),
-        timeZone: eventData.timeZone || 'UTC'
+        const startTime = new Date(eventData.start_time)
+        const endTime = new Date(eventData.end_time)
+
+        // Validate time range
+        if (startTime >= endTime) {
+          return validationErrorResponse(
+            { field: 'time_range', message: 'Start time must be before end time' },
+            'Invalid time range'
+          )
+        }
+
+        // Check for conflicts unless explicitly skipped
+        let conflictResult = null
+        if (!eventData.skipConflictCheck) {
+          conflictResult = await ConflictDetector.checkConflicts(
+            startTime,
+            endTime,
+            {
+              title: eventData.title,
+              includeAlternatives: true
+            }
+          )
+
+          // If there are critical conflicts, return conflict information
+          if (conflictResult.severity === 'critical' && !eventData.forceCreate) {
+            return successResponse(
+              {
+                conflicts: conflictResult.conflicts,
+                alternatives: conflictResult.alternatives,
+                recommendations: conflictResult.recommendations,
+                severity: conflictResult.severity,
+                canProceed: false
+              },
+              'Conflicts detected - review before creating event',
+              undefined,
+              409 // Conflict status
+            )
+          }
+        }
+
+        const supabase = await createClient()
+
+        // Create event in Google Calendar if calendar integration is enabled
+        let googleEvent = null
+        if (eventData.calendarId || eventData.syncToGoogle !== false) {
+          try {
+            googleEvent = await createCalendarEvent(eventData.calendarId || 'primary', {
+              summary: eventData.title,
+              description: eventData.description,
+              start: {
+                dateTime: startTime.toISOString(),
+                timeZone: eventData.timeZone || 'UTC'
+              },
+              end: {
+                dateTime: endTime.toISOString(),
+                timeZone: eventData.timeZone || 'UTC'
+              },
+              location: eventData.location,
+              attendees: eventData.attendees?.map((email: string) => ({ email }))
+            })
+          } catch (googleError) {
+            // Google Calendar creation failed, but continue with database creation
+            console.warn('Failed to create Google Calendar event:', googleError)
+          }
+        }
+
+        // Save to database
+        const { data: dbEvent, error: dbError } = await supabase
+          .from('events')
+          .insert({
+            user_id: user.id,
+            calendar_id: eventData.calendar_id,
+            google_event_id: googleEvent?.id,
+            title: eventData.title,
+            description: eventData.description,
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
+            location: eventData.location,
+            attendees: eventData.attendees || [],
+            ai_generated: eventData.ai_generated || false,
+            confidence_score: eventData.confidence_score,
+            status: googleEvent ? 'confirmed' : 'pending'
+          })
+          .select()
+          .single()
+
+        if (dbError) {
+          throw new Error(`Failed to save event to database: ${dbError.message}`)
+        }
+
+        return successResponse(
+          {
+            event: dbEvent,
+            googleEventId: googleEvent?.id,
+            conflicts: conflictResult?.conflicts || [],
+            conflictSeverity: conflictResult?.severity || 'none'
+          },
+          'Event created successfully',
+          undefined,
+          201,
+          processingTime
+        )
       },
-      end: {
-        dateTime: new Date(eventData.end_time).toISOString(),
-        timeZone: eventData.timeZone || 'UTC'
-      },
-      location: eventData.location,
-      attendees: eventData.attendees?.map((email: string) => ({ email }))
-    })
-
-    // Save to database
-    const { data: dbEvent, error: dbError } = await supabase
-      .from('events')
-      .insert({
-        user_id: user.id,
-        calendar_id: eventData.calendar_id,
-        title: eventData.title,
-        description: eventData.description,
-        start_time: eventData.start_time,
-        end_time: eventData.end_time,
-        location: eventData.location,
-        ai_generated: eventData.ai_generated || false,
-        confidence_score: eventData.confidence_score,
-        status: 'confirmed'
-      })
-      .select()
-      .single()
-
-    if (dbError) {
-      throw dbError
-    }
-
-    return NextResponse.json({
-      success: true,
-      event: dbEvent,
-      googleEventId: googleEvent.id
-    })
-  } catch (error) {
-    console.error('Error creating event:', error)
-    return NextResponse.json(
-      { error: 'Failed to create event' },
-      { status: 500 }
+      'create_calendar_event',
+      { userId: (await getCurrentUser())?.id }
     )
-  }
+  })
+
+  return result
 }
 
 export async function PUT(request: NextRequest) {

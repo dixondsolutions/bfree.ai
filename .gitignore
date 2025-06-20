@@ -27,7 +27,16 @@ node_modules/
 *.njsproj
 *.sln
 *.sw?
+*.cursor
+*.roo
+*.taskmaster
+
+
 
 # OS specific
 .DS_Store
 .vercel
+
+#MCPs
+mcp.json
+

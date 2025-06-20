@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { syncCalendarsToDatabase, syncEventsToDatabase } from '@/lib/calendar/google-calendar'
+import { CalendarSyncService } from '@/lib/calendar/sync-service'
+import { CalendarErrorHandler } from '@/lib/calendar/calendar-error-handler'
+import {
+  successResponse,
+  unauthorizedResponse,
+  internalErrorResponse,
+  withAsyncTiming
+} from '@/lib/api/response-utils'
 
 export async function GET() {
   try {
@@ -39,39 +47,53 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
+  const { result, processingTime } = await withAsyncTiming(async () => {
+    return await CalendarErrorHandler.executeWithRetry(
+      async () => {
+        const supabase = await createClient()
+        const { data: { user }, error } = await supabase.auth.getUser()
 
-    if (error || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+        if (error || !user) {
+          return unauthorizedResponse()
+        }
 
-    const { type, calendarId } = await request.json()
+        const requestBody = await request.json().catch(() => ({}))
+        const { 
+          type = 'full', 
+          calendarId,
+          forceFullSync = false,
+          syncDirection = 'bidirectional'
+        } = requestBody
 
-    let result
-    if (type === 'calendars') {
-      // Sync calendar list
-      result = await syncCalendarsToDatabase()
-    } else if (type === 'events') {
-      // Sync events from specific calendar or all calendars
-      result = await syncEventsToDatabase(calendarId)
-    } else {
-      // Full sync - both calendars and events
-      await syncCalendarsToDatabase()
-      result = await syncEventsToDatabase()
-    }
+        // Use the enhanced sync service
+        const syncResult = await CalendarSyncService.syncCalendars({
+          calendarId,
+          forceFullSync,
+          syncDirection
+        })
 
-    return NextResponse.json({
-      success: true,
-      result,
-      timestamp: new Date().toISOString()
-    })
-  } catch (error) {
-    console.error('Error syncing calendars:', error)
-    return NextResponse.json(
-      { error: 'Failed to sync calendars' },
-      { status: 500 }
+        if (!syncResult.success && syncResult.errors.length > 0) {
+          return internalErrorResponse(
+            'Calendar sync completed with errors',
+            syncResult.errors.join('; ')
+          )
+        }
+
+        return successResponse(
+          {
+            ...syncResult,
+            timestamp: new Date().toISOString()
+          },
+          `Calendar sync completed successfully. Processed ${syncResult.calendarsProcessed} calendars and ${syncResult.eventsProcessed} events.`,
+          undefined,
+          200,
+          processingTime
+        )
+      },
+      'calendar_sync',
+      {}
     )
-  }
+  })
+
+  return result
 }

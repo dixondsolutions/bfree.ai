@@ -1,51 +1,81 @@
 import { google } from 'googleapis'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/database/utils'
+import { CalendarErrorHandler } from './calendar-error-handler'
 
 /**
  * Create an authenticated Google Calendar client
  */
 export async function createCalendarClient(userEmailAccount?: any) {
-  if (!userEmailAccount) {
-    const supabase = await createClient()
-    const user = await getCurrentUser()
-    
-    if (!user) {
-      throw new Error('User not authenticated')
-    }
+  return await CalendarErrorHandler.executeWithRetry(
+    async () => {
+      if (!userEmailAccount) {
+        const supabase = await createClient()
+        const user = await getCurrentUser()
+        
+        if (!user) {
+          throw new Error('User not authenticated')
+        }
 
-    const { data: emailAccounts, error } = await supabase
-      .from('email_accounts')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('provider', 'gmail')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
+        const { data: emailAccounts, error } = await supabase
+          .from('email_accounts')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('provider', 'gmail')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
 
-    if (error || !emailAccounts?.length) {
-      throw new Error('No Gmail account connected')
-    }
+        if (error || !emailAccounts?.length) {
+          throw new Error('No Gmail account connected')
+        }
 
-    userEmailAccount = emailAccounts[0]
-  }
+        userEmailAccount = emailAccounts[0]
+      }
 
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      )
+
+      // Decrypt tokens before use
+      const { decrypt } = await import('@/lib/utils/encryption')
+      
+      oauth2Client.setCredentials({
+        access_token: decrypt(userEmailAccount.access_token),
+        refresh_token: userEmailAccount.refresh_token ? decrypt(userEmailAccount.refresh_token) : null,
+        expiry_date: userEmailAccount.expires_at ? new Date(userEmailAccount.expires_at).getTime() : undefined,
+      })
+
+      // Set up automatic token refresh
+      oauth2Client.on('tokens', async (tokens) => {
+        if (tokens.refresh_token) {
+          try {
+            // Encrypt and update tokens in database
+            const { encrypt } = await import('@/lib/utils/encryption')
+            const supabase = await createClient()
+            
+            await supabase
+              .from('email_accounts')
+              .update({
+                access_token: encrypt(tokens.access_token!),
+                refresh_token: encrypt(tokens.refresh_token),
+                expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', userEmailAccount.id)
+          } catch (tokenError) {
+            console.error('Failed to update calendar tokens:', tokenError)
+          }
+        }
+      })
+
+      return google.calendar({ version: 'v3', auth: oauth2Client })
+    },
+    'create_calendar_client',
+    { userId: userEmailAccount?.user_id }
   )
-
-  // Decrypt tokens before use
-  const { decrypt } = await import('@/lib/utils/encryption')
-  
-  oauth2Client.setCredentials({
-    access_token: decrypt(userEmailAccount.access_token),
-    refresh_token: userEmailAccount.refresh_token ? decrypt(userEmailAccount.refresh_token) : null,
-    expiry_date: userEmailAccount.expires_at ? new Date(userEmailAccount.expires_at).getTime() : undefined,
-  })
-
-  return google.calendar({ version: 'v3', auth: oauth2Client })
 }
 
 /**
@@ -94,25 +124,30 @@ export interface CalendarEvent {
  * Fetch user's calendars from Google Calendar
  */
 export async function fetchUserCalendars() {
-  try {
-    const calendar = await createCalendarClient()
-    const response = await calendar.calendarList.list()
-    
-    return response.data.items?.map(cal => ({
-      id: cal.id!,
-      name: cal.summary!,
-      description: cal.description,
-      primary: cal.primary || false,
-      selected: cal.selected || false,
-      accessRole: cal.accessRole,
-      backgroundColor: cal.backgroundColor,
-      foregroundColor: cal.foregroundColor,
-      timeZone: cal.timeZone
-    })) || []
-  } catch (error) {
+  return await CalendarErrorHandler.executeWithRetry(
+    async () => {
+      const calendar = await createCalendarClient()
+      const response = await calendar.calendarList.list()
+      
+      return response.data.items?.map(cal => ({
+        id: cal.id!,
+        name: cal.summary!,
+        description: cal.description,
+        primary: cal.primary || false,
+        selected: cal.selected || false,
+        accessRole: cal.accessRole,
+        backgroundColor: cal.backgroundColor,
+        foregroundColor: cal.foregroundColor,
+        timeZone: cal.timeZone
+      })) || []
+    },
+    'fetch_user_calendars',
+    {}
+  ).catch((error) => {
     console.error('Error fetching user calendars:', error)
-    throw error
-  }
+    // Return fallback response
+    return CalendarErrorHandler.createFallbackResponse('fetch_calendars')
+  })
 }
 
 /**
@@ -154,41 +189,46 @@ export async function fetchCalendarEvents(
   timeMax?: string,
   maxResults: number = 250
 ) {
-  try {
-    const calendar = await createCalendarClient()
-    
-    const response = await calendar.events.list({
-      calendarId,
-      timeMin: timeMin || new Date().toISOString(),
-      timeMax: timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-      maxResults,
-      singleEvents: true,
-      orderBy: 'startTime'
-    })
+  return await CalendarErrorHandler.executeWithRetry(
+    async () => {
+      const calendar = await createCalendarClient()
+      
+      const response = await calendar.events.list({
+        calendarId,
+        timeMin: timeMin || new Date().toISOString(),
+        timeMax: timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+        maxResults,
+        singleEvents: true,
+        orderBy: 'startTime'
+      })
 
-    return response.data.items?.map(event => ({
-      id: event.id!,
-      summary: event.summary || 'Untitled Event',
-      description: event.description,
-      start: event.start?.dateTime || event.start?.date!,
-      end: event.end?.dateTime || event.end?.date!,
-      location: event.location,
-      attendees: event.attendees?.map(attendee => ({
-        email: attendee.email!,
-        displayName: attendee.displayName,
-        responseStatus: attendee.responseStatus as any
-      })),
-      created: event.created,
-      updated: event.updated,
-      htmlLink: event.htmlLink,
-      status: event.status,
-      transparency: event.transparency,
-      organizer: event.organizer
-    })) || []
-  } catch (error) {
+      return response.data.items?.map(event => ({
+        id: event.id!,
+        summary: event.summary || 'Untitled Event',
+        description: event.description,
+        start: event.start?.dateTime || event.start?.date!,
+        end: event.end?.dateTime || event.end?.date!,
+        location: event.location,
+        attendees: event.attendees?.map(attendee => ({
+          email: attendee.email!,
+          displayName: attendee.displayName,
+          responseStatus: attendee.responseStatus as any
+        })),
+        created: event.created,
+        updated: event.updated,
+        htmlLink: event.htmlLink,
+        status: event.status,
+        transparency: event.transparency,
+        organizer: event.organizer
+      })) || []
+    },
+    'fetch_calendar_events',
+    { calendarId, timeMin, timeMax }
+  ).catch((error) => {
     console.error('Error fetching calendar events:', error)
-    throw error
-  }
+    // Return fallback response
+    return CalendarErrorHandler.createFallbackResponse('fetch_events')
+  })
 }
 
 /**

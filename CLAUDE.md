@@ -35,6 +35,10 @@ npm run type-check
 
 # Linting
 npm run lint
+
+# Database verification scripts
+node scripts/verify-database-setup.js
+node scripts/verify-bulletproof-system.js
 ```
 
 ## Architecture Overview
@@ -127,7 +131,25 @@ Key tables: users, user_profiles, gmail_accounts, calendar_events, ai_suggestion
 ## Build Configuration Notes
 
 - TypeScript errors temporarily ignored for deployment (`tsc --noEmit || true`)
-- Webpack fallbacks configured for Node.js modules
+- Webpack fallbacks configured for Node.js modules (fs, net, tls, crypto)
 - API timeout extended to 60 seconds for AI operations
 - Image optimization disabled for Vercel compatibility
-- Telemetry disabled in build commands
+- ESLint errors ignored during builds for deployment
+- Experimental webpack build worker disabled for stability
+
+## Testing & Quality Assurance
+
+- No formal test framework currently configured
+- Database verification scripts available in `/scripts/` directory
+- Type checking with `npm run type-check` before deployment
+- Manual testing through API routes in `/src/app/api/test/`
+- Debug endpoints available for AI processing and integration testing
+
+## Important Implementation Patterns
+
+- All client components explicitly marked with 'use client' directive
+- Server-side components handle authentication and database operations
+- API routes use consistent error handling and response patterns
+- Database operations use Supabase client with RLS enforcement
+- AI processing isolated to server-side for security
+- Email processing pipeline with confidence scoring to avoid false positives
