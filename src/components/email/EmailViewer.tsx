@@ -139,7 +139,22 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
       
     } catch (err) {
       console.error('Error fetching email:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load email')
+      
+      // Enhanced error handling for email viewing
+      let errorMessage = 'Failed to load email'
+      if (err instanceof Error) {
+        if (err.message.includes('not found')) {
+          errorMessage = 'Email not found. It may have been deleted or not synced yet.'
+        } else if (err.message.includes('Unauthorized')) {
+          errorMessage = 'You do not have permission to view this email'
+        } else if (err.message.includes('network') || err.message.includes('fetch')) {
+          errorMessage = 'Network error - please try again'
+        } else {
+          errorMessage = err.message
+        }
+      }
+      
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

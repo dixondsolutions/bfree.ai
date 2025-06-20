@@ -500,23 +500,38 @@ export const ModernEmailInterface: React.FC = () => {
         throw new Error(data.error || 'Failed to fetch emails');
       }
 
-      // Transform the raw email data
-      const transformedEmails = data.emails?.map(transformEmailData) || [];
+      // The API already returns transformed email data, no need to transform again
+      const emails = data.emails || [];
 
       if (reset) {
-        setEmails(transformedEmails);
+        setEmails(emails);
       } else {
-        setEmails(prev => [...prev, ...transformedEmails]);
+        setEmails(prev => [...prev, ...emails]);
       }
       
-      setTotalEmails(data.total || transformedEmails.length);
-      setHasNextPage(data.hasMore || false);
+      setTotalEmails(data.total || emails.length);
+      setHasNextPage(data.hasNextPage || false);
       setCurrentPage(page);
       setError(null);
       
     } catch (err) {
       console.error('Error fetching emails:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch emails');
+      
+      // More specific error handling
+      let errorMessage = 'Failed to fetch emails';
+      if (err instanceof Error) {
+        if (err.message.includes('Unauthorized')) {
+          errorMessage = 'Please log in to view your emails';
+        } else if (err.message.includes('Gmail account')) {
+          errorMessage = 'Please connect your Gmail account to view emails';
+        } else if (err.message.includes('network') || err.message.includes('fetch')) {
+          errorMessage = 'Network error - please check your connection';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      setError(errorMessage);
       if (reset) setEmails([]);
     } finally {
       setLoading(false);
