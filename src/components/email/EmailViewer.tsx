@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Separator } from '@/components/ui/separator'
@@ -195,6 +195,9 @@ export function EmailViewer({ emailId, isOpen, onClose }: EmailViewerProps) {
                   <DialogTitle className="text-xl font-semibold mb-2 pr-8">
                     {email.subject}
                   </DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Email from {email.from.name} ({email.from.email}) received on {formatDate(email.date)}
+                  </DialogDescription>
                   <div className="flex items-center gap-2 flex-wrap">
                     {email.aiAnalysis && (
                       <>

@@ -55,8 +55,13 @@ export default function CalendarPage() {
   useEffect(() => {
     const fetchCalendarData = async () => {
       try {
+        // Get current date for API call
+        const today = new Date()
+        const startDate = today.toISOString().split('T')[0]
+        const endDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 7 days from now
+        
         const [eventsRes, calendarsRes] = await Promise.all([
-          fetch('/api/calendar/events'),
+          fetch(`/api/calendar/events?start_date=${startDate}&end_date=${endDate}`),
           fetch('/api/user/email-accounts')
         ])
 

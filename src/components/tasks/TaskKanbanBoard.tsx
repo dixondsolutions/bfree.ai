@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { EmailViewer } from '@/components/email/EmailViewer'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/textarea'
@@ -448,6 +448,9 @@ export function TaskKanbanBoard({
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Task Details</DialogTitle>
+            <DialogDescription className="sr-only">
+              View and manage detailed information for the selected task
+            </DialogDescription>
           </DialogHeader>
           {selectedTask && (
             <div className="space-y-4">
@@ -547,6 +550,9 @@ export function TaskKanbanBoard({
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
             <DialogHeader>
               <DialogTitle>Source Email</DialogTitle>
+              <DialogDescription className="sr-only">
+                View the original email that generated this task
+              </DialogDescription>
             </DialogHeader>
             <div className="overflow-auto max-h-[80vh]">
               {(() => {

@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import { TaskKanbanBoard } from './TaskKanbanBoard'
 import { EmailViewer } from '@/components/email/EmailViewer'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { format, startOfDay, endOfDay, addDays, isSameDay } from 'date-fns'
 
@@ -554,6 +554,9 @@ export function TaskScheduleView({ className, selectedDate = new Date(), onDateC
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
             <DialogHeader>
               <DialogTitle>Source Email</DialogTitle>
+              <DialogDescription className="sr-only">
+                View the original email that generated this task
+              </DialogDescription>
             </DialogHeader>
             <div className="overflow-auto max-h-[80vh]">
               {(() => {
