@@ -35,6 +35,8 @@ interface DashboardData {
   processingQueue: Array<{ email_id: string; status: string; priority: string }>
   metrics: {
     totalEmailsSynced: number
+    unreadEmails: number
+    pendingTasks: number
     aiProcessingAccuracy: number
     timesSaved: number
     automationRate: number
@@ -94,11 +96,11 @@ export default function EnhancedDashboard({ data }: EnhancedDashboardProps) {
               <CardContent>
                 <div className="space-y-2">
                   <div className="text-2xl font-bold text-gray-900">
-                    {data.emailAccounts.length}
+                    {data.metrics.totalEmailsSynced}
                   </div>
                   <p className="text-sm text-gray-600">
-                    {data.metrics.totalEmailsSynced > 0 
-                      ? `${data.metrics.totalEmailsSynced} emails analyzed`
+                    {data.emailAccounts.length > 0 
+                      ? `${data.metrics.unreadEmails} unread emails`
                       : 'Ready to connect your email'
                     }
                   </p>
@@ -125,10 +127,10 @@ export default function EnhancedDashboard({ data }: EnhancedDashboardProps) {
               <CardContent>
                 <div className="space-y-2">
                   <div className="text-2xl font-bold text-gray-900">
-                    {data.upcomingEvents.length}
+                    {data.metrics.pendingTasks}
                   </div>
                   <p className="text-sm text-gray-600">
-                    upcoming events this week
+                    pending tasks to schedule
                   </p>
                 </div>
               </CardContent>
@@ -208,7 +210,7 @@ export default function EnhancedDashboard({ data }: EnhancedDashboardProps) {
                   <div>
                     <h3 className="font-medium text-gray-900">All systems operational</h3>
                     <p className="text-sm text-gray-600">
-                      {data.processingQueue.length} items in queue • {data.metrics.automationRate}% automation active
+                      {data.emailAccounts.length} account{data.emailAccounts.length !== 1 ? 's' : ''} connected • {data.metrics.automationRate}% automation active
                     </p>
                   </div>
                 </div>
@@ -266,7 +268,11 @@ export default function EnhancedDashboard({ data }: EnhancedDashboardProps) {
                 href: "/dashboard/settings"
               }
             ].map((action, index) => (
-              <Card key={action.title} className="group border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 bg-white cursor-pointer">
+              <Card 
+                key={action.title} 
+                className="group border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 bg-white cursor-pointer"
+                onClick={() => window.location.href = action.href}
+              >
                 <CardHeader className="pb-3">
                   <div className="space-y-3">
                     <div className={`p-2.5 rounded-lg ${
@@ -311,7 +317,10 @@ export default function EnhancedDashboard({ data }: EnhancedDashboardProps) {
                     </p>
                   </div>
                 </div>
-                <Button className="bg-green-600 hover:bg-green-700 text-white shadow-sm">
+                <Button 
+                  className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                  onClick={() => window.location.href = '/dashboard/settings'}
+                >
                   <Settings className="h-4 w-4 mr-2" />
                   Personalize
                 </Button>

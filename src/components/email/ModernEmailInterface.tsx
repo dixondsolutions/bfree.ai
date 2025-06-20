@@ -26,6 +26,7 @@ import {
   Plus,
   X
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 
 // Email Item Component
@@ -455,12 +456,21 @@ export const ModernEmailInterface: React.FC = () => {
       {/* Email List Content */}
       <div className="flex-1 min-h-0 overflow-auto">
         {loading && emails.length === 0 ? (
-          // Loading state
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
-              <p className="text-sm text-gray-500">Loading emails...</p>
-            </div>
+          // Loading state with skeletons
+          <div className="space-y-1">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex items-start space-x-4 p-4 border-b">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-3 w-64" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : error && emails.length === 0 ? (
           // Error state
@@ -481,26 +491,31 @@ export const ModernEmailInterface: React.FC = () => {
           </div>
         ) : emails.length === 0 ? (
           // Empty state
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center max-w-md px-4">
-              <Mail className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium mb-2 text-gray-900">
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center max-w-md px-4 mx-auto">
+              <Mail className="h-16 w-16 mx-auto mb-6 text-gray-300" />
+              <h3 className="text-xl font-semibold mb-3 text-gray-900">
                 {activeFilter === 'all' ? 'No Emails Found' : 
                  activeFilter === 'ai-priority' ? 'No High Priority Emails' :
                  'No Emails Need Scheduling'}
               </h3>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-gray-600 mb-6 leading-relaxed">
                 {activeFilter === 'all' 
-                  ? 'Connect your Gmail account to start managing your emails with AI assistance.' 
-                  : 'Try adjusting your filters or check back later.'}
+                  ? 'Connect your Gmail account to start managing your emails with AI assistance. Once connected, your emails will be automatically analyzed and organized.' 
+                  : 'Try adjusting your filters or check back later. New emails are processed automatically once your account is connected.'}
               </p>
-              <Link 
-                href="/dashboard/emails?tab=sync"
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Sync Emails
-              </Link>
+              <div className="space-y-3">
+                <Link 
+                  href="/dashboard/emails?tab=sync"
+                  className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors shadow-sm"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Connect Gmail Account
+                </Link>
+                <div className="text-xs text-gray-500">
+                  Your emails will be encrypted and processed securely
+                </div>
+              </div>
             </div>
           </div>
         ) : (

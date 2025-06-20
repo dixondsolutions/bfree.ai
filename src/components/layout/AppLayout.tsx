@@ -47,33 +47,62 @@ import {
   ChevronRight
 } from 'lucide-react'
 
+// Hook to fetch user data
+function useUserData() {
+  const [userData, setUserData] = useState({
+    name: 'Loading...',
+    email: 'Loading...'
+  })
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch('/api/user/profile')
+        if (response.ok) {
+          const data = await response.json()
+          setUserData({
+            name: data.name || data.email || 'User',
+            email: data.email || 'user@example.com'
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error)
+        setUserData({
+          name: 'User',
+          email: 'user@example.com'
+        })
+      }
+    }
+
+    fetchUserData()
+  }, [])
+
+  return userData
+}
+
 // Hook to fetch notification counts
 function useNotificationCounts() {
   const [counts, setCounts] = useState({
     emails: 0,
-    tasks: 0,
-    suggestions: 0
+    tasks: 0
   })
 
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const [emailsRes, tasksRes, suggestionsRes] = await Promise.all([
+        const [emailsRes, tasksRes] = await Promise.all([
           fetch('/api/emails?limit=50'),
-          fetch('/api/tasks?status=pending'),
-          fetch('/api/ai/suggestions?status=pending')
+          fetch('/api/tasks?status=pending')
         ])
 
-        const [emailsData, tasksData, suggestionsData] = await Promise.all([
+        const [emailsData, tasksData] = await Promise.all([
           emailsRes.ok ? emailsRes.json() : { emails: [] },
-          tasksRes.ok ? tasksRes.json() : { tasks: [] },
-          suggestionsRes.ok ? suggestionsRes.json() : { suggestions: [] }
+          tasksRes.ok ? tasksRes.json() : { tasks: [] }
         ])
 
         setCounts({
           emails: emailsData.emails?.length || 0,
-          tasks: tasksData.tasks?.length || 0,
-          suggestions: suggestionsData.suggestions?.length || 0
+          tasks: tasksData.tasks?.length || 0
         })
       } catch (error) {
         console.error('Error fetching notification counts:', error)
@@ -111,6 +140,12 @@ const getNavigationItems = (counts: any) => [
     badge: counts.tasks > 0 ? counts.tasks.toString() : undefined
   },
   {
+    title: 'Automation',
+    url: '/dashboard/automation',
+    icon: Users,
+    description: 'AI automation settings'
+  },
+  {
     title: 'Analytics',
     url: '/dashboard/analytics',
     icon: BarChart3,
@@ -132,6 +167,7 @@ function AppSidebarContent() {
   const pathname = usePathname()
   const { state, setOpen } = useSidebar()
   const notificationCounts = useNotificationCounts()
+  const userData = useUserData()
   const navigationItems = getNavigationItems(notificationCounts)
   
   return (
@@ -223,8 +259,8 @@ function AppSidebarContent() {
               </Avatar>
               {state === "expanded" && (
                 <div className="flex-1 text-left min-w-0">
-                  <div className="text-sm font-medium truncate">John Doe</div>
-                  <div className="text-xs text-gray-500 truncate">john@example.com</div>
+                  <div className="text-sm font-medium truncate">{userData.name}</div>
+                  <div className="text-xs text-gray-500 truncate">{userData.email}</div>
                 </div>
               )}
             </Button>
@@ -242,8 +278,12 @@ function AppSidebarContent() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
-              <LogOut className="mr-2 h-4 w-4" />
-              Log out
+              <form action="/api/auth/logout" method="post">
+                <button type="submit" className="flex items-center w-full">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log out
+                </button>
+              </form>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -255,7 +295,7 @@ function AppSidebarContent() {
 function AppMainContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const notificationCounts = useNotificationCounts()
-  const totalNotifications = notificationCounts.emails + notificationCounts.tasks + notificationCounts.suggestions
+  const totalNotifications = notificationCounts.emails + notificationCounts.tasks
   const { state } = useSidebar()
   
   return (
