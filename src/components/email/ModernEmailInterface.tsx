@@ -568,8 +568,19 @@ export const ModernEmailInterface: React.FC = () => {
   const handleEmailClick = (emailId: string) => {
     console.log('Email clicked with ID:', emailId);
     console.log('Email ID type:', typeof emailId);
+    
+    // Validate email ID before opening modal
+    if (!emailId || emailId.trim() === '') {
+      console.error('Invalid email ID provided:', emailId);
+      return;
+    }
+    
+    // Use functional updates to ensure state consistency
     setSelectedEmailId(emailId);
-    setIsEmailModalOpen(true);
+    // Use setTimeout to ensure state update completes before opening modal
+    setTimeout(() => {
+      setIsEmailModalOpen(true);
+    }, 0);
   };
 
   // Handle modal close

@@ -94,14 +94,32 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [processingTaskId, setProcessingTaskId] = useState<string | null>(null)
   const [loadingTasks, setLoadingTasks] = useState(false)
+  const [isValidEmailId, setIsValidEmailId] = useState(false)
+
+  // Validate email ID when props change
+  useEffect(() => {
+    const isValid = emailId && emailId.trim() !== '' && isOpen;
+    setIsValidEmailId(!!isValid);
+    
+    if (isValid) {
+      console.log('Valid email ID detected, fetching email:', emailId);
+    } else {
+      console.log('Invalid or missing email ID:', { emailId, isOpen });
+      // Reset state when no valid email ID
+      setEmail(null);
+      setError(null);
+      setSuggestions([]);
+      setTasks([]);
+    }
+  }, [emailId, isOpen]);
 
   // Fetch email data and mark as read
   useEffect(() => {
-    if (emailId && isOpen) {
+    if (isValidEmailId && emailId) {
       fetchEmail()
       markAsRead()
     }
-  }, [emailId, isOpen])
+  }, [isValidEmailId, emailId])
 
   const markAsRead = async () => {
     if (!emailId) return
@@ -369,14 +387,23 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-7xl w-full max-h-[90vh] p-0 gap-0">
-        {!emailId ? (
+        {!isValidEmailId ? (
           <>
-            <DialogTitle className="sr-only">No Email Selected</DialogTitle>
-            <DialogDescription className="sr-only">Please select an email to view</DialogDescription>
+            <DialogTitle className="sr-only">Loading Email</DialogTitle>
+            <DialogDescription className="sr-only">Please wait while the email is being loaded</DialogDescription>
             <div className="flex items-center justify-center h-96">
               <div className="text-center">
-                <Mail className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground">No email selected</p>
+                {isOpen && !emailId ? (
+                  <>
+                    <Loader2 className="h-8 w-8 text-primary mx-auto mb-4 animate-spin" />
+                    <p className="text-sm text-muted-foreground">Loading email...</p>
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-sm text-muted-foreground">No email selected</p>
+                  </>
+                )}
               </div>
             </div>
           </>
