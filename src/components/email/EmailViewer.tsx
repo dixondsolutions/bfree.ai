@@ -172,20 +172,28 @@ export function EmailViewer({ emailId, isOpen, onClose }: EmailViewerProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl w-full max-h-[90vh] p-0 gap-0">
         {loading ? (
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
-              <p className="text-sm text-muted-foreground">Loading email...</p>
+          <>
+            <DialogTitle className="sr-only">Loading Email</DialogTitle>
+            <DialogDescription className="sr-only">Please wait while the email is being loaded</DialogDescription>
+            <div className="flex items-center justify-center h-96">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+                <p className="text-sm text-muted-foreground">Loading email...</p>
+              </div>
             </div>
-          </div>
+          </>
         ) : error ? (
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-              <p className="text-sm text-red-600 mb-4">{error}</p>
-              <Button variant="outline" onClick={onClose}>Close</Button>
+          <>
+            <DialogTitle className="sr-only">Email Load Error</DialogTitle>
+            <DialogDescription className="sr-only">An error occurred while loading the email</DialogDescription>
+            <div className="flex items-center justify-center h-96">
+              <div className="text-center">
+                <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+                <p className="text-sm text-red-600 mb-4">{error}</p>
+                <Button variant="outline" onClick={onClose}>Close</Button>
+              </div>
             </div>
-          </div>
+          </>
         ) : email ? (
           <div className="flex flex-col h-full">
             {/* Header */}
@@ -415,7 +423,12 @@ export function EmailViewer({ emailId, isOpen, onClose }: EmailViewerProps) {
               </ScrollArea>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <>
+            <DialogTitle className="sr-only">Email Dialog</DialogTitle>
+            <DialogDescription className="sr-only">No email selected</DialogDescription>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )
