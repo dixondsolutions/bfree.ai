@@ -37,6 +37,12 @@ node_modules/
 .DS_Store
 .vercel
 
-#MCPs
+# MCP Configuration
 mcp.json
+mcp-server-*
+.mcp/
+
+# MCP Server caches and data
+~/.config/mcp/
+~/.local/share/mcp/
 
