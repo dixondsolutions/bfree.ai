@@ -500,20 +500,12 @@ export const ModernEmailInterface: React.FC = () => {
         throw new Error(data.error || 'Failed to fetch emails');
       }
 
-      // Debug: Log the API response
-      console.log('API Response:', data);
-      console.log('Raw emails from API:', data.emails?.slice(0, 2)); // Log first 2 emails
-      
-      // Check if emails are already transformed (have 'from' object structure)
-      const isAlreadyTransformed = data.emails?.[0]?.from && typeof data.emails[0].from === 'object';
-      console.log('Data already transformed?', isAlreadyTransformed);
+      // Check if emails are already transformed (have 'from' object structure AND 'id' field)
+      const isAlreadyTransformed = data.emails?.[0]?.from && typeof data.emails[0].from === 'object' && data.emails[0]?.id;
       
       const emails = isAlreadyTransformed 
         ? data.emails 
         : data.emails?.map(transformEmailData) || [];
-      
-      // Debug: Log final emails
-      console.log('Final emails for UI:', emails?.slice(0, 2)); // Log first 2 final
 
       if (reset) {
         setEmails(emails);
@@ -566,9 +558,6 @@ export const ModernEmailInterface: React.FC = () => {
 
   // Handle email click
   const handleEmailClick = (emailId: string) => {
-    console.log('Email clicked with ID:', emailId);
-    console.log('Email ID type:', typeof emailId);
-    
     // Validate email ID before opening modal
     if (!emailId || emailId.trim() === '') {
       console.error('Invalid email ID provided:', emailId);

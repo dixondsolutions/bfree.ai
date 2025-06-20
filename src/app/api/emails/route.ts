@@ -50,7 +50,7 @@ async function getEmailsFallback(supabase: any, userId: string, filters: any) {
   let query = supabase
     .from('emails')
     .select(`
-      id as email_id,
+      id,
       subject,
       from_address,
       from_name,

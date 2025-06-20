@@ -84,7 +84,6 @@ interface EmailViewerProps {
 }
 
 export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClose }) => {
-  console.log('EmailViewer props:', { emailId, isOpen });
   const [email, setEmail] = useState<DatabaseEmail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -101,10 +100,7 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ emailId, isOpen, onClo
     const isValid = emailId && emailId.trim() !== '' && isOpen;
     setIsValidEmailId(!!isValid);
     
-    if (isValid) {
-      console.log('Valid email ID detected, fetching email:', emailId);
-    } else {
-      console.log('Invalid or missing email ID:', { emailId, isOpen });
+    if (!isValid) {
       // Reset state when no valid email ID
       setEmail(null);
       setError(null);

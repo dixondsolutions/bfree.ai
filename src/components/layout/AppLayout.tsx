@@ -91,7 +91,7 @@ function useNotificationCounts() {
     const fetchCounts = async () => {
       try {
         const [emailsRes, tasksRes] = await Promise.all([
-          fetch('/api/emails?limit=50'),
+          fetch('/api/emails/list?limit=10'),
           fetch('/api/tasks?status=pending')
         ])
 
